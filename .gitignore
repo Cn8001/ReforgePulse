@@ -4,9 +4,6 @@ frontend/dist
 frontend/node_modules
 build/linux/appimage/build
 build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
-# Mobile generated (per-machine; overlays hold absolute paths)
-build/ios/xcode/overlay.json
-build/ios/xcode/gen/
 
 # Added by bmeditor: its editor state (open tabs), which is yours alone
 /.bmeditor
