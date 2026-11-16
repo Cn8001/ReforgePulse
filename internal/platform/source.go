@@ -194,6 +194,32 @@ type Hardware interface {
 	HardwareFacts(ctx context.Context) (HardwareFacts, error)
 }
 
+// LogicalCPU is one logical processor and where it sits.
+type LogicalCPU struct {
+	Index      int    `json:"index"`      // as Windows numbers it in group 0
+	Core       int    `json:"core"`       // physical core, in Windows' order
+	Efficiency uint8  `json:"efficiency"` // higher is faster: P-cores above E-cores on hybrid CPUs
+	SMT        bool   `json:"smt"`        // the core runs two threads
+	APIC       uint32 `json:"apic"`       // x2APIC ID, the number WHEA errors name
+}
+
+// CoreLoad is one logical processor's load and effective clock since the
+// previous sample.
+type CoreLoad struct {
+	Index int     `json:"index"`
+	Load  float64 `json:"load"`
+	MHz   float64 `json:"mhz"`
+}
+
+// CPUs reads the processor topology and per-core load, and runs work
+// pinned to one logical processor for the core test.
+type CPUs interface {
+	Topology(ctx context.Context) ([]LogicalCPU, error)
+	CoreLoads(ctx context.Context) ([]CoreLoad, error)
+	// RunPinned runs fn on a thread that may only use logical processor cpu.
+	RunPinned(cpu int, fn func()) error
+}
+
 // Sampler reads load since its previous call, in percent. The first call
 // only sets the baseline and may answer an average since boot.
 type Sampler interface {

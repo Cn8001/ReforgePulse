@@ -26,8 +26,9 @@ var (
 )
 
 const (
-	pdhFmtDouble = 0x200
-	pdhMoreData  = 0x800007D2
+	pdhFmtDouble   = 0x200
+	pdhMoreData    = 0x800007D2
+	pdhFmtNoCap100 = 0x8000 // utility and performance go above 100 when the CPU boosts
 	// The 3D engines across every process, which is what Task Manager's GPU
 	// column shows.
 	gpuCounter = `\GPU Engine(*engtype_3D)\Utilization Percentage`
