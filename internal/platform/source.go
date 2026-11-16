@@ -78,6 +78,23 @@ type Location struct {
 	MinAge         time.Duration
 }
 
+// StartupEntry is a program Windows starts at sign-in.
+type StartupEntry struct {
+	ID      string // stable across calls: source and name
+	Name    string
+	Command string
+	Source  string // where it is registered, for the user
+	Machine bool   // for every user rather than only this one
+	Enabled bool
+}
+
+// Startup lists and toggles startup programs the way Task Manager does,
+// which leaves the registration itself in place so it can be re-enabled.
+type Startup interface {
+	StartupEntries(ctx context.Context) ([]StartupEntry, error)
+	SetStartupEnabled(ctx context.Context, id string, enabled bool) error
+}
+
 // Sampler reads load since its previous call, in percent. The first call
 // only sets the baseline and may answer an average since boot.
 type Sampler interface {

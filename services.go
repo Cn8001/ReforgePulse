@@ -11,6 +11,7 @@ import (
 	"github.com/cn8001/reforgepulse/internal/app"
 	"github.com/cn8001/reforgepulse/internal/cleanup"
 	"github.com/cn8001/reforgepulse/internal/inspect/processes"
+	"github.com/cn8001/reforgepulse/internal/inspect/startup"
 	"github.com/cn8001/reforgepulse/internal/inspect/system"
 	"github.com/cn8001/reforgepulse/internal/journal"
 	"github.com/cn8001/reforgepulse/internal/mcp"
@@ -28,6 +29,7 @@ type backend struct {
 	Procs   *app.ProcessService
 	About   *app.AboutService
 	Cleanup *app.CleanupService
+	Startup *app.StartupService
 
 	overview *system.Inspector
 	journal  *journal.Journal
@@ -53,13 +55,15 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 	overview := system.New(host, host, sampler)
 	runner := tasks.New(maxTasks, notify)
 	procs := processes.New(host, runtime.NumCPU())
+	startupSvc := app.NewStartupService(startup.New(host, procs), host, j)
 	return &backend{
+		Startup:  startupSvc,
 		Procs:    app.NewProcessService(procs),
 		About:    app.NewAboutService(about),
 		Cleanup:  app.NewCleanupService(cleanup.New(host.CleanupLocations(), j), runner),
 		System:   app.NewSystemService(overview, overview, runner),
 		Tasks:    app.NewTaskService(runner),
-		History:  app.NewHistoryService(j),
+		History:  app.NewHistoryService(j, map[string]app.Reverter{"startup": startupSvc}),
 		Agent:    app.NewAgentService(exe),
 		overview: overview,
 		journal:  j,
@@ -79,6 +83,7 @@ func (b *backend) services() []application.Service {
 		application.NewService(b.Procs),
 		application.NewService(b.About),
 		application.NewService(b.Cleanup),
+		application.NewService(b.Startup),
 	}
 }
 

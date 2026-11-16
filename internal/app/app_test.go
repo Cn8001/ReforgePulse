@@ -71,8 +71,8 @@ func (f fakeLog) Log(context.Context) ([]domain.Change, error) { return f.change
 func TestHistoryService_ListsAndWraps(t *testing.T) {
 	// Arrange
 	cause := errors.New("disk full")
-	ok := NewHistoryService(fakeLog{changes: []domain.Change{{ID: "abc1234"}}})
-	bad := NewHistoryService(fakeLog{err: cause})
+	ok := NewHistoryService(fakeLog{changes: []domain.Change{{ID: "abc1234"}}}, nil)
+	bad := NewHistoryService(fakeLog{err: cause}, nil)
 
 	// Act
 	got, err := ok.List(context.Background())
@@ -148,5 +148,72 @@ func TestVersionFrom_MissingIsDev(t *testing.T) {
 	// Assert
 	if got != "dev" {
 		t.Fatalf("version = %q, want dev", got)
+	}
+}
+
+type memJournal struct{ begun []domain.Change }
+
+func (m *memJournal) Begin(_ context.Context, c domain.Change) (string, error) {
+	m.begun = append(m.begun, c)
+	return "id" + string(rune('0'+len(m.begun))), nil
+}
+func (m *memJournal) Finish(context.Context, string, string, error) error { return nil }
+
+type fakeSwitch struct{ calls []bool }
+
+func (f *fakeSwitch) SetStartupEnabled(_ context.Context, _ string, on bool) error {
+	f.calls = append(f.calls, on)
+	return nil
+}
+
+func TestStartupService_DisableIsLoggedAndRevertible(t *testing.T) {
+	// Arrange
+	j, sw := &memJournal{}, &fakeSwitch{}
+	s := NewStartupService(nil, sw, j)
+
+	// Act
+	err := s.SetEnabled(context.Background(), "user-run|Steam", "Steam", false)
+
+	// Assert
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := j.begun[0]
+	if c.Action != "startup" || !c.Reversible || c.Before != "enabled" || c.After != "disabled" || sw.calls[0] {
+		t.Fatalf("change = %+v, calls = %v", c, sw.calls)
+	}
+}
+
+func TestHistoryService_RevertDispatchesByAction(t *testing.T) {
+	// Arrange
+	j, sw := &memJournal{}, &fakeSwitch{}
+	startup := NewStartupService(nil, sw, j)
+	applied := domain.Change{ID: "abc1234", Action: "startup", Target: "user-run|Steam", Before: "enabled", After: "disabled",
+		Reversible: true, Status: domain.Applied}
+	h := NewHistoryService(fakeLog{changes: []domain.Change{applied}}, map[string]Reverter{"startup": startup})
+
+	// Act
+	err := h.Revert(context.Background(), "abc1234")
+
+	// Assert
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sw.calls) != 1 || !sw.calls[0] || j.begun[0].Reverts != "abc1234" {
+		t.Fatalf("calls = %v, change = %+v", sw.calls, j.begun)
+	}
+}
+
+func TestHistoryService_RefusesIrreversible(t *testing.T) {
+	// Arrange
+	c := domain.Change{ID: "x", Action: "cleanup", Status: domain.Applied}
+	h := NewHistoryService(fakeLog{changes: []domain.Change{c}}, map[string]Reverter{})
+
+	// Act
+	err := h.Revert(context.Background(), "x")
+
+	// Assert
+	if err == nil {
+		t.Fatal("want an error for an irreversible change")
 	}
 }
