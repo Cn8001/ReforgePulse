@@ -53,9 +53,8 @@ func (s *Sampler) CPULoad(ctx context.Context) (float64, error) {
 	if ok, _, err := procGetSystemTimes.Call(uintptr(unsafe.Pointer(&idle)), uintptr(unsafe.Pointer(&kernel)), uintptr(unsafe.Pointer(&user))); ok == 0 {
 		return 0, fmt.Errorf("GetSystemTimes: %w", err)
 	}
-	ft := func(f windows.Filetime) uint64 { return uint64(f.HighDateTime)<<32 | uint64(f.LowDateTime) }
 	// Kernel time already includes idle time.
-	i, t := ft(idle), ft(kernel)+ft(user)
+	i, t := filetime(idle), filetime(kernel)+filetime(user)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()

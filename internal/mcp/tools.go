@@ -10,9 +10,10 @@ import (
 // Deps are the read-only services the tools draw on. Tools never change the
 // system: agents may suggest a change, the user approves it in the window.
 type Deps struct {
-	System  app.OverviewReader
-	Live    app.LiveReader
-	History app.ChangeLog
+	System    app.OverviewReader
+	Live      app.LiveReader
+	Processes app.ProcessLister
+	History   app.ChangeLog
 }
 
 var noArgs = json.RawMessage(`{"type":"object","properties":{}}`)
@@ -33,6 +34,23 @@ func Tools(d Deps) []Tool {
 			Schema:      noArgs,
 			Call: func(ctx context.Context, _ json.RawMessage) (any, error) {
 				return d.Live.Live(ctx)
+			},
+		},
+		{
+			Name:        "list_processes",
+			Description: "Running processes, busiest first: PID, parent, name, path, threads, CPU percent of the whole machine, working set and private bytes. CPU compares against the previous call. access=false means Windows refused to open the process.",
+			Schema:      json.RawMessage(`{"type":"object","properties":{"limit":{"type":"integer","description":"How many to return, default 25"}}}`),
+			Call: func(ctx context.Context, args json.RawMessage) (any, error) {
+				var a struct{ Limit int }
+				_ = json.Unmarshal(args, &a) // no arguments means the default
+				if a.Limit <= 0 {
+					a.Limit = 25
+				}
+				ps, err := d.Processes.List(ctx)
+				if err != nil {
+					return nil, err
+				}
+				return ps[:min(a.Limit, len(ps))], nil
 			},
 		},
 		{

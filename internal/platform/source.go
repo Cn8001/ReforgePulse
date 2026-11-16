@@ -27,6 +27,20 @@ type Source interface {
 	Volumes(ctx context.Context) ([]Volume, error)
 }
 
+// ProcessInfo is one process as the OS reports it, with its total CPU time
+// so far; turning that into a percentage needs two samples.
+type ProcessInfo struct {
+	PID, ParentPID, Threads uint32
+	Name, Path              string
+	CPUTime                 time.Duration
+	WorkingSet, Private     uint64
+	Opened                  bool // false when the OS refused access
+}
+
+type Processes interface {
+	Processes(ctx context.Context) ([]ProcessInfo, error)
+}
+
 // Sampler reads load since its previous call, in percent. The first call
 // only sets the baseline and may answer an average since boot.
 type Sampler interface {

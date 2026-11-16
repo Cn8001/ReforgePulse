@@ -101,3 +101,29 @@ func TestSystemService_RunsAsTask(t *testing.T) {
 		t.Fatalf("titles = %v, err = %v", titles, err)
 	}
 }
+
+type fakeLister struct {
+	ps  []domain.Process
+	err error
+}
+
+func (f fakeLister) List(context.Context) ([]domain.Process, error) { return f.ps, f.err }
+
+func TestProcessService_ListsAndWraps(t *testing.T) {
+	// Arrange
+	cause := errors.New("snapshot failed")
+	ok := NewProcessService(fakeLister{ps: []domain.Process{{PID: 4, Name: "System"}}})
+	bad := NewProcessService(fakeLister{err: cause})
+
+	// Act
+	got, err := ok.List(context.Background())
+	_, badErr := bad.List(context.Background())
+
+	// Assert
+	if err != nil || len(got) != 1 || got[0].PID != 4 {
+		t.Fatalf("got %+v, %v", got, err)
+	}
+	if !errors.Is(badErr, cause) {
+		t.Fatalf("err = %v", badErr)
+	}
+}

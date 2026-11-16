@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/cn8001/reforgepulse/internal/app"
+	"github.com/cn8001/reforgepulse/internal/inspect/processes"
 	"github.com/cn8001/reforgepulse/internal/inspect/system"
 	"github.com/cn8001/reforgepulse/internal/journal"
 	"github.com/cn8001/reforgepulse/internal/mcp"
@@ -22,10 +24,12 @@ type backend struct {
 	History *app.HistoryService
 	Agent   *app.AgentService
 	Tasks   *app.TaskService
+	Procs   *app.ProcessService
 
 	overview *system.Inspector
 	journal  *journal.Journal
 	sampler  *windows.Sampler
+	procs    *processes.Inspector
 }
 
 // maxTasks bounds how much work runs at once, so a scan never starves the
@@ -44,7 +48,9 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 	sampler := windows.NewSampler()
 	overview := system.New(host, host, sampler)
 	runner := tasks.New(maxTasks, notify)
+	procs := processes.New(host, runtime.NumCPU())
 	return &backend{
+		Procs:    app.NewProcessService(procs),
 		System:   app.NewSystemService(overview, overview, runner),
 		Tasks:    app.NewTaskService(runner),
 		History:  app.NewHistoryService(j),
@@ -52,6 +58,7 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 		overview: overview,
 		journal:  j,
 		sampler:  sampler,
+		procs:    procs,
 	}, nil
 }
 
@@ -63,11 +70,12 @@ func (b *backend) services() []application.Service {
 		application.NewService(b.History),
 		application.NewService(b.Agent),
 		application.NewService(b.Tasks),
+		application.NewService(b.Procs),
 	}
 }
 
 func (b *backend) tools() []mcp.Tool {
-	return mcp.Tools(mcp.Deps{System: b.overview, Live: b.overview, History: b.journal})
+	return mcp.Tools(mcp.Deps{System: b.overview, Live: b.overview, Processes: b.procs, History: b.journal})
 }
 
 // Close releases what the backend holds open.
