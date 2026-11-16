@@ -15,7 +15,13 @@ const query = ref('')
 const onlyPorts = ref(false)
 const sortKey = ref<Key>(props.sort ?? 'cpu')
 const desc = ref(sortKey.value !== 'name')
-const open = ref<number | null>(null) // the expanded row's PID
+const open = ref(new Set<number>()) // expanded rows, by PID
+
+function toggle(pid: number) {
+  const next = new Set(open.value)
+  next.has(pid) ? next.delete(pid) : next.add(pid)
+  open.value = next
+}
 
 // Every two seconds while the window is visible: often enough to watch a
 // spike, rare enough not to become one.
@@ -40,10 +46,15 @@ function sortBy(k: Key) {
   sortKey.value = k
 }
 
-// ":8080" or a bare number also matches ports, so "who holds 8080" is one search.
-const rows = computed(() => {
+type Row = { p: Process; depth: number; kids: number; cpu: number; gpu: number; mem: number }
+
+// The tree: children under their parent, each row carrying its subtree's
+// totals so a browser with forty helpers sorts by what it costs in all.
+// A search flattens it, so matches deep in the tree still show.
+const rows = computed<Row[]>(() => {
   const q = query.value.trim().toLowerCase()
   const port = Number(q.replace(/^:/, ''))
+  const flat = q !== '' || onlyPorts.value
   let list = procs.value.filter((p) => !onlyPorts.value || p.ports?.length)
   if (q) {
     list = list.filter((p) =>
@@ -51,9 +62,52 @@ const rows = computed(() => {
       (port > 0 && p.ports?.some((x) => x.port === port)),
     )
   }
+
+  const byPid = new Map(list.map((p) => [p.pid, p]))
+  const kids = new Map<number, Process[]>()
+  for (const p of list) {
+    if (!flat && p.parentPid !== p.pid && byPid.has(p.parentPid)) {
+      kids.set(p.parentPid, [...(kids.get(p.parentPid) ?? []), p])
+    }
+  }
+  // Totals are computed once per process. A reused PID can make a parent look
+  // like its own descendant; visiting stops that loop.
+  const agg = new Map<number, Row>()
+  const visiting = new Set<number>()
+  const total = (p: Process): Row => {
+    const done = agg.get(p.pid)
+    if (done) return done
+    visiting.add(p.pid)
+    const r: Row = { p, depth: 0, kids: 0, cpu: p.cpu, gpu: p.gpu, mem: p.private }
+    for (const c of kids.get(p.pid) ?? []) {
+      if (visiting.has(c.pid)) continue
+      const t = total(c)
+      r.kids++
+      r.cpu += t.cpu
+      r.gpu += t.gpu
+      r.mem += t.mem
+    }
+    visiting.delete(p.pid)
+    agg.set(p.pid, r)
+    return r
+  }
   const k = sortKey.value
   const dir = desc.value ? -1 : 1
-  return [...list].sort((a, b) => (a[k] < b[k] ? -dir : a[k] > b[k] ? dir : 0))
+  const value = (r: Row) => (k === 'cpu' ? r.cpu : k === 'gpu' ? r.gpu : k === 'private' ? r.mem : r.p[k])
+  const sort = (rs: Row[]) => rs.sort((a, b) => (value(a) < value(b) ? -dir : value(a) > value(b) ? dir : 0))
+
+  const roots = list.filter((p) => flat || !byPid.has(p.parentPid) || p.parentPid === p.pid)
+  const out: Row[] = []
+  const shown = new Set<number>()
+  const walk = (r: Row, depth: number) => {
+    if (shown.has(r.p.pid)) return
+    shown.add(r.p.pid)
+    out.push({ ...r, depth })
+    if (!open.value.has(r.p.pid)) return
+    for (const c of sort((kids.get(r.p.pid) ?? []).map(total))) walk(c, depth + 1)
+  }
+  for (const r of sort(roots.map(total))) walk(r, 0)
+  return out
 })
 
 const totals = computed(() => ({
@@ -79,7 +133,6 @@ async function endTask() {
   busy.value = true
   try {
     await End(ending.value.pid, ending.value.name)
-    open.value = null
     await refresh()
   } catch (e) {
     error.value = String(e)
@@ -94,7 +147,7 @@ async function endTask() {
   <section class="flex h-full flex-col gap-4 p-6">
     <header class="flex flex-wrap items-end justify-between gap-4">
       <div>
-        <p class="caption">live · every 2 s · click a row for details</p>
+        <p class="caption">live · every 2 s · grouped by parent · click a row to expand</p>
         <h1 class="mt-1 text-2xl font-semibold">Processes</h1>
       </div>
       <div class="flex items-center gap-2">
@@ -132,35 +185,38 @@ async function endTask() {
           </tr>
         </thead>
         <tbody>
-          <template v-for="p in rows" :key="p.pid">
-            <tr class="cursor-pointer border-b border-line/60 hover:bg-hover" :class="open === p.pid && 'bg-hover'"
-                @click="open = open === p.pid ? null : p.pid">
+          <template v-for="{ p, depth, kids, cpu, gpu, mem } in rows" :key="p.pid">
+            <tr class="cursor-pointer border-b border-line/60 hover:bg-hover" :class="open.has(p.pid) && 'bg-hover'"
+                @click="toggle(p.pid)">
               <td class="truncate px-3 py-1.5">
-                <span class="flex items-center gap-2">
-                  <Icon name="chevron" class="size-3! text-muted transition-transform" :class="open === p.pid && 'rotate-90'" />
+                <span class="flex items-center gap-2" :style="{ paddingLeft: `${depth * 18}px` }">
+                  <Icon name="chevron" class="size-3! text-muted transition-transform" :class="open.has(p.pid) && 'rotate-90'" />
                   <Icon v-if="!p.access" name="lock" class="size-3.5! text-muted" />
                   <span class="truncate" :class="!p.access && 'text-muted'">{{ p.name }}</span>
                   <span v-if="p.hung" class="shrink-0 border border-bad/50 bg-bad/10 px-1.5 text-[10px] text-bad">not responding</span>
+                  <span v-if="kids" class="shrink-0 bg-hover px-1.5 text-[10px] text-muted">{{ kids }}</span>
                   <span v-if="p.ports?.length" class="shrink-0 text-[10px] text-accent">{{ p.ports.length }} ports</span>
                 </span>
               </td>
               <td class="px-3 py-1.5 text-right text-muted tabular-nums">{{ p.pid }}</td>
               <td class="px-3 py-1.5">
                 <span class="flex items-center justify-end gap-2">
-                  <span class="h-1.5 w-12 bg-hover"><span class="block h-full bg-accent transition-[width] duration-500" :style="{ width: `${Math.min(100, p.cpu)}%` }" /></span>
-                  <span class="w-10 text-right tabular-nums" :class="p.cpu >= 10 ? 'text-warn' : ''">{{ p.access ? p.cpu.toFixed(1) : '--' }}</span>
+                  <span class="h-1.5 w-12 bg-hover"><span class="block h-full bg-accent transition-[width] duration-500" :style="{ width: `${Math.min(100, cpu)}%` }" /></span>
+                  <span class="w-10 text-right tabular-nums" :class="cpu >= 10 ? 'text-warn' : ''">{{ p.access || kids ? cpu.toFixed(1) : '--' }}</span>
                 </span>
               </td>
-              <td class="px-3 py-1.5 text-right tabular-nums" :class="p.gpu >= 1 ? 'text-gpu' : 'text-muted'">{{ p.gpu ? p.gpu.toFixed(1) : '0' }}</td>
-              <td class="px-3 py-1.5 text-right tabular-nums" :class="p.private >= 2 ** 30 ? 'text-mem' : ''">{{ p.access ? formatBytes(p.private) : '--' }}</td>
+              <td class="px-3 py-1.5 text-right tabular-nums" :class="gpu >= 1 ? 'text-gpu' : 'text-muted'">{{ gpu ? gpu.toFixed(1) : '0' }}</td>
+              <td class="px-3 py-1.5 text-right tabular-nums" :class="mem >= 2 ** 30 ? 'text-mem' : ''">{{ p.access || kids ? formatBytes(mem) : '--' }}</td>
               <td class="px-3 py-1.5 text-right text-muted tabular-nums">{{ p.threads }}</td>
             </tr>
-            <tr v-if="open === p.pid" class="border-b border-line bg-raised">
-              <td colspan="6" class="px-6 py-4">
+            <tr v-if="open.has(p.pid)" class="border-b border-line bg-raised">
+              <td colspan="6" class="py-4 pr-6" :style="{ paddingLeft: `${24 + depth * 18}px` }">
                 <div class="flex flex-wrap items-start gap-x-10 gap-y-3">
                   <dl class="grid min-w-0 flex-1 grid-cols-[6rem_1fr] gap-y-1">
                     <dt class="text-muted">path</dt><dd class="truncate select-text" :title="p.path">{{ p.path || 'unknown (protected)' }}</dd>
-                    <dt class="text-muted">parent</dt><dd>{{ p.parentPid }}</dd>
+                    <dt class="text-muted">parent</dt>
+                    <dd>{{ procs.find((x) => x.pid === p.parentPid)?.name ?? 'exited' }} ({{ p.parentPid }})</dd>
+                    <dt v-if="kids" class="text-muted">children</dt><dd v-if="kids">{{ kids }}, listed below · totals include them</dd>
                     <dt class="text-muted">working set</dt><dd>{{ p.access ? formatBytes(p.workingSet) : '--' }}</dd>
                     <dt class="text-muted">status</dt><dd :class="p.hung ? 'text-bad' : 'text-ok'">{{ p.hung ? 'not responding' : 'responding' }}</dd>
                   </dl>
