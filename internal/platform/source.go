@@ -70,6 +70,14 @@ type Machine interface {
 	DumpDir() string // where Windows writes minidumps
 }
 
+// Location is a folder whose contents Windows or apps recreate when needed.
+// Only files older than MinAge are touched, so work in progress is spared.
+type Location struct {
+	ID, Name, Note string
+	Paths          []string
+	MinAge         time.Duration
+}
+
 // Sampler reads load since its previous call, in percent. The first call
 // only sets the baseline and may answer an average since boot.
 type Sampler interface {

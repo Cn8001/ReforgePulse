@@ -17,6 +17,7 @@ const (
 type Change struct {
 	ID         string       `json:"id"`
 	At         time.Time    `json:"at"`
+	Action     string       `json:"action,omitempty"` // what kind of change, for undoing it: "startup", "cleanup", ...
 	Summary    string       `json:"summary,omitempty"`
 	Target     string       `json:"target,omitempty"` // what was changed: a path, a setting
 	Before     string       `json:"before,omitempty"`

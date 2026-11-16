@@ -45,8 +45,9 @@ func (j *Journal) Begin(ctx context.Context, c domain.Change) (string, error) {
 }
 
 // Finish records how the change went: applied when err is nil, else failed.
-func (j *Journal) Finish(ctx context.Context, id string, err error) error {
-	c := domain.Change{ID: id, At: j.now().UTC(), Status: domain.Applied}
+// after says what the change actually did, such as the bytes it freed.
+func (j *Journal) Finish(ctx context.Context, id, after string, err error) error {
+	c := domain.Change{ID: id, At: j.now().UTC(), Status: domain.Applied, After: after}
 	if err != nil {
 		c.Status, c.Error = domain.Failed, err.Error()
 	}
@@ -79,6 +80,9 @@ func (j *Journal) Log(ctx context.Context) ([]domain.Change, error) {
 		}
 		if prev, ok := byID[c.ID]; ok {
 			prev.Status, prev.Error = c.Status, c.Error
+			if c.After != "" {
+				prev.After = c.After
+			}
 			continue
 		}
 		byID[c.ID] = &c

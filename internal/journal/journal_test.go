@@ -32,7 +32,7 @@ func TestJournal_RoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := j.Finish(ctx, id, nil); err != nil {
+	if err := j.Finish(ctx, id, "", nil); err != nil {
 		t.Fatal(err)
 	}
 	log, err := j.Log(ctx)
@@ -56,7 +56,7 @@ func TestJournal_FailedAndNewestFirst(t *testing.T) {
 	second, _ := j.Begin(ctx, domain.Change{Summary: "second"})
 
 	// Act
-	_ = j.Finish(ctx, first, errors.New("access denied"))
+	_ = j.Finish(ctx, first, "", errors.New("access denied"))
 	log, _ := j.Log(ctx)
 
 	// Assert
@@ -75,11 +75,11 @@ func TestJournal_RevertMarksOriginal(t *testing.T) {
 	// Arrange
 	j, ctx := newTest(t), context.Background()
 	orig, _ := j.Begin(ctx, domain.Change{Summary: "cap", Reversible: true})
-	_ = j.Finish(ctx, orig, nil)
+	_ = j.Finish(ctx, orig, "", nil)
 
 	// Act
 	undo, _ := j.Begin(ctx, domain.Change{Summary: "remove cap", Reverts: orig})
-	_ = j.Finish(ctx, undo, nil)
+	_ = j.Finish(ctx, undo, "", nil)
 	log, _ := j.Log(ctx)
 
 	// Assert
@@ -130,7 +130,7 @@ func TestJournal_ConcurrentWriters(t *testing.T) {
 			defer wg.Done()
 			id, err := j.Begin(ctx, domain.Change{Summary: "change", Target: string(rune('a' + i))})
 			if err == nil {
-				_ = j.Finish(ctx, id, nil)
+				_ = j.Finish(ctx, id, "", nil)
 			}
 		}()
 	}
@@ -145,5 +145,20 @@ func TestJournal_ConcurrentWriters(t *testing.T) {
 		if c.Status != domain.Applied {
 			t.Fatalf("change %+v not applied", c)
 		}
+	}
+}
+
+func TestJournal_FinishRecordsAfter(t *testing.T) {
+	// Arrange
+	j, ctx := newTest(t), context.Background()
+	id, _ := j.Begin(ctx, domain.Change{Summary: "clean temp", Before: "120 files"})
+
+	// Act
+	_ = j.Finish(ctx, id, "freed 1.2 GB, skipped 3", nil)
+	log, _ := j.Log(ctx)
+
+	// Assert
+	if log[0].After != "freed 1.2 GB, skipped 3" || log[0].Before != "120 files" {
+		t.Fatalf("change = %+v", log[0])
 	}
 }

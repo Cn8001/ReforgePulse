@@ -9,6 +9,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/cn8001/reforgepulse/internal/app"
+	"github.com/cn8001/reforgepulse/internal/cleanup"
 	"github.com/cn8001/reforgepulse/internal/inspect/processes"
 	"github.com/cn8001/reforgepulse/internal/inspect/system"
 	"github.com/cn8001/reforgepulse/internal/journal"
@@ -26,6 +27,7 @@ type backend struct {
 	Tasks   *app.TaskService
 	Procs   *app.ProcessService
 	About   *app.AboutService
+	Cleanup *app.CleanupService
 
 	overview *system.Inspector
 	journal  *journal.Journal
@@ -54,6 +56,7 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 	return &backend{
 		Procs:    app.NewProcessService(procs),
 		About:    app.NewAboutService(about),
+		Cleanup:  app.NewCleanupService(cleanup.New(host.CleanupLocations(), j), runner),
 		System:   app.NewSystemService(overview, overview, runner),
 		Tasks:    app.NewTaskService(runner),
 		History:  app.NewHistoryService(j),
@@ -75,6 +78,7 @@ func (b *backend) services() []application.Service {
 		application.NewService(b.Tasks),
 		application.NewService(b.Procs),
 		application.NewService(b.About),
+		application.NewService(b.Cleanup),
 	}
 }
 
