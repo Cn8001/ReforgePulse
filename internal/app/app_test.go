@@ -112,8 +112,8 @@ func (f fakeLister) List(context.Context) ([]domain.Process, error) { return f.p
 func TestProcessService_ListsAndWraps(t *testing.T) {
 	// Arrange
 	cause := errors.New("snapshot failed")
-	ok := NewProcessService(fakeLister{ps: []domain.Process{{PID: 4, Name: "System"}}})
-	bad := NewProcessService(fakeLister{err: cause})
+	ok := NewProcessService(fakeLister{ps: []domain.Process{{PID: 4, Name: "System"}}}, nil, nil, 1)
+	bad := NewProcessService(fakeLister{err: cause}, nil, nil, 1)
 
 	// Act
 	got, err := ok.List(context.Background())
@@ -215,5 +215,49 @@ func TestHistoryService_RefusesIrreversible(t *testing.T) {
 	// Assert
 	if err == nil {
 		t.Fatal("want an error for an irreversible change")
+	}
+}
+
+type fakeKiller struct{ killed []uint32 }
+
+func (f *fakeKiller) Kill(_ context.Context, pid uint32) error {
+	f.killed = append(f.killed, pid)
+	return nil
+}
+
+func TestProcessService_EndRefusesWindowsProcesses(t *testing.T) {
+	// Arrange
+	k := &fakeKiller{}
+	s := NewProcessService(nil, k, &memJournal{}, 999)
+
+	// Act
+	errs := []error{
+		s.End(context.Background(), 4, "System"),
+		s.End(context.Background(), 700, "csrss.exe"),
+		s.End(context.Background(), 999, "reforgepulse.exe"),
+	}
+
+	// Assert
+	for i, err := range errs {
+		if err == nil {
+			t.Fatalf("case %d: want a refusal", i)
+		}
+	}
+	if len(k.killed) != 0 {
+		t.Fatalf("killed %v", k.killed)
+	}
+}
+
+func TestProcessService_EndIsLogged(t *testing.T) {
+	// Arrange
+	k, j := &fakeKiller{}, &memJournal{}
+	s := NewProcessService(nil, k, j, 999)
+
+	// Act
+	err := s.End(context.Background(), 4242, "hungapp.exe")
+
+	// Assert
+	if err != nil || len(k.killed) != 1 || j.begun[0].Action != "end-task" || j.begun[0].Reversible {
+		t.Fatalf("err = %v, killed = %v, log = %+v", err, k.killed, j.begun)
 	}
 }

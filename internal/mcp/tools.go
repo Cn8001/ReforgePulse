@@ -13,6 +13,7 @@ type Deps struct {
 	System    app.OverviewReader
 	Live      app.LiveReader
 	Processes app.ProcessLister
+	Startup   app.StartupLister
 	History   app.ChangeLog
 }
 
@@ -51,6 +52,14 @@ func Tools(d Deps) []Tool {
 					return nil, err
 				}
 				return ps[:min(a.Limit, len(ps))], nil
+			},
+		},
+		{
+			Name:        "list_startup_apps",
+			Description: "Programs Windows starts at sign-in: whether each is enabled, where it is registered, and whether it is running now with how much memory.",
+			Schema:      noArgs,
+			Call: func(ctx context.Context, _ json.RawMessage) (any, error) {
+				return d.Startup.List(ctx)
 			},
 		},
 		{

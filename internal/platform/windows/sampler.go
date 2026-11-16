@@ -44,7 +44,10 @@ type Sampler struct {
 	gpuFailed error // set once when the GPU counter is unavailable
 }
 
-var _ platform.Sampler = (*Sampler)(nil)
+var (
+	_ platform.Sampler      = (*Sampler)(nil)
+	_ platform.GPUByProcess = (*Sampler)(nil)
+)
 
 func NewSampler() *Sampler { return &Sampler{} }
 
@@ -67,29 +70,41 @@ func (s *Sampler) CPULoad(ctx context.Context) (float64, error) {
 }
 
 func (s *Sampler) GPULoad(ctx context.Context) (float64, error) {
+	byPID, err := s.GPUProcesses(ctx)
+	var sum float64
+	for _, v := range byPID {
+		sum += v
+	}
+	return min(sum, 100), err
+}
+
+// GPUProcesses splits the 3D engine load by process: each counter instance
+// is named pid_<pid>_luid_..._engtype_3D. The Home tiles and the Processes
+// page both collect, so each sees the load since the other's last look.
+func (s *Sampler) GPUProcesses(ctx context.Context) (map[uint32]float64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.gpuFailed != nil {
-		return 0, s.gpuFailed
+		return nil, s.gpuFailed
 	}
 	if s.query == 0 {
 		if err := s.openGPU(); err != nil {
 			s.gpuFailed = err
-			return 0, err
+			return nil, err
 		}
-		return 0, nil // a rate counter needs two samples
+		return nil, nil // a rate counter needs two samples
 	}
 	if r, _, _ := procPdhCollectQueryData.Call(s.query); r != 0 {
-		return 0, fmt.Errorf("PdhCollectQueryData: 0x%x", r)
+		return nil, fmt.Errorf("PdhCollectQueryData: 0x%x", r)
 	}
 	var size, count uint32
 	r, _, _ := procPdhGetFormattedCounterArray.Call(s.counter, pdhFmtDouble, uintptr(unsafe.Pointer(&size)), uintptr(unsafe.Pointer(&count)), 0)
 	if r != pdhMoreData {
-		return 0, nil // no 3D engine instances right now
+		return nil, nil // no 3D engine instances right now
 	}
 	buf := make([]byte, size)
 	if r, _, _ := procPdhGetFormattedCounterArray.Call(s.counter, pdhFmtDouble, uintptr(unsafe.Pointer(&size)), uintptr(unsafe.Pointer(&count)), uintptr(unsafe.Pointer(&buf[0]))); r != 0 {
-		return 0, fmt.Errorf("PdhGetFormattedCounterArray: 0x%x", r)
+		return nil, fmt.Errorf("PdhGetFormattedCounterArray: 0x%x", r)
 	}
 	// PDH_FMT_COUNTERVALUE_ITEM_W: a name pointer, then CStatus, padding and the double.
 	type item struct {
@@ -98,14 +113,14 @@ func (s *Sampler) GPULoad(ctx context.Context) (float64, error) {
 		_      uint32
 		value  float64
 	}
-	items := unsafe.Slice((*item)(unsafe.Pointer(&buf[0])), count)
-	var sum float64
-	for _, it := range items {
-		if it.status == 0 {
-			sum += it.value
+	out := map[uint32]float64{}
+	for _, it := range unsafe.Slice((*item)(unsafe.Pointer(&buf[0])), count) {
+		var pid uint32
+		if _, err := fmt.Sscanf(windows.UTF16PtrToString(it.name), "pid_%d_", &pid); it.status == 0 && err == nil {
+			out[pid] += it.value
 		}
 	}
-	return min(sum, 100), nil
+	return out, nil
 }
 
 func (s *Sampler) openGPU() error {

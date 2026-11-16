@@ -35,6 +35,7 @@ type backend struct {
 	journal  *journal.Journal
 	sampler  *windows.Sampler
 	procs    *processes.Inspector
+	startup  *startup.Inspector
 }
 
 // maxTasks bounds how much work runs at once, so a scan never starves the
@@ -54,11 +55,12 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 	sampler := windows.NewSampler()
 	overview := system.New(host, host, sampler)
 	runner := tasks.New(maxTasks, notify)
-	procs := processes.New(host, runtime.NumCPU())
-	startupSvc := app.NewStartupService(startup.New(host, procs), host, j)
+	procs := processes.New(processes.Deps{Processes: host, GPU: sampler, CPUs: runtime.NumCPU()})
+	startupApps := startup.New(host, procs)
+	startupSvc := app.NewStartupService(startupApps, host, j)
 	return &backend{
 		Startup:  startupSvc,
-		Procs:    app.NewProcessService(procs),
+		Procs:    app.NewProcessService(procs, procs, j, uint32(os.Getpid())),
 		About:    app.NewAboutService(about),
 		Cleanup:  app.NewCleanupService(cleanup.New(host.CleanupLocations(), j), runner),
 		System:   app.NewSystemService(overview, overview, runner),
@@ -69,6 +71,7 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 		journal:  j,
 		sampler:  sampler,
 		procs:    procs,
+		startup:  startupApps,
 	}, nil
 }
 
@@ -88,7 +91,7 @@ func (b *backend) services() []application.Service {
 }
 
 func (b *backend) tools() []mcp.Tool {
-	return mcp.Tools(mcp.Deps{System: b.overview, Live: b.overview, Processes: b.procs, History: b.journal})
+	return mcp.Tools(mcp.Deps{System: b.overview, Live: b.overview, Processes: b.procs, Startup: b.startup, History: b.journal})
 }
 
 // Close releases what the backend holds open.

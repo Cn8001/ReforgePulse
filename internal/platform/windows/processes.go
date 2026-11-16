@@ -13,7 +13,10 @@ import (
 	"github.com/cn8001/reforgepulse/internal/platform"
 )
 
-var procGetProcessMemoryInfo = kernel32.NewProc("K32GetProcessMemoryInfo")
+var (
+	procGetProcessMemoryInfo = kernel32.NewProc("K32GetProcessMemoryInfo")
+	procIsHungAppWindow      = windows.NewLazySystemDLL("user32.dll").NewProc("IsHungAppWindow")
+)
 
 var _ platform.Processes = System{}
 
@@ -39,6 +42,7 @@ func (System) Processes(ctx context.Context) ([]platform.ProcessInfo, error) {
 	}
 	defer windows.CloseHandle(snap)
 
+	hung := hungProcesses()
 	var out []platform.ProcessInfo
 	e := windows.ProcessEntry32{Size: uint32(unsafe.Sizeof(windows.ProcessEntry32{}))}
 	for err = windows.Process32First(snap, &e); err == nil; err = windows.Process32Next(snap, &e) {
@@ -50,6 +54,7 @@ func (System) Processes(ctx context.Context) ([]platform.ProcessInfo, error) {
 			ParentPID: e.ParentProcessID,
 			Threads:   e.Threads,
 			Name:      windows.UTF16ToString(e.ExeFile[:]),
+			Hung:      hung[e.ProcessID],
 		}
 		readProcess(&p)
 		out = append(out, p)
@@ -91,4 +96,35 @@ func readProcess(p *platform.ProcessInfo) {
 
 func filetime(f windows.Filetime) uint64 {
 	return uint64(f.HighDateTime)<<32 | uint64(f.LowDateTime)
+}
+
+// hungProcesses finds processes with a visible window that stopped
+// answering messages, which is what Task Manager calls "Not responding".
+func hungProcesses() map[uint32]bool {
+	hung := map[uint32]bool{}
+	cb := windows.NewCallback(func(h windows.HWND, _ uintptr) uintptr {
+		if windows.IsWindowVisible(h) {
+			if r, _, _ := procIsHungAppWindow.Call(uintptr(h)); r != 0 {
+				var pid uint32
+				windows.GetWindowThreadProcessId(h, &pid)
+				hung[pid] = true
+			}
+		}
+		return 1
+	})
+	windows.EnumWindows(cb, nil)
+	return hung
+}
+
+// Kill ends a process at once, like End task in Task Manager.
+func (System) Kill(ctx context.Context, pid uint32) error {
+	h, err := windows.OpenProcess(windows.PROCESS_TERMINATE, false, pid)
+	if err != nil {
+		return fmt.Errorf("open process %d: %w", pid, err)
+	}
+	defer windows.CloseHandle(h)
+	if err := windows.TerminateProcess(h, 1); err != nil {
+		return fmt.Errorf("end process %d: %w", pid, err)
+	}
+	return nil
 }

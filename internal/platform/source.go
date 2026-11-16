@@ -35,10 +35,26 @@ type ProcessInfo struct {
 	CPUTime                 time.Duration
 	WorkingSet, Private     uint64
 	Opened                  bool // false when the OS refused access
+	Hung                    bool // a window of it stopped answering
+}
+
+// PortInfo is an open TCP or UDP endpoint and the process that owns it.
+type PortInfo struct {
+	PID                  uint32
+	Proto, Local, Remote string
+	Port                 uint16
+	State                string
 }
 
 type Processes interface {
 	Processes(ctx context.Context) ([]ProcessInfo, error)
+	Ports(ctx context.Context) ([]PortInfo, error)
+	Kill(ctx context.Context, pid uint32) error
+}
+
+// GPUByProcess reads each process's share of the 3D engines, in percent.
+type GPUByProcess interface {
+	GPUProcesses(ctx context.Context) (map[uint32]float64, error)
 }
 
 // Event is one Windows event log record with its structured EventData.

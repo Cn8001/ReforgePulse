@@ -11,8 +11,16 @@ import (
 
 type fakeSource struct {
 	snaps [][]platform.ProcessInfo
+	ports []platform.PortInfo
 	err   error
 }
+
+func (f *fakeSource) Ports(context.Context) ([]platform.PortInfo, error) { return f.ports, nil }
+func (f *fakeSource) Kill(context.Context, uint32) error                 { return nil }
+
+type fakeGPU map[uint32]float64
+
+func (f fakeGPU) GPUProcesses(context.Context) (map[uint32]float64, error) { return f, nil }
 
 func (f *fakeSource) Processes(context.Context) ([]platform.ProcessInfo, error) {
 	if f.err != nil {
@@ -25,7 +33,7 @@ func (f *fakeSource) Processes(context.Context) ([]platform.ProcessInfo, error) 
 
 // newTest returns an inspector whose clock moves one second per List call.
 func newTest(src platform.Processes, cpus int) *Inspector {
-	in := New(src, cpus)
+	in := New(Deps{Processes: src, CPUs: cpus})
 	t := time.Date(2026, 11, 16, 12, 0, 0, 0, time.UTC)
 	in.now = func() time.Time { t = t.Add(time.Second); return t }
 	return in
@@ -100,5 +108,26 @@ func TestInspector_WrapsSourceError(t *testing.T) {
 	// Assert
 	if !errors.Is(err, cause) {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestInspector_AttachesPortsGPUAndHung(t *testing.T) {
+	// Arrange
+	src := &fakeSource{
+		snaps: [][]platform.ProcessInfo{{{PID: 7, Name: "server.exe", Hung: true}}},
+		ports: []platform.PortInfo{{PID: 7, Proto: "tcp", Local: "0.0.0.0", Port: 8080, State: "listen"}},
+	}
+	in := New(Deps{Processes: src, GPU: fakeGPU{7: 42}, CPUs: 1})
+
+	// Act
+	got, err := in.List(context.Background())
+
+	// Assert
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := got[0]
+	if !p.Hung || p.GPU != 42 || len(p.Ports) != 1 || p.Ports[0].Port != 8080 {
+		t.Fatalf("process = %+v", p)
 	}
 }
