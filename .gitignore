@@ -11,3 +11,4 @@ build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
 CLAUDE.md
 *.syso
 frontend/bindings
+build/windows/nsis/license.txt

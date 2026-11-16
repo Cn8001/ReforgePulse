@@ -2,7 +2,7 @@
 # Go tests run on the host: Windows-only packages drop out by build tag.
 
 .DEFAULT_GOAL := help
-.PHONY: help build run dev test vet fmt tidy clean
+.PHONY: help build run dev test vet fmt tidy clean installer
 
 ## help: list the targets
 help:
@@ -35,6 +35,13 @@ fmt:
 ## tidy: go mod tidy
 tidy:
 	go mod tidy
+
+## installer: bin/reforgepulse-amd64-installer.exe (needs NSIS: apt install nsis)
+installer:
+	@command -v makensis >/dev/null || { echo "The installer needs NSIS: sudo apt-get install nsis, or winget install NSIS.NSIS"; exit 1; }
+	# The licence page shows TERMS.md; NSIS reads UTF-16LE with a BOM and CRLF.
+	{ printf '\377\376'; sed 's/^#\{1,\} //' TERMS.md | sed 's/$$/\r/' | iconv -f UTF-8 -t UTF-16LE; } > build/windows/nsis/license.txt
+	GOOS=windows wails3 task windows:package
 
 ## clean: remove built binaries
 clean:
