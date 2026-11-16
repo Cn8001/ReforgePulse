@@ -21,8 +21,20 @@ revert where a change can be undone.
 - **Fix Issues**: Scan PC reads blue screens, unexpected restarts, WHEA
   hardware errors, GPU driver resets, app and service crashes, disk errors,
   microcode and tuning drivers, and explains them with severity, confidence
-  and other possible causes. Includes a CPU frequency cap across all power
-  plans.
+  and other possible causes. It weighs every suspect (processor, memory,
+  drives, temperature, power, drivers, software) instead of assuming one.
+- **Tools**
+  - Hardware & cores: CPU, board, BIOS, RAM sticks, GPUs, drives, and every
+    core live with its MHz, P/E type, APIC ID and WHEA errors; a single-core
+    stress test that catches cores that miscalculate.
+  - Sensors: NVIDIA GPU through nvml.dll; CPU temperatures and voltages
+    from HWiNFO's shared memory when HWiNFO runs.
+  - Events: Event Viewer folded into kinds, counted and explained.
+  - Minidumps: stop codes read directly; `!analyze -v` through WinDbg's
+    engine when installed (symbols download only when you ask).
+  - Recorder: load and per-process memory over a session, with leak spotting.
+  - System checks: sfc, DISM and chkdsk scans, Windows Memory Diagnostic.
+  - CPU cap: your own P-core and E-core limit on every power plan.
 
 ## Build
 
