@@ -4,6 +4,11 @@ import Icon from './Icon.vue'
 import Bar from './Bar.vue'
 import Tile from './Tile.vue'
 import Sparkline from './Sparkline.vue'
+import ClockTemp from './ClockTemp.vue'
+import { Loads } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/hardwareservice'
+import { Read as ReadSensors } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/sensorservice'
+import type { CoreLoad, SensorStatus } from '../../bindings/github.com/cn8001/reforgepulse/internal/platform/models'
+import { facts, loadFacts } from '../lib/hardware'
 import { GetLive, GetOverview } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/systemservice'
 import { List, Revert } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/historyservice'
 import ConfirmDialog from './ConfirmDialog.vue'
@@ -37,8 +42,15 @@ async function load() {
 const history = ref({ cpu: [] as number[], gpu: [] as number[], memory: [] as number[] })
 const now = ref<Record<'cpu' | 'gpu' | 'memory', Measurement | null>>({ cpu: null, gpu: null, memory: null })
 let timer: ReturnType<typeof setInterval> | undefined
+// Clocks come with every sample; sensors every other one, which is plenty
+// for temperatures and keeps NVML and HWiNFO reads rare.
+const cores = ref<CoreLoad[]>([])
+const sensors = ref<SensorStatus | null>(null)
+let tick = 0
 async function sample() {
   if (document.hidden) return
+  Loads().then((l) => (cores.value = l ?? [])).catch(() => {})
+  if (tick++ % 2 === 0) ReadSensors().then((st) => (sensors.value = st)).catch(() => {})
   try {
     const l = await GetLive()
     for (const k of ['cpu', 'gpu', 'memory'] as const) {
@@ -50,11 +62,33 @@ async function sample() {
 
 onMounted(() => {
   load()
+  loadFacts()
   loadLastScan()
   sample()
   timer = setInterval(sample, 1000)
 })
 onBeforeUnmount(() => clearInterval(timer))
+
+const ghz = (mhz: number) => (mhz ? `${(mhz / 1000).toFixed(2)} GHz` : '')
+const sensor = (pick: (s: NonNullable<SensorStatus['sensors']>[number]) => boolean) => sensors.value?.sensors?.find(pick)
+
+// The fastest core is what "CPU speed" means to most people; the average
+// hides a boosting core behind idle ones.
+const cpuClock = computed(() => ghz(Math.max(0, ...cores.value.map((c) => c.mhz))))
+const cpuTemp = computed(() => {
+  const temps = (sensors.value?.sensors ?? []).filter((s) => s.source === 'hwinfo' && s.kind === 'temp' && /cpu/i.test(s.group))
+  const pkg = temps.find((s) => /package|tctl|tdie/i.test(s.name))
+  return pkg?.value ?? (temps.length ? Math.max(...temps.map((s) => s.value)) : null)
+})
+const gpuClock = computed(() => {
+  const c = sensor((s) => s.source === 'nvml' && s.name === 'Core clock')
+  return c ? ghz(c.value) : ''
+})
+const gpuTemp = computed(() => sensor((s) => s.kind === 'temp' && s.source === 'nvml')?.value ?? null)
+const memClock = computed(() => {
+  const m = facts.value?.Memory?.[0]
+  return m ? `${m.ConfiguredMHz} MT/s` : ''
+})
 
 const pct = (m: Measurement | null) => (m?.status === Availability.Measured ? Math.round(m.value).toString() : '--')
 
@@ -144,14 +178,18 @@ const statusTone: Record<string, string> = {
     <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
       <Tile title="CPU" icon="cpu" tint="var(--accent)" :value="pct(now.cpu)" unit="%" class="cursor-pointer" @click="emit('open', 'processes', 'cpu')"
             :sub="overview ? `${overview.cpuModel || 'unknown'} · ${overview.logicalCpus} threads` : ''">
+        <ClockTemp :clock="cpuClock" :temp="cpuTemp"
+                   missing="Windows has no reliable CPU temperature. Run HWiNFO with Shared Memory Support on and it shows here." />
         <Sparkline :values="history.cpu" color="var(--accent)" />
       </Tile>
       <Tile title="GPU" icon="gpu" tint="var(--gpu)" :value="pct(now.gpu)" unit="%" :sub="overview?.gpuModel || 'unknown'"
             class="cursor-pointer" @click="emit('open', 'processes', 'gpu')">
+        <ClockTemp :clock="gpuClock" :temp="gpuTemp" :missing="sensors?.nvml || 'No NVIDIA GPU sensors.'" />
         <Sparkline :values="history.gpu" color="var(--gpu)" />
       </Tile>
       <Tile title="Memory" icon="memory" tint="var(--mem)" :value="pct(now.memory)" unit="%" :sub="memoryDetail"
             class="cursor-pointer" @click="emit('open', 'processes', 'private')">
+        <ClockTemp :clock="memClock" />
         <Sparkline :values="history.memory" color="var(--mem)" />
       </Tile>
       <Tile title="Disks" icon="disk" tint="var(--disk)" class="cursor-pointer md:col-span-2" @click="emit('open', 'cleanup')">

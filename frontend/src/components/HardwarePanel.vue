@@ -2,12 +2,12 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import Icon from './Icon.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
-import { Cores, Facts, Loads, TestCores } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/hardwareservice'
+import { Cores, Loads, TestCores } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/hardwareservice'
+import { facts, loadFacts } from '../lib/hardware'
 import type { CoreInfo, CoreTest } from '../../bindings/github.com/cn8001/reforgepulse/internal/domain/models'
-import type { CoreLoad, HardwareFacts } from '../../bindings/github.com/cn8001/reforgepulse/internal/platform/models'
+import type { CoreLoad } from '../../bindings/github.com/cn8001/reforgepulse/internal/platform/models'
 import { formatBytes } from '../lib/format'
 
-const facts = ref<HardwareFacts | null>(null)
 const cores = ref<CoreInfo[]>([])
 const loads = ref<Record<number, CoreLoad>>({})
 const error = ref('')
@@ -26,7 +26,7 @@ onMounted(async () => {
   sample()
   timer = setInterval(sample, 1000)
   try {
-    ;[cores.value, facts.value] = await Promise.all([Cores().then((c) => c ?? []), Facts()])
+    ;[cores.value] = await Promise.all([Cores().then((c) => c ?? []), loadFacts()])
   } catch (e) {
     error.value = String(e)
   }
