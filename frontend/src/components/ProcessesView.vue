@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Icon from './Icon.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import { End, List } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/processservice'
@@ -41,10 +41,17 @@ onMounted(() => {
 })
 onBeforeUnmount(() => clearInterval(timer))
 
+// While a row is open the order holds still, so the row being read does
+// not jump away on the next refresh; only the numbers change. Sorting or
+// searching on purpose re-orders. Not reactive: it is a cache of the last order.
+let frozen: Map<number, number> | null = null
+
 function sortBy(k: Key) {
+  frozen = null
   desc.value = sortKey.value === k ? !desc.value : k !== 'name'
   sortKey.value = k
 }
+watch(query, () => (frozen = null))
 
 type Row = { p: Process; depth: number; kids: number; cpu: number; gpu: number; mem: number }
 
@@ -94,7 +101,12 @@ const rows = computed<Row[]>(() => {
   const k = sortKey.value
   const dir = desc.value ? -1 : 1
   const value = (r: Row) => (k === 'cpu' ? r.cpu : k === 'gpu' ? r.gpu : k === 'private' ? r.mem : r.p[k])
-  const sort = (rs: Row[]) => rs.sort((a, b) => (value(a) < value(b) ? -dir : value(a) > value(b) ? dir : 0))
+  const hold = open.value.size > 0 && frozen
+  const at = (r: Row) => frozen?.get(r.p.pid) ?? Number.MAX_SAFE_INTEGER // new processes go last
+  const sort = (rs: Row[]) =>
+    hold
+      ? rs.sort((a, b) => at(a) - at(b))
+      : rs.sort((a, b) => (value(a) < value(b) ? -dir : value(a) > value(b) ? dir : 0))
 
   const roots = list.filter((p) => flat || !byPid.has(p.parentPid) || p.parentPid === p.pid)
   const out: Row[] = []
@@ -107,6 +119,7 @@ const rows = computed<Row[]>(() => {
     for (const c of sort((kids.get(r.p.pid) ?? []).map(total))) walk(c, depth + 1)
   }
   for (const r of sort(roots.map(total))) walk(r, 0)
+  if (!hold) frozen = new Map(out.map((r, i) => [r.p.pid, i]))
   return out
 })
 
