@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import TopBar from './components/TopBar.vue'
+import SideNav from './components/SideNav.vue'
 import HomeView from './components/HomeView.vue'
 import ProcessesView from './components/ProcessesView.vue'
 import ComingSoon from './components/ComingSoon.vue'
@@ -45,9 +46,11 @@ function openAgent() {
 
 <template>
   <div class="flex h-full flex-col font-sans text-sm text-fg">
-    <TopBar :pages="pages" :page="page" @go="page = $event as Page" @agent="openAgent" @settings="settingsOpen = true" />
+    <TopBar :title="pages.find((p) => p.id === page)!.label" @agent="openAgent" @settings="settingsOpen = true" />
 
-    <main class="scope min-h-0 flex-1" :class="page === 'processes' ? 'overflow-hidden' : 'overflow-y-auto'">
+    <div class="flex min-h-0 flex-1">
+    <SideNav :pages="pages" :page="page" @go="page = $event as Page" />
+    <main class="scope min-w-0 flex-1" :class="page === 'processes' ? 'overflow-hidden' : 'overflow-y-auto'">
       <Transition name="page" mode="out-in">
         <HomeView v-if="page === 'home'" @elevated="elevated = $event" />
         <ProcessesView v-else-if="page === 'processes'" />
@@ -57,6 +60,7 @@ function openAgent() {
                     text="Crashes, WHEA hardware errors and bottlenecks, correlated into incidents with safe next steps." />
       </Transition>
     </main>
+    </div>
 
     <StatusBar :elevated="elevated" />
     <AgentPanel :open="agentOpen" @close="agentOpen = false" />
