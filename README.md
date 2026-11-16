@@ -41,6 +41,8 @@ guessing.
   WinDbg if you have it
 - a recorder that watches CPU, GPU and per-process memory while you play,
   then points at anything that leaked
+- devices missing a driver, what Windows Update offers for them, and the
+  makers' own driver pages for your GPU and board
 - sfc, DISM and chkdsk scans, and Windows Memory Diagnostic
 - a CPU frequency cap you set yourself, applied to every power plan so a
   plan switch can't quietly undo it
@@ -57,7 +59,9 @@ Bin, not straight to oblivion.
 
 ## What it won't do
 
-No "RAM booster", no registry cleaner, no one-click "optimize". Nothing is
+No "RAM booster", no registry cleaner, no one-click "optimize", and no
+driver installs: it shows you what's missing and sends you to Windows
+Update or the maker, who know their drivers best. Nothing is
 uploaded and there is no account. The one time it touches the internet is
 when you ask WinDbg to analyse a dump and it needs symbol files from
 Microsoft, and it asks first.
