@@ -7,7 +7,11 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
+	"syscall"
+	"time"
 
 	"golang.org/x/sys/windows/registry"
 
@@ -102,6 +106,12 @@ func (System) Programs(ctx context.Context) ([]platform.Program, error) {
 			p.InstallDate, _, _ = k.GetStringValue("InstallDate")
 			p.InstallLocation, _, _ = k.GetStringValue("InstallLocation")
 			p.UninstallString, _, _ = k.GetStringValue("UninstallString")
+			p.SizeKB, _, _ = k.GetIntegerValue("EstimatedSize")
+			hive := "HKLM"
+			if r.key == registry.CURRENT_USER {
+				hive = "HKCU"
+			}
+			p.ID = hive + `\` + r.path + `\` + n
 			sys, _, _ := k.GetIntegerValue("SystemComponent")
 			k.Close()
 			if p.Name == "" || sys == 1 || seen[p.Name+p.Version] {
@@ -113,6 +123,44 @@ func (System) Programs(ctx context.Context) ([]platform.Program, error) {
 		root.Close()
 	}
 	return out, nil
+}
+
+// LastRuns reads the Prefetch folder: Windows keeps NAME.EXE-HASH.pf per
+// program it starts and rewrites it on each start.
+func (System) LastRuns(ctx context.Context) (map[string]time.Time, error) {
+	dir := filepath.Join(os.Getenv("SystemRoot"), "Prefetch")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, fmt.Errorf("read prefetch: %w", err)
+	}
+	out := map[string]time.Time{}
+	for _, e := range entries {
+		name, _, ok := strings.Cut(strings.ToUpper(e.Name()), "-")
+		if !ok || !strings.HasSuffix(strings.ToUpper(e.Name()), ".PF") {
+			continue
+		}
+		if info, err := e.Info(); err == nil && info.ModTime().After(out[name]) {
+			out[name] = info.ModTime()
+		}
+	}
+	return out, nil
+}
+
+// Uninstall runs a program's registered uninstaller with its own command
+// line, unchanged, and waits for it. The uninstaller shows its own UI.
+func (System) Uninstall(ctx context.Context, cmdline string) error {
+	exe := cmdline
+	if strings.HasPrefix(exe, `"`) {
+		exe, _, _ = strings.Cut(exe[1:], `"`)
+	} else if i := strings.Index(strings.ToLower(exe), ".exe"); i >= 0 {
+		exe = exe[:i+4]
+	}
+	cmd := exec.CommandContext(ctx, exe)
+	cmd.SysProcAttr = &syscall.SysProcAttr{CmdLine: cmdline}
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("run uninstaller: %w", err)
+	}
+	return nil
 }
 
 func (System) DumpDir() string {

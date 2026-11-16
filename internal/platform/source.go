@@ -74,7 +74,9 @@ type Service struct {
 
 // Program is an installed program as its uninstall entry describes it.
 type Program struct {
+	ID                                                                      string // the uninstall key, stable across calls
 	Name, Version, Publisher, InstallDate, InstallLocation, UninstallString string
+	SizeKB                                                                  uint64 // EstimatedSize, as the installer declared it
 }
 
 // Machine reads the evidence crash analysis draws on.
@@ -83,6 +85,10 @@ type Machine interface {
 	Microcode(ctx context.Context) (uint32, error)
 	Services(ctx context.Context) ([]Service, error)
 	Programs(ctx context.Context) ([]Program, error)
+	// LastRuns maps an upper-case exe name to when Windows last saw it start,
+	// from the Prefetch folder. Missing means no record, not never.
+	LastRuns(ctx context.Context) (map[string]time.Time, error)
+	Uninstall(ctx context.Context, uninstallString string) error
 	DumpDir() string // where Windows writes minidumps
 }
 

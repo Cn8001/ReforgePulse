@@ -14,6 +14,7 @@ import (
 	"github.com/cn8001/reforgepulse/internal/app"
 	"github.com/cn8001/reforgepulse/internal/cleanup"
 	"github.com/cn8001/reforgepulse/internal/inspect/processes"
+	"github.com/cn8001/reforgepulse/internal/inspect/programs"
 	"github.com/cn8001/reforgepulse/internal/inspect/startup"
 	"github.com/cn8001/reforgepulse/internal/inspect/system"
 	"github.com/cn8001/reforgepulse/internal/journal"
@@ -33,6 +34,7 @@ type backend struct {
 	About   *app.AboutService
 	Cleanup *app.CleanupService
 	Startup *app.StartupService
+	Progs   *app.ProgramService
 
 	overview *system.Inspector
 	journal  *journal.Journal
@@ -67,6 +69,9 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 	startupSvc := app.NewStartupService(startupApps, host, j)
 	return &backend{
 		Startup: startupSvc,
+		Progs: app.NewProgramService(app.ProgramDeps{
+			Finder: programs.New(host), Uninstaller: host, Runner: runner, Journal: j,
+		}),
 		Procs:   app.NewProcessService(procs, procs, j, uint32(os.Getpid())),
 		About:   app.NewAboutService(about),
 		Cleanup: app.NewCleanupService(cleanup.New(host.CleanupLocations(), j), runner),
@@ -96,6 +101,7 @@ func (b *backend) services() []application.Service {
 		application.NewService(b.About),
 		application.NewService(b.Cleanup),
 		application.NewService(b.Startup),
+		application.NewService(b.Progs),
 	}
 }
 
