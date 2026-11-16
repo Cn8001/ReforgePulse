@@ -32,26 +32,27 @@ async function copy() {
 <template>
   <Transition enter-from-class="opacity-0" leave-to-class="opacity-0"
               enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-200">
-    <div v-if="open" class="fixed inset-0 bg-black/30" @click="$emit('close')" />
+    <div v-if="open" class="fixed inset-0 bg-black/40" @click="$emit('close')" />
   </Transition>
   <Transition enter-from-class="translate-x-full" leave-to-class="translate-x-full"
-              enter-active-class="transition-transform duration-300 ease-out" leave-active-class="transition-transform duration-200 ease-in">
+              enter-active-class="transition-transform duration-200 ease-out" leave-active-class="transition-transform duration-150 ease-in">
     <aside v-if="open"
-           class="fixed inset-y-3 right-3 flex w-[420px] max-w-[calc(100%-1.5rem)] flex-col gap-5 rounded-2xl border border-line bg-[Canvas] p-6 shadow-2xl">
+           class="fixed inset-y-0 right-0 flex w-[440px] max-w-full flex-col gap-5 border-l border-line bg-panel p-6 shadow-2xl">
       <header class="flex items-start justify-between gap-4">
         <div>
-          <h2 class="text-lg font-semibold tracking-tight">Connect an agent</h2>
+          <p class="caption">mcp · stdio · read-only</p>
+          <h2 class="mt-1 text-lg font-semibold">Connect an agent</h2>
           <p class="mt-1 text-muted">Let an AI agent read what ReforgePulse sees. It can only look; every change still needs your approval here.</p>
         </div>
-        <button class="rounded-lg p-1.5 text-muted transition hover:bg-hover hover:text-fg" @click="$emit('close')">
+        <button class="p-1.5 text-muted transition hover:bg-hover hover:text-fg" @click="$emit('close')">
           <Icon name="close" />
         </button>
       </header>
 
-      <div class="flex gap-1 rounded-lg bg-hover p-1">
+      <div class="flex border border-line">
         <button v-for="(a, i) in agents" :key="a.name"
-                class="flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition"
-                :class="tab === i ? 'bg-[Canvas] text-fg shadow-sm' : 'text-muted hover:text-fg'"
+                class="flex-1 border-r border-line px-2 py-2 font-mono text-xs transition last:border-r-0"
+                :class="tab === i ? 'bg-accent text-white' : 'text-muted hover:bg-hover hover:text-fg'"
                 @click="tab = i">
           {{ a.name }}
         </button>
@@ -59,16 +60,16 @@ async function copy() {
 
       <div>
         <p class="mb-2 text-muted">{{ agents[tab].how }}</p>
-        <div class="relative rounded-xl border border-line bg-hover">
+        <div class="relative border border-line bg-raised">
           <pre class="overflow-x-auto p-4 pr-12 font-mono text-xs leading-relaxed whitespace-pre-wrap break-all select-text">{{ agents[tab].text }}</pre>
-          <button class="absolute top-2 right-2 rounded-lg p-1.5 text-muted transition hover:bg-hover hover:text-fg"
+          <button class="absolute top-2 right-2 p-1.5 text-muted transition hover:bg-hover hover:text-fg"
                   :title="copied ? 'Copied' : 'Copy'" @click="copy">
             <Icon :name="copied ? 'check' : 'copy'" />
           </button>
         </div>
       </div>
 
-      <p class="mt-auto text-xs text-muted">
+      <p class="mt-auto font-mono text-[11px] text-muted">
         The agent starts <code class="font-mono">reforgepulse.exe mcp</code> as your user, without administrator rights.
       </p>
     </aside>

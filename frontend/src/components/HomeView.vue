@@ -1,18 +1,20 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import Icon from './Icon.vue'
 import Bar from './Bar.vue'
-import { GetOverview } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/systemservice'
+import Tile from './Tile.vue'
+import Sparkline from './Sparkline.vue'
+import { GetLive, GetOverview } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/systemservice'
 import { List } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/historyservice'
-import type { Change, Overview } from '../../bindings/github.com/cn8001/reforgepulse/internal/domain/models'
+import { Availability, type Change, type Measurement, type Overview } from '../../bindings/github.com/cn8001/reforgepulse/internal/domain/models'
 import { formatBytes, formatDuration, measured, show, since } from '../lib/format'
 
 const emit = defineEmits<{ elevated: [boolean] }>()
 const overview = ref<Overview | null>(null)
 const changes = ref<Change[]>([])
 const error = ref('')
-
 const loading = ref(false)
+
 async function load() {
   loading.value = true
   error.value = ''
@@ -27,88 +29,120 @@ async function load() {
     loading.value = false
   }
 }
-onMounted(load)
 
-const memory = computed(() => {
+// One sample a second, kept for a minute. Polling pauses while the window
+// is hidden so ReforgePulse costs nothing in the background.
+const history = ref({ cpu: [] as number[], gpu: [] as number[], memory: [] as number[] })
+const now = ref<Record<'cpu' | 'gpu' | 'memory', Measurement | null>>({ cpu: null, gpu: null, memory: null })
+let timer: ReturnType<typeof setInterval> | undefined
+async function sample() {
+  if (document.hidden) return
+  try {
+    const l = await GetLive()
+    for (const k of ['cpu', 'gpu', 'memory'] as const) {
+      now.value[k] = l[k]
+      if (l[k].status === Availability.Measured) history.value[k] = [...history.value[k], l[k].value].slice(-60)
+    }
+  } catch {} // a missed sample just leaves a gap
+}
+
+onMounted(() => {
+  load()
+  sample()
+  timer = setInterval(sample, 1000)
+})
+onBeforeUnmount(() => clearInterval(timer))
+
+const pct = (m: Measurement | null) => (m?.status === Availability.Measured ? Math.round(m.value).toString() : '--')
+
+const memoryDetail = computed(() => {
   const o = overview.value
-  if (!o || !measured(o.memoryTotal, o.memoryUsed)) return { ratio: null, detail: show(o?.memoryTotal, formatBytes) }
-  return {
-    ratio: o.memoryUsed.value / o.memoryTotal.value,
-    detail: `${formatBytes(o.memoryUsed.value)} of ${formatBytes(o.memoryTotal.value)}`,
-  }
+  if (!o || !measured(o.memoryTotal, o.memoryUsed)) return show(o?.memoryTotal, formatBytes)
+  return `${formatBytes(o.memoryUsed.value)} / ${formatBytes(o.memoryTotal.value)}`
 })
 
 const drives = computed(() =>
   (overview.value?.volumes ?? []).map((v) => {
-    if (!measured(v.total, v.free)) return { root: v.root, ratio: null, detail: show(v.total, formatBytes) }
-    const used = v.total.value - v.free.value
-    return { root: v.root, ratio: used / v.total.value, detail: `${formatBytes(v.free.value)} free of ${formatBytes(v.total.value)}` }
+    if (!measured(v.total, v.free)) return { root: v.root, ratio: null, used: '--', detail: show(v.total, formatBytes) }
+    const ratio = (v.total.value - v.free.value) / v.total.value
+    return { root: v.root, ratio, used: Math.round(ratio * 100).toString(), detail: `${formatBytes(v.free.value)} free of ${formatBytes(v.total.value)}` }
   }),
 )
 
 const statusTone: Record<string, string> = {
-  applied: 'text-accent',
-  failed: 'text-[color:var(--color-red-500)]',
+  applied: 'text-ok',
+  failed: 'text-bad',
   reverted: 'text-muted line-through',
-  started: 'text-[color:var(--color-amber-500)]',
+  started: 'text-warn',
 }
 </script>
 
 <template>
-  <section class="mx-auto flex max-w-3xl flex-col gap-6">
+  <section class="flex flex-col gap-5 p-6">
     <header class="flex flex-wrap items-end justify-between gap-4">
       <div>
-        <p class="text-xs font-medium tracking-wide text-muted uppercase">Not scanned yet</p>
-        <h1 class="mt-1 text-2xl font-semibold tracking-tight">Let's see how your PC is doing</h1>
+        <p class="caption">status · <span class="text-warn">not scanned</span></p>
+        <h1 class="mt-1 text-2xl font-semibold">System overview</h1>
       </div>
-      <button disabled title="Scanning arrives in the next version"
-              class="rounded-xl bg-accent px-6 py-3 font-semibold text-white shadow-lg shadow-accent/30 transition hover:brightness-110 active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-60">
-        Scan PC
-      </button>
-    </header>
-
-    <div v-if="overview && !overview.elevated"
-         class="flex items-center gap-3 rounded-xl border border-[color:var(--color-amber-500)]/40 bg-[color:var(--color-amber-500)]/10 px-4 py-3">
-      <Icon name="shield" />
-      Running without administrator rights; some checks are unavailable.
-    </div>
-
-    <p v-if="error" class="card text-[color:var(--color-red-500)]">Could not read this PC: {{ error }}</p>
-
-    <template v-else-if="overview">
-      <div class="flex items-center gap-3 text-muted">
-        <p class="min-w-0 flex-1 truncate">
-          {{ overview.os || 'Windows' }} · {{ overview.cpuModel || 'Unknown CPU' }} · {{ overview.logicalCpus }} threads ·
-          up {{ show(overview.uptime, formatDuration) }}
-        </p>
-        <button class="rounded-lg p-1.5 transition hover:bg-hover hover:text-fg disabled:opacity-50" title="Refresh"
-                :disabled="loading" @click="load">
+      <div class="flex items-center gap-2">
+        <button class="flex size-10 items-center justify-center border border-line bg-panel transition hover:bg-raised disabled:opacity-50"
+                title="Refresh" :disabled="loading" @click="load">
           <Icon name="refresh" :class="loading && 'animate-spin'" />
         </button>
+        <button disabled title="Scanning arrives in the next version"
+                class="h-10 bg-accent px-6 font-mono text-xs font-bold tracking-[.2em] text-white uppercase shadow-[0_0_24px_-6px_var(--accent)] transition hover:brightness-110 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60">
+          Scan PC
+        </button>
       </div>
+    </header>
 
-      <div class="card flex flex-col gap-5">
-        <Bar label="Memory" :ratio="memory.ratio" :detail="memory.detail" />
-        <Bar v-for="d in drives" :key="d.root" :label="`Drive ${d.root}`" :ratio="d.ratio" :detail="d.detail" />
-      </div>
-
-      <div class="card">
-        <h2 class="mb-3 flex items-center gap-2 font-semibold"><Icon name="history" /> Recent changes</h2>
-        <p v-if="!changes.length" class="text-muted">No changes made yet. Every change ReforgePulse makes will be listed here.</p>
-        <ul v-else class="flex flex-col divide-y divide-line">
-          <li v-for="c in changes.slice(0, 5)" :key="c.id" class="flex items-center gap-3 py-2">
-            <code class="font-mono text-xs text-muted">{{ c.id }}</code>
-            <span class="min-w-0 flex-1 truncate">{{ c.summary }}</span>
-            <span class="text-xs" :class="statusTone[c.status]">{{ c.status }}</span>
-            <span class="w-20 text-right text-xs text-muted">{{ since(c.at) }}</span>
-          </li>
-        </ul>
-      </div>
-    </template>
-
-    <div v-else class="flex flex-col gap-4" aria-busy="true">
-      <div class="h-4 w-2/3 animate-pulse rounded bg-hover" />
-      <div class="h-32 animate-pulse rounded-xl bg-hover" />
+    <div v-if="overview && !overview.elevated" class="flex items-center gap-3 border border-warn/40 bg-warn/10 px-4 py-2.5 font-mono text-xs text-warn">
+      <Icon name="shield" />
+      WARN: running without administrator rights; event logs and repairs are limited.
     </div>
+
+    <p v-if="error" class="border border-bad/40 bg-bad/10 px-4 py-3 font-mono text-xs text-bad">ERROR: {{ error }}</p>
+
+    <div class="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-3">
+      <Tile title="CPU" icon="cpu" tint="var(--accent)" :value="pct(now.cpu)" unit="%"
+            :sub="overview ? `${overview.cpuModel || 'unknown'} · ${overview.logicalCpus} threads` : ''">
+        <Sparkline :values="history.cpu" color="var(--accent)" />
+      </Tile>
+      <Tile title="GPU" icon="gpu" tint="var(--gpu)" :value="pct(now.gpu)" unit="%" :sub="overview?.gpuModel || 'unknown'">
+        <Sparkline :values="history.gpu" color="var(--gpu)" />
+      </Tile>
+      <Tile title="Memory" icon="memory" tint="var(--mem)" :value="pct(now.memory)" unit="%" :sub="memoryDetail">
+        <Sparkline :values="history.memory" color="var(--mem)" />
+      </Tile>
+      <Tile v-for="d in drives" :key="d.root" :title="`Disk ${d.root}`" icon="disk" tint="var(--disk)"
+            :value="d.used" unit="% used" :sub="d.detail">
+        <Bar :ratio="d.ratio" tint="var(--disk)" class="mt-auto" />
+      </Tile>
+      <Tile title="System" icon="system" tint="var(--muted)" :sub="overview?.os || ''">
+        <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 font-mono text-xs">
+          <dt class="text-muted">uptime</dt><dd>{{ overview ? show(overview.uptime, formatDuration) : '--' }}</dd>
+          <dt class="text-muted">access</dt>
+          <dd :class="overview?.elevated ? 'text-ok' : 'text-warn'">{{ overview ? (overview.elevated ? 'administrator' : 'limited') : '--' }}</dd>
+          <dt class="text-muted">network</dt><dd class="text-ok">none used</dd>
+        </dl>
+      </Tile>
+    </div>
+
+    <article class="border border-line bg-panel">
+      <header class="flex items-center gap-2 border-b border-line px-4 py-3">
+        <Icon name="history" />
+        <span class="caption">change log</span>
+        <span class="ml-auto font-mono text-[11px] text-muted">{{ changes.length }} entries</span>
+      </header>
+      <p v-if="!changes.length" class="px-4 py-4 font-mono text-xs text-muted">// no changes made yet. every change is logged here, git style, before it happens.</p>
+      <table v-else class="w-full font-mono text-xs">
+        <tr v-for="c in changes.slice(0, 8)" :key="c.id" class="border-b border-line last:border-0 hover:bg-hover">
+          <td class="w-24 px-4 py-2 text-accent">{{ c.id }}</td>
+          <td class="truncate py-2">{{ c.summary }}</td>
+          <td class="w-24 py-2" :class="statusTone[c.status]">{{ c.status }}</td>
+          <td class="w-28 px-4 py-2 text-right text-muted">{{ since(c.at) }}</td>
+        </tr>
+      </table>
+    </article>
   </section>
 </template>

@@ -1,43 +1,90 @@
 @import "tailwindcss";
 
-/* Colours come from Windows: CSS system colours follow the light or dark
-   theme, and --accent is set at runtime from the Windows accent colour. */
+/* Dark by default, light on request (data-theme="light"). --accent is the
+   Windows accent colour, set at runtime; each resource keeps its own tint so
+   the tiles read apart at a glance. */
 :root {
-  color-scheme: light dark;
+  color-scheme: dark;
   --accent: rgb(0 120 212);
+  --bg: rgb(19 22 28 / 0.84); /* lets the dark Mica through */
+  --panel: #1b1f27;
+  --raised: #222733;
+  --fg: #e4e7ee;
+  --muted: #8a93a4;
+  --line: rgb(255 255 255 / 0.08);
+  --hover: rgb(255 255 255 / 0.05);
+  --grid: rgb(255 255 255 / 0.03);
+  --gpu: #a78bfa;
+  --mem: #22d3ee;
+  --disk: #fbbf24;
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --bad: #f87171;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #eceef3;
+  --panel: #ffffff;
+  --raised: #f6f7fa;
+  --fg: #1a1e26;
+  --muted: #5b6474;
+  --line: rgb(0 0 0 / 0.09);
+  --hover: rgb(0 0 0 / 0.045);
+  --grid: rgb(0 0 0 / 0.035);
+  --gpu: #7c3aed;
+  --mem: #0891b2;
+  --disk: #d97706;
+  --ok: #15803d;
+  --warn: #b45309;
+  --bad: #dc2626;
 }
 
 @theme inline {
   --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
-  --font-mono: "Cascadia Mono", Consolas, ui-monospace, monospace;
+  --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
   --color-accent: var(--accent);
-  --color-fg: CanvasText;
-  --color-muted: color-mix(in srgb, CanvasText 60%, transparent);
-  --color-line: color-mix(in srgb, CanvasText 10%, transparent);
-  --color-surface: color-mix(in srgb, Canvas 65%, transparent);
-  --color-hover: color-mix(in srgb, CanvasText 6%, transparent);
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-raised: var(--raised);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-hover: var(--hover);
+  --color-gpu: var(--gpu);
+  --color-mem: var(--mem);
+  --color-disk: var(--disk);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
 }
 
-/* Transparent so the window's Mica material shows through. */
 html,
 body,
 #app {
   height: 100%;
   margin: 0;
-  background: transparent;
-  color: CanvasText;
+  background: var(--bg);
+  color: var(--fg);
   user-select: none;
 }
 
 @layer components {
-  .card {
-    @apply rounded-xl border border-line bg-surface p-5 backdrop-blur-xl;
+  .caption {
+    @apply font-mono text-[11px] tracking-[.08em] text-muted uppercase;
+  }
+  /* The oscilloscope grid from the logo, faint behind the content. */
+  .scope {
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 32px 32px;
   }
 }
 
 .page-enter-active,
 .page-leave-active {
-  transition: opacity 160ms ease, transform 200ms ease;
+  transition: opacity 120ms linear, transform 160ms ease-out;
 }
 .page-enter-from {
   opacity: 0;
@@ -45,5 +92,4 @@ body,
 }
 .page-leave-to {
   opacity: 0;
-  transform: translateY(-4px);
 }

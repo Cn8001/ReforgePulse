@@ -1,23 +1,21 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 
-const props = defineProps<{ label: string; detail: string; ratio: number | null }>()
-// Starts at zero so the bar grows in when the page opens.
-const width = ref(0)
-onMounted(() => requestAnimationFrame(() => (width.value = Math.min(1, Math.max(0, props.ratio ?? 0)))))
+// A segmented meter, like a hardware gauge; it fills in when shown.
+const props = defineProps<{ ratio: number | null; tint: string }>()
+const fill = ref(0)
+onMounted(() => requestAnimationFrame(() => (fill.value = Math.min(1, Math.max(0, props.ratio ?? 0)))))
 </script>
 
 <template>
-  <div>
-    <div class="mb-1.5 flex items-baseline justify-between gap-3">
-      <span class="font-medium">{{ label }}</span>
-      <span class="text-xs text-muted tabular-nums">{{ detail }}</span>
-    </div>
-    <div class="h-1.5 overflow-hidden rounded-full bg-hover">
-      <div v-if="ratio !== null"
-           class="h-full rounded-full transition-[width] duration-700 ease-out"
-           :class="width > 0.9 ? 'bg-[color:var(--color-red-500)]' : 'bg-accent'"
-           :style="{ width: `${width * 100}%` }" />
-    </div>
+  <div class="meter h-2.5 bg-hover">
+    <div v-if="ratio !== null" class="h-full transition-[width] duration-700 ease-out"
+         :style="{ width: `${fill * 100}%`, background: fill > 0.9 ? 'var(--bad)' : tint }" />
   </div>
 </template>
+
+<style scoped>
+.meter {
+  mask: repeating-linear-gradient(90deg, #000 0 5px, transparent 5px 7px);
+}
+</style>

@@ -9,6 +9,13 @@ export const icons = {
   check: 'M5 12l5 5L20 7',
   close: 'M6 6l12 12M18 6 6 18',
   refresh: 'M20 11a8 8 0 0 0-14.7-4.3L3 9M3 4v5h5M4 13a8 8 0 0 0 14.7 4.3L21 15M21 20v-5h-5',
+  cpu: 'M9 3v2M15 3v2M9 19v2M15 19v2M3 9h2M3 15h2M19 9h2M19 15h2M6 5h12v14H6zM9.5 9.5h5v5h-5z',
+  gpu: 'M3 7h18v10H3zM7 17v3M17 17v3M10 9.5a2.5 2.5 0 1 0 0 5a2.5 2.5 0 1 0 0-5M15 10h3M15 14h3',
+  memory: 'M4 7h16v10H4zM8 7v10M12 7v10M16 7v10M6 17v3M18 17v3',
+  disk: 'M4 6h16v12H4zM4 14h16M16.5 16h.01',
+  system: 'M4 5h16v11H4zM9 20h6M12 16v4',
+  sun: 'M12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
+  moon: 'M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z',
   history: 'M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2',
 } as const
 
