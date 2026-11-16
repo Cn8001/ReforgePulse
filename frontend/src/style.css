@@ -1,7 +1,49 @@
+@import "tailwindcss";
+
+/* Colours come from Windows: CSS system colours follow the light or dark
+   theme, and --accent is set at runtime from the Windows accent colour. */
 :root {
   color-scheme: light dark;
-  font-family: system-ui, 'Segoe UI', sans-serif;
+  --accent: rgb(0 120 212);
 }
-body {
+
+@theme inline {
+  --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", Consolas, ui-monospace, monospace;
+  --color-accent: var(--accent);
+  --color-fg: CanvasText;
+  --color-muted: color-mix(in srgb, CanvasText 60%, transparent);
+  --color-line: color-mix(in srgb, CanvasText 10%, transparent);
+  --color-surface: color-mix(in srgb, Canvas 65%, transparent);
+  --color-hover: color-mix(in srgb, CanvasText 6%, transparent);
+}
+
+/* Transparent so the window's Mica material shows through. */
+html,
+body,
+#app {
+  height: 100%;
   margin: 0;
+  background: transparent;
+  color: CanvasText;
+  user-select: none;
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-line bg-surface p-5 backdrop-blur-xl;
+  }
+}
+
+.page-enter-active,
+.page-leave-active {
+  transition: opacity 160ms ease, transform 200ms ease;
+}
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }

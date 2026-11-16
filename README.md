@@ -1,6 +1,6 @@
 # ReforgePulse
 
-A simple Windows app that helps bring a PC back to how it ran when it was new:
+A simple Desktop app that helps bring a PC back to how it ran when it was new:
 
 - **Cleanup** finds what takes up space and deletes what is not needed, only after you approve it.
 - **Fix Issues** analyses crashes and bottlenecks and explains them in plain language.
