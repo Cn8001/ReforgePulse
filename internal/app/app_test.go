@@ -15,10 +15,11 @@ type fakeReader struct {
 }
 
 func (f fakeReader) Overview(context.Context) (domain.Overview, error) { return f.o, f.err }
+func (f fakeReader) Live(context.Context) (domain.Live, error)         { return domain.Live{}, f.err }
 
 func TestSystemService_PassesOverviewThrough(t *testing.T) {
 	// Arrange
-	s := NewSystemService(fakeReader{o: domain.Overview{OS: "Windows 11"}}, tasks.New(1, func(tasks.Status) {}))
+	s := NewSystemService(fakeReader{o: domain.Overview{OS: "Windows 11"}}, fakeReader{}, tasks.New(1, func(tasks.Status) {}))
 
 	// Act
 	o, err := s.GetOverview(context.Background())
@@ -32,7 +33,7 @@ func TestSystemService_PassesOverviewThrough(t *testing.T) {
 func TestSystemService_WrapsErrors(t *testing.T) {
 	// Arrange
 	cause := errors.New("boom")
-	s := NewSystemService(fakeReader{err: cause}, tasks.New(1, func(tasks.Status) {}))
+	s := NewSystemService(fakeReader{err: cause}, fakeReader{}, tasks.New(1, func(tasks.Status) {}))
 
 	// Act
 	_, err := s.GetOverview(context.Background())
@@ -90,7 +91,7 @@ func TestSystemService_RunsAsTask(t *testing.T) {
 	// Arrange
 	var titles []string
 	runner := tasks.New(1, func(s tasks.Status) { titles = append(titles, s.Title) })
-	s := NewSystemService(fakeReader{}, runner)
+	s := NewSystemService(fakeReader{}, fakeReader{}, runner)
 
 	// Act
 	_, err := s.GetOverview(context.Background())

@@ -11,6 +11,7 @@ import (
 // system: agents may suggest a change, the user approves it in the window.
 type Deps struct {
 	System  app.OverviewReader
+	Live    app.LiveReader
 	History app.ChangeLog
 }
 
@@ -24,6 +25,14 @@ func Tools(d Deps) []Tool {
 			Schema:      noArgs,
 			Call: func(ctx context.Context, _ json.RawMessage) (any, error) {
 				return d.System.Overview(ctx)
+			},
+		},
+		{
+			Name:        "get_live_load",
+			Description: "Current CPU, GPU (3D engines) and memory load in percent. CPU and GPU compare against the previous call, so call twice a second apart for a fresh reading.",
+			Schema:      noArgs,
+			Call: func(ctx context.Context, _ json.RawMessage) (any, error) {
+				return d.Live.Live(ctx)
 			},
 		},
 		{

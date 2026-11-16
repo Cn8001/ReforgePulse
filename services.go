@@ -25,6 +25,7 @@ type backend struct {
 
 	overview *system.Inspector
 	journal  *journal.Journal
+	sampler  *windows.Sampler
 }
 
 // maxTasks bounds how much work runs at once, so a scan never starves the
@@ -40,15 +41,17 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 	if err != nil {
 		return nil, fmt.Errorf("find executable: %w", err)
 	}
-	overview := system.New(host, host)
+	sampler := windows.NewSampler()
+	overview := system.New(host, host, sampler)
 	runner := tasks.New(maxTasks, notify)
 	return &backend{
-		System:   app.NewSystemService(overview, runner),
+		System:   app.NewSystemService(overview, overview, runner),
 		Tasks:    app.NewTaskService(runner),
 		History:  app.NewHistoryService(j),
 		Agent:    app.NewAgentService(exe),
 		overview: overview,
 		journal:  j,
+		sampler:  sampler,
 	}, nil
 }
 
@@ -64,8 +67,11 @@ func (b *backend) services() []application.Service {
 }
 
 func (b *backend) tools() []mcp.Tool {
-	return mcp.Tools(mcp.Deps{System: b.overview, History: b.journal})
+	return mcp.Tools(mcp.Deps{System: b.overview, Live: b.overview, History: b.journal})
 }
+
+// Close releases what the backend holds open.
+func (b *backend) Close() { b.sampler.Close() }
 
 // dataDir is the one folder ReforgePulse keeps everything in, as bmeditor
 // does: %LOCALAPPDATA%\ReforgePulse, which os.UserCacheDir answers on

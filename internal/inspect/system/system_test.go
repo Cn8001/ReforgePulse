@@ -19,6 +19,7 @@ func (f fakeSource) OSName(context.Context) (string, error) { return "Windows 11
 func (f fakeSource) CPU(context.Context) (string, int, error) {
 	return "Test CPU", 16, f.err
 }
+func (f fakeSource) GPU(context.Context) (string, error) { return "Test GPU", f.err }
 func (f fakeSource) Memory(context.Context) (uint64, uint64, error) {
 	if f.memErr != nil {
 		return 0, 0, f.memErr
@@ -30,6 +31,11 @@ func (f fakeSource) Volumes(context.Context) ([]platform.Volume, error) {
 	return []platform.Volume{{Root: `C:\`, Total: 1000, Free: 400}}, f.err
 }
 
+type fakeSampler struct{ gpuErr error }
+
+func (fakeSampler) CPULoad(context.Context) (float64, error)   { return 37.5, nil }
+func (f fakeSampler) GPULoad(context.Context) (float64, error) { return 12, f.gpuErr }
+
 type fakePriv bool
 
 func (p fakePriv) Elevated() bool          { return bool(p) }
@@ -38,7 +44,7 @@ func (p fakePriv) Relaunch([]string) error { return nil }
 var fixed = time.Date(2026, 11, 16, 12, 0, 0, 0, time.UTC)
 
 func newTest(src platform.Source) *Inspector {
-	c := New(src, fakePriv(true))
+	c := New(src, fakePriv(true), fakeSampler{})
 	c.now = func() time.Time { return fixed }
 	return c
 }
@@ -112,5 +118,28 @@ func TestInspector_CancelledContext(t *testing.T) {
 	// Assert
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("err = %v, want context.Canceled", err)
+	}
+}
+
+func TestInspector_Live(t *testing.T) {
+	// Arrange
+	c := newTest(fakeSource{})
+	c.sampler = fakeSampler{gpuErr: errors.ErrUnsupported}
+
+	// Act
+	l, err := c.Live(context.Background())
+
+	// Assert
+	if err != nil {
+		t.Fatal(err)
+	}
+	if l.CPU.Value != 37.5 || l.CPU.Unit != domain.Percent {
+		t.Fatalf("cpu = %+v", l.CPU)
+	}
+	if l.Memory.Value != 75 {
+		t.Fatalf("memory = %+v, want 75%%", l.Memory)
+	}
+	if l.GPU.Status != domain.Unsupported {
+		t.Fatalf("gpu = %+v, want unsupported", l.GPU)
 	}
 }

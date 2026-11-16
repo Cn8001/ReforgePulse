@@ -19,6 +19,7 @@ type Unit string
 const (
 	Bytes   Unit = "bytes"
 	Seconds Unit = "seconds"
+	Percent Unit = "percent"
 )
 
 // Measurement is one observed value with where and when it came from, so a

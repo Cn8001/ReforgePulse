@@ -14,13 +14,28 @@ type OverviewReader interface {
 	Overview(ctx context.Context) (domain.Overview, error)
 }
 
+// LiveReader answers the current load. It is polled every second, so it
+// runs outside the task runner to keep the status bar quiet.
+type LiveReader interface {
+	Live(ctx context.Context) (domain.Live, error)
+}
+
 type SystemService struct {
 	reader OverviewReader
+	live   LiveReader
 	runner TaskRunner
 }
 
-func NewSystemService(r OverviewReader, runner TaskRunner) *SystemService {
-	return &SystemService{reader: r, runner: runner}
+func NewSystemService(r OverviewReader, live LiveReader, runner TaskRunner) *SystemService {
+	return &SystemService{reader: r, live: live, runner: runner}
+}
+
+func (s *SystemService) GetLive(ctx context.Context) (domain.Live, error) {
+	l, err := s.live.Live(ctx)
+	if err != nil {
+		return domain.Live{}, fmt.Errorf("get live load: %w", err)
+	}
+	return l, nil
 }
 
 func (s *SystemService) GetOverview(ctx context.Context) (domain.Overview, error) {

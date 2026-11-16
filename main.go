@@ -48,6 +48,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	defer b.Close()
 	if mcpMode {
 		// stdout carries the protocol, so the log goes to stderr only.
 		log.SetOutput(os.Stderr)
@@ -75,8 +76,8 @@ func runWindow(b *backend, dir string, emit *func(tasks.Status)) error {
 	// The accent comes from a.Env, which exists only once the app does.
 	a.RegisterService(application.NewService(app.NewThemeService(a.Env)))
 
-	// Translucent background plus Mica lets the window take the Windows 11
-	// material and theme instead of a colour of our own.
+	// Mica gives the window the Windows 11 material. It starts dark, the
+	// default theme; light mode paints its own opaque background over it.
 	a.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:          "ReforgePulse",
 		Width:          1100,
@@ -84,7 +85,7 @@ func runWindow(b *backend, dir string, emit *func(tasks.Status)) error {
 		MinWidth:       760,
 		MinHeight:      520,
 		BackgroundType: application.BackgroundTypeTranslucent,
-		Windows:        application.WindowsWindow{BackdropType: application.Mica},
+		Windows:        application.WindowsWindow{BackdropType: application.Mica, Theme: application.Dark},
 		URL:            "/",
 	})
 	return a.Run()
