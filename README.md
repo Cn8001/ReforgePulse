@@ -2,11 +2,11 @@
 
 <h1 align="center">ReforgePulse</h1>
 
-Crash and slowdown diagnostics for Windows, with cleanup that asks first:
-a desktop app on Wails v3, Vue and Go that reads what Windows already
-records (event logs, WHEA, minidumps, counters, sensors) and says which part
-of the PC it points at. It runs elevated; every change goes through a
-confirmation and into a git-style change log.
+Crash and slowdown diagnostics, with cleanup that asks first: a desktop app
+on Wails v3, Vue and Go, currently for Windows. It reads what the system
+already records (event logs, WHEA, minidumps, counters, sensors) and says
+which part of the PC it points at. It runs elevated; every change goes
+through a confirmation and into a git-style change log.
 
 - **Issues**: Scan PC reads 30 days of stop errors (WER 1001), unexpected
   restarts (Kernel-Power 41), WHEA errors with their APIC IDs, display
@@ -70,9 +70,10 @@ make release            # dist/: release assets and SHA256SUMS for the updater
 make version V=1.2.3    # the version lives in build/config.yml only
 ```
 
-Builds from Windows or WSL with Go, Node and `wails3`. The app is Windows
-only; the packages under `internal/` other than `platform/windows` build and
-test anywhere.
+Builds from Windows or WSL with Go, Node and `wails3`. Windows is the only
+platform implemented so far: OS access sits behind the interfaces in
+`internal/platform`, so the rest of `internal/` builds and tests anywhere and
+another OS is a new package next to `platform/windows`.
 
 Data is in `%LOCALAPPDATA%\ReforgePulse`: `journal.jsonl` (the change
 log), `webview/` and the debugger's `symbols/` cache. The only network use
