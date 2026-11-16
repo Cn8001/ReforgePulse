@@ -7,19 +7,27 @@ import { List } from '../../bindings/github.com/cn8001/reforgepulse/internal/app
 import type { Change, Overview } from '../../bindings/github.com/cn8001/reforgepulse/internal/domain/models'
 import { formatBytes, formatDuration, measured, show, since } from '../lib/format'
 
+const emit = defineEmits<{ elevated: [boolean] }>()
 const overview = ref<Overview | null>(null)
 const changes = ref<Change[]>([])
 const error = ref('')
 
-onMounted(async () => {
+const loading = ref(false)
+async function load() {
+  loading.value = true
+  error.value = ''
   try {
     const [o, c] = await Promise.all([GetOverview(), List()])
     overview.value = o
     changes.value = c ?? []
+    emit('elevated', o.elevated)
   } catch (e) {
     error.value = String(e)
+  } finally {
+    loading.value = false
   }
-})
+}
+onMounted(load)
 
 const memory = computed(() => {
   const o = overview.value
@@ -68,10 +76,16 @@ const statusTone: Record<string, string> = {
     <p v-if="error" class="card text-[color:var(--color-red-500)]">Could not read this PC: {{ error }}</p>
 
     <template v-else-if="overview">
-      <p class="text-muted">
-        {{ overview.os || 'Windows' }} · {{ overview.cpuModel || 'Unknown CPU' }} · {{ overview.logicalCpus }} threads ·
-        up {{ show(overview.uptime, formatDuration) }}
-      </p>
+      <div class="flex items-center gap-3 text-muted">
+        <p class="min-w-0 flex-1 truncate">
+          {{ overview.os || 'Windows' }} · {{ overview.cpuModel || 'Unknown CPU' }} · {{ overview.logicalCpus }} threads ·
+          up {{ show(overview.uptime, formatDuration) }}
+        </p>
+        <button class="rounded-lg p-1.5 transition hover:bg-hover hover:text-fg disabled:opacity-50" title="Refresh"
+                :disabled="loading" @click="load">
+          <Icon name="refresh" :class="loading && 'animate-spin'" />
+        </button>
+      </div>
 
       <div class="card flex flex-col gap-5">
         <Bar label="Memory" :ratio="memory.ratio" :detail="memory.detail" />

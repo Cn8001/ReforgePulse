@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/cn8001/reforgepulse/internal/domain"
+	"github.com/cn8001/reforgepulse/internal/tasks"
 )
 
 type fakeReader struct {
@@ -17,7 +18,7 @@ func (f fakeReader) Overview(context.Context) (domain.Overview, error) { return 
 
 func TestSystemService_PassesOverviewThrough(t *testing.T) {
 	// Arrange
-	s := NewSystemService(fakeReader{o: domain.Overview{OS: "Windows 11"}})
+	s := NewSystemService(fakeReader{o: domain.Overview{OS: "Windows 11"}}, tasks.New(1, func(tasks.Status) {}))
 
 	// Act
 	o, err := s.GetOverview(context.Background())
@@ -31,7 +32,7 @@ func TestSystemService_PassesOverviewThrough(t *testing.T) {
 func TestSystemService_WrapsErrors(t *testing.T) {
 	// Arrange
 	cause := errors.New("boom")
-	s := NewSystemService(fakeReader{err: cause})
+	s := NewSystemService(fakeReader{err: cause}, tasks.New(1, func(tasks.Status) {}))
 
 	// Act
 	_, err := s.GetOverview(context.Background())
@@ -82,5 +83,20 @@ func TestHistoryService_ListsAndWraps(t *testing.T) {
 	}
 	if !errors.Is(badErr, cause) {
 		t.Fatalf("err = %v, want it to wrap %v", badErr, cause)
+	}
+}
+
+func TestSystemService_RunsAsTask(t *testing.T) {
+	// Arrange
+	var titles []string
+	runner := tasks.New(1, func(s tasks.Status) { titles = append(titles, s.Title) })
+	s := NewSystemService(fakeReader{}, runner)
+
+	// Act
+	_, err := s.GetOverview(context.Background())
+
+	// Assert
+	if err != nil || len(titles) == 0 || titles[0] != "Reading system overview" {
+		t.Fatalf("titles = %v, err = %v", titles, err)
 	}
 }

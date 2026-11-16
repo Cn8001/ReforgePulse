@@ -4,6 +4,7 @@ import Icon from './components/Icon.vue'
 import HomeView from './components/HomeView.vue'
 import ComingSoon from './components/ComingSoon.vue'
 import AgentPanel from './components/AgentPanel.vue'
+import StatusBar from './components/StatusBar.vue'
 import type { IconName } from './lib/icons'
 
 type Page = 'home' | 'cleanup' | 'fix'
@@ -14,6 +15,7 @@ const pages: { id: Page; label: string; icon: IconName; hint: string }[] = [
 ]
 const page = ref<Page>('home')
 const agentOpen = ref(false)
+const elevated = ref<boolean | null>(null) // set by Home once the overview arrives
 const activeIndex = computed(() => pages.findIndex((p) => p.id === page.value))
 
 // Ctrl+1..3 switch pages, Escape closes the agent panel.
@@ -73,10 +75,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
       </button>
     </aside>
 
-    <main class="min-w-0 flex-1 overflow-y-auto p-3 pl-0">
+    <div class="flex min-w-0 flex-1 flex-col">
+    <main class="min-h-0 flex-1 overflow-y-auto p-3 pb-0 pl-0">
       <div class="min-h-full rounded-2xl border border-line bg-surface p-8 backdrop-blur-xl">
         <Transition name="page" mode="out-in">
-          <HomeView v-if="page === 'home'" />
+          <HomeView v-if="page === 'home'" @elevated="elevated = $event" />
           <ComingSoon v-else-if="page === 'cleanup'" key="cleanup" icon="cleanup" title="Cleanup"
                       text="Find what takes up space and remove what is not needed, always after you approve it." />
           <ComingSoon v-else key="fix" icon="fix" title="Fix Issues"
@@ -84,6 +87,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         </Transition>
       </div>
     </main>
+    <StatusBar :elevated="elevated" />
+    </div>
 
     <AgentPanel :open="agentOpen" @close="agentOpen = false" />
   </div>

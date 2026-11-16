@@ -15,6 +15,7 @@ import (
 	"github.com/cn8001/reforgepulse/internal/mcp"
 	"github.com/cn8001/reforgepulse/internal/platform"
 	"github.com/cn8001/reforgepulse/internal/platform/windows"
+	"github.com/cn8001/reforgepulse/internal/tasks"
 )
 
 //go:embed all:frontend/dist
@@ -36,7 +37,14 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	b, err := newBackend(host, dir)
+	// The window exists only after the backend, so task updates go through
+	// emit, which runWindow points at the window's event bus.
+	var emit func(tasks.Status)
+	b, err := newBackend(host, dir, func(s tasks.Status) {
+		if emit != nil {
+			emit(s)
+		}
+	})
 	if err != nil {
 		return err
 	}
@@ -47,10 +55,14 @@ func run() error {
 		defer stop()
 		return mcp.Serve(ctx, os.Stdin, os.Stdout, b.tools())
 	}
-	return runWindow(b, dir)
+	return runWindow(b, dir, &emit)
 }
 
-func runWindow(b *backend, dir string) error {
+// taskEvent carries task updates to the status bar.
+const taskEvent = "task"
+
+func runWindow(b *backend, dir string, emit *func(tasks.Status)) error {
+	application.RegisterEvent[tasks.Status](taskEvent)
 	a := application.New(application.Options{
 		Name:        "ReforgePulse",
 		Description: "Finds what slows down or crashes a Windows PC and cleans up what is not needed",
@@ -58,6 +70,8 @@ func runWindow(b *backend, dir string) error {
 		Assets:      application.AssetOptions{Handler: application.AssetFileServerFS(assets)},
 		Windows:     application.WindowsOptions{WebviewUserDataPath: filepath.Join(dir, "webview")},
 	})
+	*emit = func(s tasks.Status) { a.Event.Emit(taskEvent, s) }
+
 	// The accent comes from a.Env, which exists only once the app does.
 	a.RegisterService(application.NewService(app.NewThemeService(a.Env)))
 

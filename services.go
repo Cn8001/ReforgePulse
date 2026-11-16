@@ -12,6 +12,7 @@ import (
 	"github.com/cn8001/reforgepulse/internal/journal"
 	"github.com/cn8001/reforgepulse/internal/mcp"
 	"github.com/cn8001/reforgepulse/internal/platform/windows"
+	"github.com/cn8001/reforgepulse/internal/tasks"
 )
 
 // backend is every service, built once and shared by the window and the MCP
@@ -20,12 +21,17 @@ type backend struct {
 	System  *app.SystemService
 	History *app.HistoryService
 	Agent   *app.AgentService
+	Tasks   *app.TaskService
 
 	overview *system.Inspector
 	journal  *journal.Journal
 }
 
-func newBackend(host windows.System, dataDir string) (*backend, error) {
+// maxTasks bounds how much work runs at once, so a scan never starves the
+// PC it is diagnosing.
+const maxTasks = 4
+
+func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*backend, error) {
 	j, err := journal.Open(dataDir)
 	if err != nil {
 		return nil, fmt.Errorf("open change log: %w", err)
@@ -35,8 +41,10 @@ func newBackend(host windows.System, dataDir string) (*backend, error) {
 		return nil, fmt.Errorf("find executable: %w", err)
 	}
 	overview := system.New(host, host)
+	runner := tasks.New(maxTasks, notify)
 	return &backend{
-		System:   app.NewSystemService(overview),
+		System:   app.NewSystemService(overview, runner),
+		Tasks:    app.NewTaskService(runner),
 		History:  app.NewHistoryService(j),
 		Agent:    app.NewAgentService(exe),
 		overview: overview,
@@ -51,6 +59,7 @@ func (b *backend) services() []application.Service {
 		application.NewService(b.System),
 		application.NewService(b.History),
 		application.NewService(b.Agent),
+		application.NewService(b.Tasks),
 	}
 }
 

@@ -8,6 +8,7 @@ export const icons = {
   copy: 'M9 9h11v11H9zM5 15H4V4h11v1',
   check: 'M5 12l5 5L20 7',
   close: 'M6 6l12 12M18 6 6 18',
+  refresh: 'M20 11a8 8 0 0 0-14.7-4.3L3 9M3 4v5h5M4 13a8 8 0 0 0 14.7 4.3L21 15M21 20v-5h-5',
   history: 'M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2',
 } as const
 
