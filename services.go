@@ -8,7 +8,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/cn8001/reforgepulse/internal/app"
-	"github.com/cn8001/reforgepulse/internal/collectors/system"
+	"github.com/cn8001/reforgepulse/internal/inspect/system"
 	"github.com/cn8001/reforgepulse/internal/journal"
 	"github.com/cn8001/reforgepulse/internal/mcp"
 	"github.com/cn8001/reforgepulse/internal/platform/windows"
@@ -21,7 +21,7 @@ type backend struct {
 	History *app.HistoryService
 	Agent   *app.AgentService
 
-	overview *system.Collector
+	overview *system.Inspector
 	journal  *journal.Journal
 }
 

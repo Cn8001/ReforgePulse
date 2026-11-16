@@ -37,13 +37,13 @@ func (p fakePriv) Relaunch([]string) error { return nil }
 
 var fixed = time.Date(2026, 11, 16, 12, 0, 0, 0, time.UTC)
 
-func newTest(src platform.Source) *Collector {
+func newTest(src platform.Source) *Inspector {
 	c := New(src, fakePriv(true))
 	c.now = func() time.Time { return fixed }
 	return c
 }
 
-func TestCollector_FullReading(t *testing.T) {
+func TestInspector_FullReading(t *testing.T) {
 	// Arrange
 	c := newTest(fakeSource{})
 
@@ -65,7 +65,7 @@ func TestCollector_FullReading(t *testing.T) {
 	}
 }
 
-func TestCollector_MemoryErrorIsUnknown(t *testing.T) {
+func TestInspector_MemoryErrorIsUnknown(t *testing.T) {
 	// Arrange
 	c := newTest(fakeSource{memErr: errors.New("boom")})
 
@@ -84,7 +84,7 @@ func TestCollector_MemoryErrorIsUnknown(t *testing.T) {
 	}
 }
 
-func TestCollector_UnsupportedSource(t *testing.T) {
+func TestInspector_UnsupportedSource(t *testing.T) {
 	// Arrange
 	c := newTest(fakeSource{err: errors.ErrUnsupported})
 
@@ -100,7 +100,7 @@ func TestCollector_UnsupportedSource(t *testing.T) {
 	}
 }
 
-func TestCollector_CancelledContext(t *testing.T) {
+func TestInspector_CancelledContext(t *testing.T) {
 	// Arrange
 	c := newTest(fakeSource{})
 	ctx, cancel := context.WithCancel(context.Background())

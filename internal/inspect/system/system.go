@@ -1,4 +1,5 @@
-// Package system turns raw platform readings into the system overview.
+// Package system inspects this PC locally and turns raw platform readings
+// into the system overview. Nothing it reads leaves the machine.
 package system
 
 import (
@@ -11,19 +12,19 @@ import (
 	"github.com/cn8001/reforgepulse/internal/platform"
 )
 
-type Collector struct {
+type Inspector struct {
 	src  platform.Source
 	priv platform.Privileges
 	now  func() time.Time
 }
 
-func New(src platform.Source, priv platform.Privileges) *Collector {
-	return &Collector{src: src, priv: priv, now: time.Now}
+func New(src platform.Source, priv platform.Privileges) *Inspector {
+	return &Inspector{src: src, priv: priv, now: time.Now}
 }
 
 // Overview reads every fact it can. A failed reading is marked missing
 // rather than failing the whole overview; only cancellation is an error.
-func (c *Collector) Overview(ctx context.Context) (domain.Overview, error) {
+func (c *Inspector) Overview(ctx context.Context) (domain.Overview, error) {
 	at := c.now()
 	o := domain.Overview{Elevated: c.priv.Elevated()}
 
