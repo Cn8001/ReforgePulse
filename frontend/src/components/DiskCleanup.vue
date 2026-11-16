@@ -55,46 +55,43 @@ onMounted(analyse)
 </script>
 
 <template>
-  <div class="flex flex-col gap-5">
-    <p v-if="error" class="border border-bad/40 bg-bad/10 px-4 py-3 font-mono text-xs text-bad">ERROR: {{ error }}</p>
+  <div class="flex flex-col gap-4">
+    <p v-if="error" class="notice border-bad/40 bg-bad/10 text-bad">{{ error }}</p>
+    <p v-if="result" class="notice border-ok/40 bg-ok/10">
+      Freed <b>{{ formatBytes(result.freed) }}</b> by deleting {{ result.deleted }} files.
+      <template v-if="result.skipped">{{ result.skipped }} files were in use and left alone.</template>
+      Recorded in the change log as <span class="font-mono text-xs">{{ result.changeId }}</span>.
+    </p>
 
-      <div v-if="result" class="flex items-center gap-3 border border-ok/40 bg-ok/10 px-4 py-3 font-mono text-xs text-ok">
-        <Icon name="check" />
-        freed {{ formatBytes(result.freed) }} · {{ result.deleted }} files deleted · {{ result.skipped }} skipped (in use) · logged as {{ result.changeId }}
-      </div>
-
-      <div class="grid grid-cols-3 border border-line bg-panel font-mono">
-        <div class="border-r border-line px-4 py-3"><p class="caption">reclaimable</p><p class="mt-1 text-2xl text-disk tabular-nums">{{ areas ? formatBytes(totalBytes) : '--' }}</p></div>
-        <div class="border-r border-line px-4 py-3"><p class="caption">selected</p><p class="mt-1 text-2xl tabular-nums">{{ areas ? formatBytes(selectedBytes) : '--' }}</p></div>
-        <div class="flex items-center justify-end gap-2 px-4 py-3">
-          <button class="flex h-9 items-center gap-2 border border-line px-3 font-mono text-xs transition hover:bg-hover disabled:opacity-50"
-                  :disabled="analysing" @click="analyse">
-            <Icon name="refresh" class="size-3.5!" :class="analysing && 'animate-spin'" />analyse
+    <div class="panel">
+      <header class="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
+        <p>
+          <template v-if="areas"><b class="readout text-[22px]">{{ formatBytes(totalBytes) }}</b> can be freed, <b>{{ formatBytes(selectedBytes) }}</b> selected.</template>
+          <template v-else>Measuring what can be freed…</template>
+        </p>
+        <div class="flex gap-2">
+          <button class="btn" :disabled="analysing" @click="analyse">
+            <Icon name="refresh" class="size-4!" :class="analysing && 'animate-spin'" />Measure again
           </button>
-          <button class="h-9 bg-accent px-4 font-mono text-xs font-bold text-white transition hover:brightness-110 disabled:opacity-50"
-                  :disabled="!selectedBytes || cleaning" @click="confirmClean = true">clean selected</button>
+          <button class="btn-primary" :disabled="!selectedBytes || cleaning" @click="confirmClean = true">Clean selected</button>
         </div>
-      </div>
+      </header>
+      <label v-for="a in areas ?? []" :key="a.id" class="flex cursor-pointer items-center gap-4 border-b border-line px-4 py-3 transition last:border-0 hover:bg-hover">
+        <input type="checkbox" class="size-4 accent-[var(--accent)]" :checked="picked.has(a.id)" :disabled="!a.bytes" @change="pick(a.id)" />
+        <span class="min-w-0 flex-1">
+          <span class="block font-medium">{{ a.name }}</span>
+          <span class="block truncate text-xs text-muted">{{ a.note }}</span>
+        </span>
+        <span class="w-24 text-right text-xs text-muted tabular-nums">{{ a.files.toLocaleString() }} files</span>
+        <span class="w-24 text-right tabular-nums" :class="!a.bytes && 'text-muted'">{{ formatBytes(a.bytes) }}</span>
+      </label>
+    </div>
 
-      <div class="border border-line bg-panel">
-        <p v-if="!areas" class="px-4 py-6 font-mono text-xs text-muted">// analysing…</p>
-        <label v-for="a in areas ?? []" :key="a.id"
-               class="flex cursor-pointer items-center gap-4 border-b border-line px-4 py-3 transition last:border-0 hover:bg-hover">
-          <input type="checkbox" class="size-4 accent-[var(--accent)]" :checked="picked.has(a.id)" :disabled="!a.bytes" @change="pick(a.id)" />
-          <div class="min-w-0 flex-1">
-            <p class="font-medium">{{ a.name }}</p>
-            <p class="truncate text-xs text-muted">{{ a.note }}</p>
-          </div>
-          <span class="w-24 text-right font-mono text-xs text-muted tabular-nums">{{ a.files }} files</span>
-          <span class="w-24 text-right font-mono tabular-nums" :class="a.bytes ? 'text-disk' : 'text-muted'">{{ formatBytes(a.bytes) }}</span>
-        </label>
-      </div>
-        <ConfirmDialog :open="confirmClean" title="Delete these files?" confirm="delete" danger :busy="cleaning" @yes="clean" @no="confirmClean = false">
-      <ul class="mb-3 font-mono text-xs">
-        <li v-for="a in selected" :key="a.id" class="flex justify-between py-0.5"><span>{{ a.name }}</span><span class="text-disk">{{ formatBytes(a.bytes) }}</span></li>
+    <ConfirmDialog :open="confirmClean" title="Delete these files?" confirm="Delete files" danger :busy="cleaning" @yes="clean" @no="confirmClean = false">
+      <ul class="mb-3 text-[13px] text-fg">
+        <li v-for="a in selected" :key="a.id" class="flex justify-between py-0.5"><span>{{ a.name }}</span><span class="tabular-nums">{{ formatBytes(a.bytes) }}</span></li>
       </ul>
-      Files are deleted permanently, not moved to the Recycle Bin. Files in use are skipped. The result is written to the change log.
+      Files are deleted for good, not moved to the Recycle Bin. Files in use are skipped, and the result is recorded in the change log.
     </ConfirmDialog>
-
   </div>
 </template>

@@ -38,33 +38,31 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="flex flex-col gap-5">
-    <p v-if="error" class="border border-bad/40 bg-bad/10 px-4 py-3 font-mono text-xs text-bad">ERROR: {{ error }}</p>
-    <p v-if="restart" class="border border-warn/40 bg-warn/10 px-4 py-3 font-mono text-xs text-warn">restart Windows to finish turning features off</p>
+  <div class="flex flex-col gap-4">
+    <p v-if="error" class="notice border-bad/40 bg-bad/10 text-bad">{{ error }}</p>
+    <p v-if="restart" class="notice border-warn/40 bg-warn/10">Restart Windows to finish turning features off.</p>
 
-    <div class="flex items-center justify-between border border-line bg-panel px-4 py-3 font-mono text-xs">
-      <span class="text-muted">{{ feats ? `${feats.length} features on · ${feats.filter((f) => f.suggest).length} worth turning off` : 'reading features (takes a few seconds)…' }}</span>
-      <button class="h-8 border px-3 transition" :class="showAll ? 'border-accent bg-accent/15 text-accent' : 'border-line text-muted hover:text-fg'"
-              @click="showAll = !showAll">show all</button>
-    </div>
-
-    <div class="border border-line bg-panel">
-      <p v-if="feats && !rows.length" class="px-4 py-6 font-mono text-xs text-ok">// nothing worth turning off</p>
+    <div class="panel">
+      <header class="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
+        <p v-if="feats"><b>{{ feats.filter((f) => f.suggest).length }}</b> of {{ feats.length }} Windows features that are on are rarely needed or a known risk.</p>
+        <p v-else>Reading Windows features, which takes a few seconds…</p>
+        <button class="btn" :class="showAll && 'border-accent text-accent'" :aria-pressed="showAll" @click="showAll = !showAll">Show all</button>
+      </header>
+      <p v-if="feats && !rows.length" class="px-4 py-6 text-muted">Nothing here is worth turning off.</p>
       <div v-for="f in rows" :key="f.name" class="flex items-center gap-4 border-b border-line px-4 py-3 last:border-0 hover:bg-hover">
         <div class="min-w-0 flex-1">
-          <p class="flex items-center gap-2 font-medium">
-            {{ f.title }}
-            <span v-if="f.suggest" class="border border-warn/50 px-1.5 font-mono text-[10px] text-warn">suggested off</span>
-            <span v-if="f.protected" class="border border-ok/50 px-1.5 font-mono text-[10px] text-ok">needed</span>
+          <p class="flex items-center gap-2">
+            <span class="font-medium">{{ f.title }}</span>
+            <span v-if="f.suggest" class="chip border-warn/50 text-warn">Can go</span>
+            <span v-if="f.protected" class="chip border-line text-muted">Keep</span>
           </p>
-          <p class="truncate font-mono text-[11px] text-muted">{{ f.name }}{{ f.note ? ' · ' + f.note : '' }}</p>
+          <p class="truncate text-xs text-muted">{{ f.note || 'No description.' }} <span class="font-mono">{{ f.name }}</span></p>
         </div>
-        <button class="h-7 border border-line px-2.5 font-mono text-[11px] transition hover:border-warn hover:text-warn disabled:opacity-40"
-                :disabled="f.protected" @click="pending = f">turn off</button>
+        <button class="btn h-7" :disabled="f.protected" @click="pending = f">Turn off</button>
       </div>
     </div>
 
-    <ConfirmDialog :open="!!pending" :title="`Turn off ${pending?.title}?`" confirm="turn off" :busy="busy" @yes="turnOff" @no="pending = null">
+    <ConfirmDialog :open="!!pending" :title="`Turn off ${pending?.title}?`" confirm="Turn off" :busy="busy" @yes="turnOff" @no="pending = null">
       {{ pending?.note }} Windows may need a restart. It can be turned back on from the change log.
     </ConfirmDialog>
   </div>

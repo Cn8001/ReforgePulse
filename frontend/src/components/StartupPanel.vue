@@ -42,35 +42,34 @@ onMounted(loadStartup)
 </script>
 
 <template>
-  <div class="flex flex-col gap-5">
-    <p v-if="error" class="border border-bad/40 bg-bad/10 px-4 py-3 font-mono text-xs text-bad">ERROR: {{ error }}</p>
+  <div class="flex flex-col gap-4">
+    <p v-if="error" class="notice border-bad/40 bg-bad/10 text-bad">{{ error }}</p>
 
-      <div class="grid grid-cols-3 border border-line bg-panel font-mono">
-        <div class="border-r border-line px-4 py-3"><p class="caption">start at sign-in</p><p class="mt-1 text-2xl text-accent tabular-nums">{{ startupStats.enabled }}</p></div>
-        <div class="border-r border-line px-4 py-3"><p class="caption">running now</p><p class="mt-1 text-2xl tabular-nums">{{ startupStats.running }}</p></div>
-        <div class="px-4 py-3"><p class="caption">their memory</p><p class="mt-1 text-2xl text-mem tabular-nums">{{ formatBytes(startupStats.memory) }}</p></div>
-      </div>
-
-      <div class="border border-line bg-panel">
-        <div v-for="a in apps" :key="a.id" class="flex items-center gap-4 border-b border-line px-4 py-3 last:border-0 hover:bg-hover">
-          <Toggle :on="a.enabled" :disabled="busyId === a.id" @toggle="a.enabled ? (pending = a) : setEnabled(a, true)" />
-          <div class="min-w-0 flex-1">
-            <p class="flex items-center gap-2 font-medium">
-              <span class="truncate">{{ a.name }}</span>
-              <span v-if="a.running" class="border border-ok/40 px-1.5 font-mono text-[10px] text-ok">running</span>
-              <span v-if="!a.enabled" class="border border-line px-1.5 font-mono text-[10px] text-muted">disabled</span>
-            </p>
-            <p class="truncate font-mono text-[11px] text-muted" :title="a.command">{{ a.source }} · {{ a.command }}</p>
-          </div>
-          <span class="w-24 text-right font-mono tabular-nums" :class="a.memory ? 'text-mem' : 'text-muted'">{{ a.memory ? formatBytes(a.memory) : '--' }}</span>
+    <div class="panel">
+      <header class="border-b border-line px-4 py-3">
+        <p>
+          <b>{{ startupStats.enabled }}</b> apps start when you sign in. {{ startupStats.running }} of them are running now and use
+          <b>{{ formatBytes(startupStats.memory) }}</b> of memory.
+        </p>
+        <p class="mt-0.5 text-xs text-muted">Turning one off works like Task Manager: the app stays installed and can be turned back on here or from the change log.</p>
+      </header>
+      <div v-for="a in apps" :key="a.id" class="flex items-center gap-4 border-b border-line px-4 py-3 last:border-0 hover:bg-hover">
+        <Toggle :on="a.enabled" :label="`Start ${a.name} at sign-in`" :disabled="busyId === a.id" @toggle="a.enabled ? (pending = a) : setEnabled(a, true)" />
+        <div class="min-w-0 flex-1">
+          <p class="flex items-center gap-2">
+            <span class="truncate font-medium" :class="!a.enabled && 'text-muted'">{{ a.name }}</span>
+            <span v-if="a.running" class="chip border-line text-muted">Running</span>
+          </p>
+          <p class="truncate text-xs text-muted" :title="a.command">{{ a.source }}: <span class="font-mono">{{ a.command }}</span></p>
         </div>
-        <p v-if="!apps.length" class="px-4 py-6 font-mono text-xs text-muted">// no startup apps found</p>
+        <span class="w-24 text-right tabular-nums" :class="!a.memory && 'text-muted'">{{ a.memory ? formatBytes(a.memory) : '–' }}</span>
       </div>
-      <p class="font-mono text-[11px] text-muted">// disabling works like Task Manager: the app stays installed and can be turned back on here or reverted from the change log.</p>
-        <ConfirmDialog :open="!!pending" :title="`Disable ${pending?.name} at startup?`" confirm="disable" :busy="!!busyId"
+      <p v-if="!apps.length" class="px-4 py-6 text-muted">No apps start with Windows.</p>
+    </div>
+
+    <ConfirmDialog :open="!!pending" :title="`Stop ${pending?.name} from starting with Windows?`" confirm="Turn off" :busy="!!busyId"
                    @yes="pending && setEnabled(pending, false)" @no="pending = null">
-      It will not start at your next sign-in{{ pending?.running ? '; the copy running now keeps running' : '' }}.
-      You can turn it back on here at any time.
+      It will not start at your next sign-in{{ pending?.running ? '. The copy running now keeps running' : '' }}. You can turn it back on here at any time.
     </ConfirmDialog>
   </div>
 </template>

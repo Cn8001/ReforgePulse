@@ -47,44 +47,40 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="flex flex-col gap-5">
-    <p v-if="error" class="border border-bad/40 bg-bad/10 px-4 py-3 font-mono text-xs text-bad">ERROR: {{ error }}</p>
+  <div class="flex flex-col gap-4">
+    <p v-if="error" class="notice border-bad/40 bg-bad/10 text-bad">{{ error }}</p>
 
-    <div class="grid grid-cols-3 border border-line bg-panel font-mono">
-      <div class="border-r border-line px-4 py-3"><p class="caption">installed</p><p class="mt-1 text-2xl tabular-nums">{{ progs?.length ?? '--' }}</p></div>
-      <div class="border-r border-line px-4 py-3"><p class="caption">forgotten · 90+ days</p>
-        <p class="mt-1 text-2xl text-warn tabular-nums">{{ forgotten.length }} <span class="text-sm text-muted">{{ formatBytes(forgotten.reduce((n, p) => n + p.size, 0)) }}</span></p></div>
-      <div class="flex items-center justify-end gap-2 px-4 py-3">
-        <button class="h-9 border px-3 font-mono text-xs transition"
-                :class="onlyForgotten ? 'border-accent bg-accent/15 text-accent' : 'border-line text-muted hover:text-fg'"
-                @click="onlyForgotten = !onlyForgotten">forgotten only</button>
-        <label class="flex h-9 w-44 items-center gap-2 border border-line px-2 focus-within:border-accent">
-          <Icon name="search" class="size-3.5! text-muted" />
-          <input v-model="query" placeholder="filter" spellcheck="false" class="min-w-0 flex-1 bg-transparent font-mono text-xs outline-none" />
-        </label>
-      </div>
-    </div>
-
-    <div class="border border-line bg-panel">
-      <p v-if="!progs" class="px-4 py-6 font-mono text-xs text-muted">// reading installed programs…</p>
-      <p v-else-if="!rows.length" class="px-4 py-6 font-mono text-xs text-ok">// nothing here{{ onlyForgotten ? ': every program was started in the last 90 days' : '' }}</p>
+    <div class="panel">
+      <header class="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
+        <div>
+          <p v-if="progs"><b>{{ forgotten.length }}</b> of {{ progs.length }} programs have not been started in 90 days, using <b>{{ formatBytes(forgotten.reduce((n, p) => n + p.size, 0)) }}</b>.</p>
+          <p v-else>Reading installed programs…</p>
+          <p class="mt-0.5 text-xs text-muted">Last starts come from Windows' own launch records. Shared runtimes and drivers are never marked.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button class="btn" :class="onlyForgotten && 'border-accent text-accent'" :aria-pressed="onlyForgotten" @click="onlyForgotten = !onlyForgotten">Unused only</button>
+          <label class="flex h-8 w-44 items-center gap-2 rounded border border-line bg-raised px-2 focus-within:border-accent">
+            <Icon name="search" class="size-4! text-muted" />
+            <input v-model="query" aria-label="Filter programs" placeholder="Filter" spellcheck="false" class="min-w-0 flex-1 bg-transparent text-[13px] outline-none" />
+          </label>
+        </div>
+      </header>
+      <p v-if="progs && !rows.length" class="px-4 py-6 text-muted">{{ onlyForgotten ? 'Every program has been started in the last 90 days.' : 'No programs match.' }}</p>
       <div v-for="p in rows" :key="p.id" class="flex items-center gap-4 border-b border-line px-4 py-2.5 last:border-0 hover:bg-hover">
         <div class="min-w-0 flex-1">
-          <p class="flex items-center gap-2 font-medium">
-            <span class="truncate">{{ p.name }}</span>
-            <span v-if="p.forgotten" class="shrink-0 border border-warn/50 px-1.5 font-mono text-[10px] text-warn">forgotten</span>
+          <p class="flex items-center gap-2">
+            <span class="truncate font-medium">{{ p.name }}</span>
+            <span v-if="p.forgotten" class="chip border-warn/50 text-warn">Unused</span>
           </p>
-          <p class="truncate font-mono text-[11px] text-muted">{{ p.publisher || 'unknown publisher' }} · {{ p.version || '?' }} · {{ p.basis }}</p>
+          <p class="truncate text-xs text-muted">{{ p.publisher || 'Unknown publisher' }}<template v-if="p.version">, version {{ p.version }}</template>. {{ p.basis.charAt(0).toUpperCase() + p.basis.slice(1) }}.</p>
         </div>
-        <span class="w-20 text-right font-mono text-xs tabular-nums" :class="p.size ? '' : 'text-muted'">{{ p.size ? formatBytes(p.size) : '--' }}</span>
-        <button class="h-7 border border-line px-2.5 font-mono text-[11px] transition hover:border-bad hover:text-bad disabled:opacity-40"
-                :disabled="!p.uninstaller" @click="pending = p">uninstall</button>
+        <span class="w-20 text-right tabular-nums" :class="!p.size && 'text-muted'">{{ p.size ? formatBytes(p.size) : '–' }}</span>
+        <button class="btn h-7" :disabled="!p.uninstaller" @click="pending = p">Uninstall</button>
       </div>
     </div>
 
-    <ConfirmDialog :open="!!pending" :title="`Uninstall ${pending?.name}?`" confirm="run uninstaller" danger :busy="busy"
-                   @yes="uninstall" @no="pending = null">
-      ReforgePulse starts the program's own uninstaller, which may ask its own questions. Settings and saved data it leaves behind show up under Leftovers later.
+    <ConfirmDialog :open="!!pending" :title="`Uninstall ${pending?.name}?`" confirm="Run uninstaller" danger :busy="busy" @yes="uninstall" @no="pending = null">
+      ReforgePulse starts the program's own uninstaller, which may ask its own questions. Anything it leaves behind shows up under Leftovers later.
     </ConfirmDialog>
   </div>
 </template>
