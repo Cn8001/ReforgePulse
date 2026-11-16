@@ -41,6 +41,35 @@ type Processes interface {
 	Processes(ctx context.Context) ([]ProcessInfo, error)
 }
 
+// Event is one Windows event log record with its structured EventData.
+type Event struct {
+	Provider string
+	ID       uint32
+	Time     time.Time
+	Data     map[string]string
+}
+
+// Service is a driver or service registration, running or not.
+type Service struct {
+	Name, DisplayName, ImagePath string
+	Start                        uint32 // 0 boot, 1 system, 2 automatic, 3 manual, 4 disabled
+	Driver                       bool
+}
+
+// Program is an installed program as its uninstall entry describes it.
+type Program struct {
+	Name, Version, Publisher, InstallDate, InstallLocation, UninstallString string
+}
+
+// Machine reads the evidence crash analysis draws on.
+type Machine interface {
+	Events(ctx context.Context, channel, provider string, ids []uint32, since time.Time, max int) ([]Event, error)
+	Microcode(ctx context.Context) (uint32, error)
+	Services(ctx context.Context) ([]Service, error)
+	Programs(ctx context.Context) ([]Program, error)
+	DumpDir() string // where Windows writes minidumps
+}
+
 // Sampler reads load since its previous call, in percent. The first call
 // only sets the baseline and may answer an average since boot.
 type Sampler interface {
