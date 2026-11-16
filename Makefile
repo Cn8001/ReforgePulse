@@ -2,7 +2,7 @@
 # Go tests run on the host: Windows-only packages drop out by build tag.
 
 .DEFAULT_GOAL := help
-.PHONY: help build run dev test vet fmt tidy clean installer
+.PHONY: help build run dev test vet fmt tidy clean installer release
 
 ## help: list the targets
 help:
@@ -43,6 +43,18 @@ installer:
 	{ printf '\377\376'; sed 's/^#\{1,\} //' TERMS.md | sed 's/$$/\r/' | iconv -f UTF-8 -t UTF-16LE; } > build/windows/nsis/license.txt
 	GOOS=windows wails3 task windows:package
 
-## clean: remove built binaries
+ARCH := amd64
+
+# The Wails updater (GitHub provider) picks the release asset whose name holds
+# both the OS and the architecture, skips "-installer." names, and checks the
+# download against SHA256SUMS. These names follow that.
+## release: installer, then dist/ with the assets and SHA256SUMS the Wails updater reads
+release: installer
+	rm -rf dist && mkdir dist
+	cp bin/reforgepulse.exe dist/reforgepulse-windows-$(ARCH).exe
+	cp bin/reforgepulse-$(ARCH)-installer.exe dist/reforgepulse-windows-$(ARCH)-installer.exe
+	cd dist && sha256sum reforgepulse-* > SHA256SUMS
+
+## clean: remove built binaries and release assets
 clean:
-	rm -rf bin
+	rm -rf bin dist

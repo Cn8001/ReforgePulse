@@ -12,3 +12,4 @@ CLAUDE.md
 *.syso
 frontend/bindings
 build/windows/nsis/license.txt
+dist
