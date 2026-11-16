@@ -8,6 +8,7 @@ import (
 
 	"github.com/cn8001/reforgepulse/internal/diagnosis"
 	"github.com/cn8001/reforgepulse/internal/domain"
+	"github.com/cn8001/reforgepulse/internal/platform"
 	"github.com/cn8001/reforgepulse/internal/tasks"
 )
 
@@ -15,8 +16,13 @@ type CrashCollector interface {
 	Collect(ctx context.Context) (domain.CrashEvidence, error)
 }
 
+type HardwareReader interface {
+	HardwareFacts(ctx context.Context) (platform.HardwareFacts, error)
+}
+
 // ScanDeps are what a scan reads from.
 type ScanDeps struct {
+	Hardware  HardwareReader
 	Overview  OverviewReader
 	Live      LiveReader
 	Crashes   CrashCollector
@@ -50,11 +56,13 @@ func (s *ScanService) Scan(ctx context.Context) (domain.ScanResult, error) {
 		if in.Crashes, err = s.d.Crashes.Collect(ctx); err != nil {
 			return err
 		}
-		report(0.75, "startup apps")
+		report(0.65, "memory and drives")
+		in.Hardware, _ = s.d.Hardware.HardwareFacts(ctx) // missing facts leave those areas unmeasured
+		report(0.8, "startup apps")
 		in.Startup, _ = s.d.Startup.List(ctx)
 		report(0.9, "processes")
 		in.Processes, _ = s.d.Processes.List(ctx)
-		res = domain.ScanResult{At: time.Now(), Findings: diagnosis.Evaluate(in), Elevated: in.Overview.Elevated}
+		res = domain.ScanResult{At: time.Now(), Findings: diagnosis.Evaluate(in), Suspects: diagnosis.Suspects(in), Elevated: in.Overview.Elevated}
 		return nil
 	})
 	if err != nil {

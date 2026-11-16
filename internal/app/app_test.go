@@ -304,6 +304,7 @@ func (f fakeStartupList) List(context.Context) ([]domain.StartupApp, error) { re
 func TestScanService_EvaluatesAndKeepsLast(t *testing.T) {
 	// Arrange
 	s := NewScanService(ScanDeps{
+		Hardware:  fakeHardware{},
 		Overview:  fakeReader{o: domain.Overview{Elevated: true}},
 		Live:      fakeReader{},
 		Crashes:   fakeCrashes{ev: domain.CrashEvidence{Restarts: []domain.CrashEvent{{}, {}}}},
@@ -377,4 +378,10 @@ func TestCPUCapService_RejectsSillyValues(t *testing.T) {
 	if err == nil {
 		t.Fatal("50 MHz was accepted")
 	}
+}
+
+type fakeHardware struct{}
+
+func (fakeHardware) HardwareFacts(context.Context) (platform.HardwareFacts, error) {
+	return platform.HardwareFacts{}, nil
 }

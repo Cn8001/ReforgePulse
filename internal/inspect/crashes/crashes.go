@@ -50,7 +50,25 @@ func (in *Inspector) Collect(ctx context.Context) (domain.CrashEvidence, error) 
 		return hexCode(code, 16)
 	})
 	ev.Restarts = read("Microsoft-Windows-Kernel-Power", []uint32{41}, func(e platform.Event) string {
+		if b := e.Data["PowerButtonTimestamp"]; b != "" && b != "0" {
+			return "power button" // someone held it down, so the restart says nothing about the PC
+		}
 		return hexCode(e.Data["BugcheckCode"], 10)
+	})
+	ev.Throttling = read("Microsoft-Windows-Kernel-Processor-Power", []uint32{37}, func(e platform.Event) string {
+		return "processor " + e.Data["Number"]
+	})
+	ev.DriverInstalls = read("Microsoft-Windows-UserPnp", []uint32{20001}, func(e platform.Event) string {
+		return strings.TrimSpace(e.Data["DriverProvider"] + " " + e.Data["DriverName"] + " " + e.Data["DriverVersion"])
+	})
+	ev.Updates = read("Microsoft-Windows-WindowsUpdateClient", []uint32{19}, func(e platform.Event) string {
+		return field(e, "updateTitle", "param1")
+	})
+	ev.MemoryTests = read("Microsoft-Windows-MemoryDiagnostics-Results", []uint32{1201, 1202}, func(e platform.Event) string {
+		if e.ID == 1202 {
+			return "errors found"
+		}
+		return "no errors"
 	})
 	ev.WHEA = read("Microsoft-Windows-WHEA-Logger", nil, func(e platform.Event) string {
 		if a, ok := e.Data["ApicId"]; ok {

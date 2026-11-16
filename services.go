@@ -83,7 +83,7 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 	progs := programs.New(host)
 	left := leftovers.New(leftovers.Deps{Machine: host, Startup: host, Processes: procs, Files: host})
 	scan := app.NewScanService(app.ScanDeps{
-		Overview: overview, Live: overview, Crashes: crashes.New(host), Startup: startupApps, Processes: procs, Runner: runner,
+		Hardware: host, Overview: overview, Live: overview, Crashes: crashes.New(host), Startup: startupApps, Processes: procs, Runner: runner,
 	})
 	return &backend{
 		Startup: startupSvc,

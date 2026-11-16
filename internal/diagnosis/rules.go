@@ -10,10 +10,12 @@ import (
 	"strings"
 
 	"github.com/cn8001/reforgepulse/internal/domain"
+	"github.com/cn8001/reforgepulse/internal/platform"
 )
 
 // Input is everything a scan gathered.
 type Input struct {
+	Hardware  platform.HardwareFacts
 	Overview  domain.Overview
 	Live      domain.Live
 	Crashes   domain.CrashEvidence
@@ -126,9 +128,6 @@ func whea(in Input) []domain.Finding {
 	if len(apic) > 0 {
 		f.Summary += " By processor: " + apicSummary(apic) + "."
 		f.Summary += " Errors that keep coming from the same few processors make a degraded core possible, but not proven."
-	}
-	if desktopRaptorLake.MatchString(in.Overview.CPUModel) {
-		f.Action = &domain.Action{Label: "Cap CPU frequency", Kind: "cpu-cap"}
 	}
 	return []domain.Finding{f}
 }
