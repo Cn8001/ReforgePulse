@@ -18,21 +18,22 @@ const showTerms = ref(false)
   <Transition enter-from-class="opacity-0" leave-to-class="opacity-0"
               enter-active-class="transition-opacity duration-150" leave-active-class="transition-opacity duration-150">
     <div v-if="open" class="fixed inset-0 z-40 grid place-items-center bg-black/50 p-6" @click.self="emit('close')">
-      <section class="flex max-h-full w-[560px] max-w-full flex-col border border-line bg-panel shadow-2xl">
+      <section role="dialog" aria-modal="true" aria-labelledby="settings-title" class="panel flex max-h-full w-[560px] max-w-full flex-col shadow-2xl">
         <header class="flex items-center justify-between border-b border-line px-5 py-3">
-          <div class="flex items-center gap-2"><Icon name="settings" /><span class="font-semibold">Settings</span></div>
-          <button class="p-1.5 text-muted transition hover:bg-hover hover:text-fg" @click="emit('close')"><Icon name="close" /></button>
+          <h2 id="settings-title" class="text-[15px] font-semibold">Settings</h2>
+          <button class="grid size-7 place-items-center rounded text-muted transition hover:bg-hover hover:text-fg" aria-label="Close" @click="emit('close')"><Icon name="close" /></button>
         </header>
 
         <div class="flex flex-col overflow-y-auto">
           <div class="flex items-center justify-between gap-4 border-b border-line px-5 py-4">
             <div>
-              <p class="caption">appearance</p>
-              <p class="mt-1 text-muted">Dark is the default. The accent follows Windows.</p>
+              <h3 class="font-medium">Theme</h3>
+              <p class="text-[13px] text-muted">Dark by default. The accent colour follows Windows.</p>
             </div>
-            <div class="flex border border-line font-mono text-xs">
-              <button v-for="t in ['dark', 'light'] as const" :key="t" class="flex items-center gap-1.5 px-3 py-1.5 transition"
-                      :class="theme === t ? 'bg-accent text-white' : 'text-muted hover:bg-hover hover:text-fg'" @click="theme = t">
+            <div class="flex rounded border border-line p-0.5" role="radiogroup" aria-label="Theme">
+              <button v-for="t in ['dark', 'light'] as const" :key="t" role="radio" :aria-checked="theme === t"
+                      class="flex items-center gap-1.5 rounded-[3px] px-3 py-1 text-[13px] capitalize transition"
+                      :class="theme === t ? 'bg-accent text-white' : 'text-muted hover:text-fg'" @click="theme = t">
                 <Icon :name="t === 'dark' ? 'moon' : 'sun'" class="size-3.5!" />{{ t }}
               </button>
             </div>
@@ -40,30 +41,29 @@ const showTerms = ref(false)
 
           <div class="flex items-center justify-between gap-4 border-b border-line px-5 py-4">
             <div>
-              <p class="caption">ai agents</p>
-              <p class="mt-1 text-muted">Claude Code, Codex or OpenCode can read what ReforgePulse sees.</p>
+              <h3 class="font-medium">AI agents</h3>
+              <p class="text-[13px] text-muted">Let Claude Code, Codex or OpenCode read what ReforgePulse sees.</p>
             </div>
-            <button class="flex shrink-0 items-center gap-2 border border-line px-3 py-1.5 font-mono text-xs transition hover:bg-hover"
-                    @click="emit('agent')"><Icon name="plug" class="size-3.5!" />connect</button>
+            <button class="btn shrink-0" @click="emit('agent')"><Icon name="plug" class="size-4!" />Connect</button>
           </div>
 
           <div class="flex flex-col gap-2 px-5 py-4">
-            <p class="caption">about</p>
-            <dl class="grid grid-cols-[6rem_1fr] gap-y-1.5 font-mono text-xs">
-              <dt class="text-muted">version</dt><dd>{{ about?.version ?? '--' }}</dd>
-              <dt class="text-muted">data</dt>
+            <h3 class="font-medium">About</h3>
+            <dl class="grid grid-cols-[7rem_1fr] gap-y-1.5 text-[13px]">
+              <dt class="text-muted">Version</dt><dd class="tabular-nums">{{ about?.version ?? '–' }}</dd>
+              <dt class="text-muted">Data folder</dt>
               <dd class="flex min-w-0 items-center gap-2">
-                <span class="truncate select-text" :title="about?.dataDir">{{ about?.dataDir ?? '--' }}</span>
-                <button v-if="about" class="text-muted transition hover:text-fg" title="Copy" @click="Clipboard.SetText(about.dataDir)">
+                <span class="truncate font-mono text-xs select-text" :title="about?.dataDir">{{ about?.dataDir ?? '–' }}</span>
+                <button v-if="about" class="text-muted transition hover:text-fg" aria-label="Copy the folder path" @click="Clipboard.SetText(about.dataDir)">
                   <Icon name="copy" class="size-3.5!" />
                 </button>
               </dd>
-              <dt class="text-muted">licence</dt>
-              <dd>free to use, provided as is, without warranty ·
-                <button class="text-accent hover:underline" @click="showTerms = !showTerms">{{ showTerms ? 'hide' : 'read' }} terms</button>
+              <dt class="text-muted">Licence</dt>
+              <dd>Free to use, provided as is, without warranty.
+                <button class="text-accent hover:underline" @click="showTerms = !showTerms">{{ showTerms ? 'Hide' : 'Read' }} the terms</button>
               </dd>
             </dl>
-            <pre v-if="showTerms" class="mt-2 max-h-64 overflow-y-auto border border-line bg-raised p-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-muted select-text">{{ about?.terms }}</pre>
+            <pre v-if="showTerms" class="mt-2 max-h-64 overflow-y-auto rounded border border-line bg-raised p-3 font-sans text-xs leading-relaxed whitespace-pre-wrap text-muted select-text">{{ about?.terms }}</pre>
           </div>
         </div>
       </section>
