@@ -38,7 +38,7 @@ cause.
 
 ## Features
 
-### Fix Issues
+### Issues
 
 A single scan reads what Windows has recorded over the last 30 days: stop
 errors, unexpected restarts, WHEA hardware errors, GPU driver resets,

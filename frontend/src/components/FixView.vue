@@ -30,7 +30,7 @@ function act(kind: string, arg?: string) {
     <header class="flex flex-wrap items-end justify-between gap-4">
       <div>
         <p class="caption">crashes · hardware errors · bottlenecks · last 30 days</p>
-        <h1 class="mt-1 text-2xl font-semibold">Fix Issues</h1>
+        <h1 class="mt-1 text-2xl font-semibold">Issues</h1>
       </div>
       <button class="flex h-10 items-center gap-2 bg-accent px-5 font-mono text-xs font-bold tracking-[.15em] text-white uppercase shadow-[0_0_24px_-6px_var(--accent)] transition hover:brightness-110 disabled:opacity-60"
               :disabled="scanning" @click="runScan">

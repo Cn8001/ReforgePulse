@@ -106,7 +106,7 @@ const drives = computed(() =>
   }),
 )
 
-// Up to three findings worth acting on; info-only ones stay on Fix Issues.
+// Up to three findings worth acting on; info-only ones stay on Issues.
 const top = computed(() => (scan.value?.findings ?? []).filter((f) => f.severity !== 'info').slice(0, 3))
 const issues = computed(() => (scan.value?.findings ?? []).filter((f) => f.severity !== 'info').length)
 

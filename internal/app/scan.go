@@ -38,7 +38,7 @@ type ScanDeps struct {
 }
 
 // ScanService runs Scan PC: it reads everything once, applies the rules,
-// and keeps the last result for Home and Fix Issues.
+// and keeps the last result for Home and Issues.
 type ScanService struct {
 	d    ScanDeps
 	mu   sync.Mutex

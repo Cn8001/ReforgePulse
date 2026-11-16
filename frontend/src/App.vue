@@ -17,7 +17,7 @@ const pages: { id: Page; label: string; icon: IconName }[] = [
   { id: 'home', label: 'Overview', icon: 'home' },
   { id: 'processes', label: 'Processes', icon: 'list' },
   { id: 'cleanup', label: 'Cleanup', icon: 'cleanup' },
-  { id: 'fix', label: 'Fix Issues', icon: 'fix' },
+  { id: 'fix', label: 'Issues', icon: 'fix' },
   { id: 'tools', label: 'Tools', icon: 'settings' },
 ]
 const page = ref<Page>('home')

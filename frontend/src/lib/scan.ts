@@ -2,7 +2,7 @@ import { ref } from 'vue'
 import { Last, Scan } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/scanservice'
 import type { ScanResult } from '../../bindings/github.com/cn8001/reforgepulse/internal/domain/models'
 
-// One scan state for Home and Fix Issues, so both show the same result.
+// One scan state for Home and Issues, so both show the same result.
 export const scan = ref<ScanResult | null>(null)
 export const scanning = ref(false)
 export const scanError = ref('')

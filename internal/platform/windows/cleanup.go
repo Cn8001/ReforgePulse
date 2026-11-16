@@ -16,7 +16,7 @@ import (
 const day = 24 * time.Hour
 
 // CleanupLocations are places whose contents Windows or the owning app
-// rebuilds. Minidumps stay: Fix Issues reads them as evidence.
+// rebuilds. Minidumps stay: Issues reads them as evidence.
 func (s System) CleanupLocations() []platform.Location {
 	win, local, roaming, data := os.Getenv("SystemRoot"), os.Getenv("LOCALAPPDATA"), os.Getenv("APPDATA"), os.Getenv("ProgramData")
 	j := filepath.Join
@@ -49,7 +49,7 @@ func (s System) CleanupLocations() []platform.Location {
 			Paths: []string{j(local, `npm-cache\_cacache`), j(local, `Yarn\Cache`), j(local, `pip\Cache`), j(local, "go-build")}},
 		{ID: "shader-cache", Name: "GPU shader caches", Note: "Compiled shaders. Games rebuild them, so the first launch after may stutter briefly.",
 			Paths: []string{j(local, "D3DSCache"), j(local, `NVIDIA\DXCache`), j(local, `NVIDIA\GLCache`), j(local, `AMD\DxCache`)}},
-		{ID: "error-reports", Name: "Old error reports", Note: "Windows Error Reporting files older than a week. Recent ones stay for Fix Issues.",
+		{ID: "error-reports", Name: "Old error reports", Note: "Windows Error Reporting files older than a week. Recent ones stay for Issues.",
 			Paths: []string{j(data, `Microsoft\Windows\WER\ReportArchive`), j(data, `Microsoft\Windows\WER\ReportQueue`),
 				j(local, `Microsoft\Windows\WER\ReportArchive`)}, MinAge: 7 * day},
 		{ID: "windows-logs", Name: "Old Windows logs", Note: "Servicing and setup logs older than a month.",
