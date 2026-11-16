@@ -7,7 +7,7 @@ defineProps<{ title: string; icon: IconName; tint: string; value?: string; unit?
 </script>
 
 <template>
-  <article class="group relative flex min-w-0 flex-col gap-3 overflow-hidden border border-line bg-panel p-4 transition-colors hover:bg-raised">
+  <article class="group relative flex min-w-0 flex-col gap-3 overflow-hidden border border-line bg-panel p-4 transition-[background,transform] hover:bg-raised active:translate-y-px">
     <span class="absolute inset-x-0 top-0 h-[2px] opacity-80" :style="{ background: tint }" />
     <header class="flex items-center gap-2">
       <span :style="{ color: tint }"><Icon :name="icon" /></span>

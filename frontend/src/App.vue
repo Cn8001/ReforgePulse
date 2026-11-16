@@ -5,6 +5,7 @@ import SideNav from './components/SideNav.vue'
 import HomeView from './components/HomeView.vue'
 import ProcessesView from './components/ProcessesView.vue'
 import ComingSoon from './components/ComingSoon.vue'
+import CleanupView from './components/CleanupView.vue'
 import AgentPanel from './components/AgentPanel.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
 import StatusBar from './components/StatusBar.vue'
@@ -18,6 +19,7 @@ const pages: { id: Page; label: string; icon: IconName }[] = [
   { id: 'fix', label: 'Fix Issues', icon: 'fix' },
 ]
 const page = ref<Page>('home')
+const sort = ref<string | undefined>() // how Processes opens when a Home tile sent us there
 const agentOpen = ref(false)
 const settingsOpen = ref(false)
 const elevated = ref<boolean | null>(null) // set by Home once the overview arrives
@@ -38,6 +40,11 @@ function onKey(e: KeyboardEvent) {
 onMounted(() => window.addEventListener('keydown', onKey))
 onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 
+function go(p: Page, s?: string) {
+  sort.value = s
+  page.value = p
+}
+
 function openAgent() {
   settingsOpen.value = false
   agentOpen.value = true
@@ -49,13 +56,12 @@ function openAgent() {
     <TopBar :title="pages.find((p) => p.id === page)!.label" @agent="openAgent" @settings="settingsOpen = true" />
 
     <div class="flex min-h-0 flex-1">
-    <SideNav :pages="pages" :page="page" @go="page = $event as Page" />
+    <SideNav :pages="pages" :page="page" @go="go($event as Page)" />
     <main class="scope min-w-0 flex-1" :class="page === 'processes' ? 'overflow-hidden' : 'overflow-y-auto'">
       <Transition name="page" mode="out-in">
-        <HomeView v-if="page === 'home'" @elevated="elevated = $event" />
-        <ProcessesView v-else-if="page === 'processes'" />
-        <ComingSoon v-else-if="page === 'cleanup'" key="cleanup" icon="cleanup" title="Cleanup"
-                    text="Find what takes up space and remove what is not needed, always after you approve it." />
+        <HomeView v-if="page === 'home'" @elevated="elevated = $event" @open="(p, s) => go(p as Page, s)" />
+        <ProcessesView v-else-if="page === 'processes'" :key="sort" :sort="sort as any" />
+        <CleanupView v-else-if="page === 'cleanup'" />
         <ComingSoon v-else key="fix" icon="fix" title="Fix Issues"
                     text="Crashes, WHEA hardware errors and bottlenecks, correlated into incidents with safe next steps." />
       </Transition>

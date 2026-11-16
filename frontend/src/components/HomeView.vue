@@ -5,11 +5,12 @@ import Bar from './Bar.vue'
 import Tile from './Tile.vue'
 import Sparkline from './Sparkline.vue'
 import { GetLive, GetOverview } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/systemservice'
-import { List } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/historyservice'
+import { List, Revert } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/historyservice'
+import ConfirmDialog from './ConfirmDialog.vue'
 import { Availability, type Change, type Measurement, type Overview } from '../../bindings/github.com/cn8001/reforgepulse/internal/domain/models'
 import { formatBytes, formatDuration, measured, show, since } from '../lib/format'
 
-const emit = defineEmits<{ elevated: [boolean] }>()
+const emit = defineEmits<{ elevated: [boolean]; open: [page: string, sort?: string] }>()
 const overview = ref<Overview | null>(null)
 const changes = ref<Change[]>([])
 const error = ref('')
@@ -69,6 +70,22 @@ const drives = computed(() =>
   }),
 )
 
+const reverting = ref<Change | null>(null)
+const busy = ref(false)
+async function revert() {
+  if (!reverting.value) return
+  busy.value = true
+  try {
+    await Revert(reverting.value.id)
+    changes.value = (await List()) ?? []
+  } catch (e) {
+    error.value = String(e)
+  } finally {
+    busy.value = false
+    reverting.value = null
+  }
+}
+
 const statusTone: Record<string, string> = {
   applied: 'text-ok',
   failed: 'text-bad',
@@ -104,18 +121,20 @@ const statusTone: Record<string, string> = {
     <p v-if="error" class="border border-bad/40 bg-bad/10 px-4 py-3 font-mono text-xs text-bad">ERROR: {{ error }}</p>
 
     <div class="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-3">
-      <Tile title="CPU" icon="cpu" tint="var(--accent)" :value="pct(now.cpu)" unit="%"
+      <Tile title="CPU" icon="cpu" tint="var(--accent)" :value="pct(now.cpu)" unit="%" class="cursor-pointer" @click="emit('open', 'processes', 'cpu')"
             :sub="overview ? `${overview.cpuModel || 'unknown'} · ${overview.logicalCpus} threads` : ''">
         <Sparkline :values="history.cpu" color="var(--accent)" />
       </Tile>
-      <Tile title="GPU" icon="gpu" tint="var(--gpu)" :value="pct(now.gpu)" unit="%" :sub="overview?.gpuModel || 'unknown'">
+      <Tile title="GPU" icon="gpu" tint="var(--gpu)" :value="pct(now.gpu)" unit="%" :sub="overview?.gpuModel || 'unknown'"
+            class="cursor-pointer" @click="emit('open', 'processes', 'gpu')">
         <Sparkline :values="history.gpu" color="var(--gpu)" />
       </Tile>
-      <Tile title="Memory" icon="memory" tint="var(--mem)" :value="pct(now.memory)" unit="%" :sub="memoryDetail">
+      <Tile title="Memory" icon="memory" tint="var(--mem)" :value="pct(now.memory)" unit="%" :sub="memoryDetail"
+            class="cursor-pointer" @click="emit('open', 'processes', 'private')">
         <Sparkline :values="history.memory" color="var(--mem)" />
       </Tile>
       <Tile v-for="d in drives" :key="d.root" :title="`Disk ${d.root}`" icon="disk" tint="var(--disk)"
-            :value="d.used" unit="% used" :sub="d.detail">
+            :value="d.used" unit="% used" :sub="d.detail" class="cursor-pointer" @click="emit('open', 'cleanup')">
         <Bar :ratio="d.ratio" tint="var(--disk)" class="mt-auto" />
       </Tile>
       <Tile title="System" icon="system" tint="var(--muted)" :sub="overview?.os || ''">
@@ -138,11 +157,17 @@ const statusTone: Record<string, string> = {
       <table v-else class="w-full font-mono text-xs">
         <tr v-for="c in changes.slice(0, 8)" :key="c.id" class="border-b border-line last:border-0 hover:bg-hover">
           <td class="w-24 px-4 py-2 text-accent">{{ c.id }}</td>
-          <td class="truncate py-2">{{ c.summary }}</td>
+          <td class="truncate py-2" :title="c.before && c.after ? `${c.before} → ${c.after}` : ''">{{ c.summary }}</td>
           <td class="w-24 py-2" :class="statusTone[c.status]">{{ c.status }}</td>
-          <td class="w-28 px-4 py-2 text-right text-muted">{{ since(c.at) }}</td>
+          <td class="w-28 py-2 text-right text-muted">{{ since(c.at) }}</td>
+          <td class="w-24 px-4 py-2 text-right">
+            <button v-if="c.reversible && c.status === 'applied'" class="text-accent hover:underline" @click="reverting = c">revert</button>
+          </td>
         </tr>
       </table>
     </article>
+    <ConfirmDialog :open="!!reverting" :title="`Revert ${reverting?.id}?`" confirm="revert" :busy="busy" @yes="revert" @no="reverting = null">
+      {{ reverting?.summary }}: goes back from <b>{{ reverting?.after }}</b> to <b>{{ reverting?.before }}</b>. The revert is logged as a new change.
+    </ConfirmDialog>
   </section>
 </template>

@@ -23,6 +23,9 @@ export const icons = {
   minimize: 'M6 12h12',
   maximize: 'M6 6h12v12H6z',
   restore: 'M8 9h10v10H8zM6 15V6h10',
+  power: 'M12 3v8M6.3 6.3a8 8 0 1 0 11.4 0',
+  chevron: 'M9 6l6 6-6 6',
+  undo: 'M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3',
   history: 'M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2',
 } as const
 
