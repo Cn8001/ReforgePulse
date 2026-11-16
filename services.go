@@ -1,13 +1,16 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
+	"github.com/cn8001/reforgepulse/internal/agents"
 	"github.com/cn8001/reforgepulse/internal/app"
 	"github.com/cn8001/reforgepulse/internal/cleanup"
 	"github.com/cn8001/reforgepulse/internal/inspect/processes"
@@ -52,6 +55,10 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 	if err != nil {
 		return nil, fmt.Errorf("find executable: %w", err)
 	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("find home folder: %w", err)
+	}
 	sampler := windows.NewSampler()
 	overview := system.New(host, host, sampler)
 	runner := tasks.New(maxTasks, notify)
@@ -59,14 +66,16 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 	startupApps := startup.New(host, procs)
 	startupSvc := app.NewStartupService(startupApps, host, j)
 	return &backend{
-		Startup:  startupSvc,
-		Procs:    app.NewProcessService(procs, procs, j, uint32(os.Getpid())),
-		About:    app.NewAboutService(about),
-		Cleanup:  app.NewCleanupService(cleanup.New(host.CleanupLocations(), j), runner),
-		System:   app.NewSystemService(overview, overview, runner),
-		Tasks:    app.NewTaskService(runner),
-		History:  app.NewHistoryService(j, map[string]app.Reverter{"startup": startupSvc}),
-		Agent:    app.NewAgentService(exe),
+		Startup: startupSvc,
+		Procs:   app.NewProcessService(procs, procs, j, uint32(os.Getpid())),
+		About:   app.NewAboutService(about),
+		Cleanup: app.NewCleanupService(cleanup.New(host.CleanupLocations(), j), runner),
+		System:  app.NewSystemService(overview, overview, runner),
+		Tasks:   app.NewTaskService(runner),
+		History: app.NewHistoryService(j, map[string]app.Reverter{"startup": startupSvc}),
+		Agent: app.NewAgentService(exe, agents.New(agents.Deps{
+			Exe: exe, Home: home, LookPath: exec.LookPath, Run: runProgram,
+		}), j),
 		overview: overview,
 		journal:  j,
 		sampler:  sampler,
@@ -106,4 +115,10 @@ func dataDir() (string, error) {
 		return "", fmt.Errorf("find app data folder: %w", err)
 	}
 	return filepath.Join(base, "ReforgePulse"), nil
+}
+
+// runProgram runs an agent CLI and returns what it printed.
+func runProgram(ctx context.Context, name string, args ...string) (string, error) {
+	out, err := exec.CommandContext(ctx, name, args...).CombinedOutput()
+	return string(out), err
 }
