@@ -60,7 +60,7 @@ func run() error {
 		log.SetOutput(os.Stderr)
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 		defer stop()
-		return mcp.Serve(ctx, os.Stdin, os.Stdout, b.tools())
+		return mcp.Serve(ctx, os.Stdin, os.Stdout, app.VersionFrom(buildConfig), b.tools())
 	}
 	return runWindow(b, dir, &emit)
 }

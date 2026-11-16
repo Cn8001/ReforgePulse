@@ -130,14 +130,14 @@ func TestProcessService_ListsAndWraps(t *testing.T) {
 
 func TestVersionFrom_ReadsInfoVersion(t *testing.T) {
 	// Arrange
-	config := []byte("version: '3'\ninfo:\n  productName: \"ReforgePulse\"\n  version: \"0.1.0\" # The application version\nios:\n  version: \"9.9.9\"\n")
+	config := []byte("version: '3'\ninfo:\n  productName: \"ReforgePulse\"\n  version: \"0.0.1\" # The application version\nios:\n  version: \"9.9.9\"\n")
 
 	// Act
 	got := VersionFrom(config)
 
 	// Assert
-	if got != "0.1.0" {
-		t.Fatalf("version = %q, want 0.1.0", got)
+	if got != "0.0.1" {
+		t.Fatalf("version = %q, want 0.0.1", got)
 	}
 }
 

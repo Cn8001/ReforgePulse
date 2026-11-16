@@ -13,7 +13,7 @@ import (
 func serve(t *testing.T, tools []Tool, lines ...string) []map[string]any {
 	t.Helper()
 	var out bytes.Buffer
-	if err := Serve(context.Background(), strings.NewReader(strings.Join(lines, "\n")+"\n"), &out, tools); err != nil {
+	if err := Serve(context.Background(), strings.NewReader(strings.Join(lines, "\n")+"\n"), &out, "0.0.1", tools); err != nil {
 		t.Fatal(err)
 	}
 	var answers []map[string]any

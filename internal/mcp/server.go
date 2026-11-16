@@ -44,7 +44,8 @@ type response struct {
 }
 
 // Serve answers requests from in on out until in ends or ctx is cancelled.
-func Serve(ctx context.Context, in io.Reader, out io.Writer, tools []Tool) error {
+// version is the app's, from build/config.yml.
+func Serve(ctx context.Context, in io.Reader, out io.Writer, version string, tools []Tool) error {
 	byName := make(map[string]Tool, len(tools))
 	for _, t := range tools {
 		byName[t.Name] = t
@@ -66,7 +67,7 @@ func Serve(ctx context.Context, in io.Reader, out io.Writer, tools []Tool) error
 		if len(req.ID) == 0 {
 			continue // notifications such as notifications/initialized need no answer
 		}
-		result, rerr := handle(ctx, req, byName, tools)
+		result, rerr := handle(ctx, req, version, byName, tools)
 		if err := enc.Encode(response{JSONRPC: "2.0", ID: req.ID, Result: result, Error: rerr}); err != nil {
 			return fmt.Errorf("write response: %w", err)
 		}
@@ -77,13 +78,13 @@ func Serve(ctx context.Context, in io.Reader, out io.Writer, tools []Tool) error
 	return nil
 }
 
-func handle(ctx context.Context, req request, byName map[string]Tool, tools []Tool) (any, *rpcError) {
+func handle(ctx context.Context, req request, version string, byName map[string]Tool, tools []Tool) (any, *rpcError) {
 	switch req.Method {
 	case "initialize":
 		return map[string]any{
 			"protocolVersion": ProtocolVersion,
 			"capabilities":    map[string]any{"tools": map[string]any{}},
-			"serverInfo":      map[string]string{"name": Name, "version": "0.1.0"},
+			"serverInfo":      map[string]string{"name": Name, "version": version},
 			"instructions": "ReforgePulse diagnoses a Windows PC. These tools only read; " +
 				"any change must be approved by the user in the ReforgePulse window.",
 		}, nil

@@ -2,7 +2,7 @@
 # Go tests run on the host: Windows-only packages drop out by build tag.
 
 .DEFAULT_GOAL := help
-.PHONY: help build run dev test vet fmt tidy clean installer release
+.PHONY: help build run dev test vet fmt tidy clean installer release version
 
 ## help: list the targets
 help:
@@ -10,6 +10,7 @@ help:
 
 ## build: bin/reforgepulse.exe
 build:
+	@sh scripts/version.sh >/dev/null
 	GOOS=windows wails3 task build
 
 ## run: build, then start the app (works from WSL too)
@@ -54,6 +55,10 @@ release: installer
 	cp bin/reforgepulse.exe dist/reforgepulse-windows-$(ARCH).exe
 	cp bin/reforgepulse-$(ARCH)-installer.exe dist/reforgepulse-windows-$(ARCH)-installer.exe
 	cd dist && sha256sum reforgepulse-* > SHA256SUMS
+
+## version: V=1.2.3 sets the version in build/config.yml, the one place it lives
+version:
+	@sh scripts/version.sh $(V)
 
 ## clean: remove built binaries and release assets
 clean:
