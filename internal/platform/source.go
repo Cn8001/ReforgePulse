@@ -5,6 +5,7 @@ package platform
 
 import (
 	"context"
+	"errors"
 	"time"
 )
 
@@ -23,4 +24,13 @@ type Source interface {
 	Memory(ctx context.Context) (total, available uint64, err error)
 	Uptime(ctx context.Context) (time.Duration, error)
 	Volumes(ctx context.Context) ([]Volume, error)
+}
+
+// ErrDenied means the user refused the elevation prompt.
+var ErrDenied = errors.New("elevation denied")
+
+// Privileges answers whether the process runs elevated and can restart it so.
+type Privileges interface {
+	Elevated() bool
+	Relaunch(args []string) error // ErrDenied when the user cancels the prompt
 }
