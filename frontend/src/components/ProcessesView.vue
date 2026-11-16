@@ -158,91 +158,82 @@ async function endTask() {
 
 <template>
   <section class="flex h-full flex-col gap-4 p-6">
-    <header class="flex flex-wrap items-end justify-between gap-4">
+    <header class="flex flex-wrap items-center justify-between gap-4">
       <div>
-        <p class="caption">live · every 2 s · grouped by parent · click a row to expand</p>
-        <h1 class="mt-1 text-2xl font-semibold">Processes</h1>
+        <h1 class="heading">Processes</h1>
+        <p class="mt-1 text-muted">
+          {{ totals.count }} running<template v-if="totals.hung">, <span class="text-bad">{{ totals.hung }} not responding</span></template>,
+          {{ totals.ports }} open ports. Child processes sit under their parent; totals include them.
+        </p>
       </div>
       <div class="flex items-center gap-2">
-        <button class="h-10 border px-3 font-mono text-xs transition"
-                :class="onlyPorts ? 'border-accent bg-accent/15 text-accent' : 'border-line bg-panel text-muted hover:text-fg'"
-                @click="onlyPorts = !onlyPorts">ports only</button>
-        <label class="flex h-10 w-72 items-center gap-2 border border-line bg-panel px-3 focus-within:border-accent">
-          <Icon name="search" class="text-muted" />
-          <input v-model="query" placeholder="name, PID, path or :port" spellcheck="false"
-                 class="min-w-0 flex-1 bg-transparent font-mono text-xs outline-none placeholder:text-muted" />
+        <button class="btn" :class="onlyPorts && 'border-accent text-accent'" :aria-pressed="onlyPorts" @click="onlyPorts = !onlyPorts">With ports</button>
+        <label class="flex h-8 w-72 items-center gap-2 rounded border border-line bg-raised px-2.5 focus-within:border-accent">
+          <Icon name="search" class="size-4! text-muted" />
+          <input v-model="query" aria-label="Filter processes" placeholder="Name, PID, path or :port" spellcheck="false"
+                 class="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted" />
         </label>
       </div>
     </header>
 
-    <div class="grid grid-cols-4 border border-line bg-panel font-mono">
-      <div class="border-r border-line px-4 py-3"><p class="caption">processes</p><p class="mt-1 text-xl text-accent tabular-nums">{{ totals.count }}</p></div>
-      <div class="border-r border-line px-4 py-3"><p class="caption">not responding</p>
-        <p class="mt-1 text-xl tabular-nums" :class="totals.hung ? 'text-bad' : 'text-ok'">{{ totals.hung }}</p></div>
-      <div class="border-r border-line px-4 py-3"><p class="caption">open ports</p><p class="mt-1 text-xl tabular-nums">{{ totals.ports }}</p></div>
-      <div class="px-4 py-3" title="Protected processes Windows will not open, even for an administrator">
-        <p class="caption">protected</p><p class="mt-1 text-xl text-muted tabular-nums">{{ totals.denied }}</p></div>
-    </div>
+    <p v-if="error" class="notice border-bad/40 bg-bad/10 text-bad">{{ error }}</p>
 
-    <p v-if="error" class="border border-bad/40 bg-bad/10 px-4 py-3 font-mono text-xs text-bad">ERROR: {{ error }}</p>
-
-    <div class="min-h-0 flex-1 overflow-auto border border-line bg-panel">
-      <table class="w-full table-fixed font-mono text-xs">
-        <thead class="sticky top-0 z-10 bg-raised">
+    <div class="panel min-h-0 flex-1 overflow-auto">
+      <table class="w-full table-fixed text-[13px] tabular-nums">
+        <thead class="sticky top-0 z-10 bg-panel">
           <tr>
-            <th v-for="c in columns" :key="c.key" :class="c.cls"
-                class="cursor-pointer border-b border-line px-3 py-2 font-normal whitespace-nowrap text-muted uppercase transition hover:text-fg"
-                @click="sortBy(c.key)">
-              {{ c.label }}<span class="ml-1 text-accent">{{ sortKey === c.key ? (desc ? '▾' : '▴') : '' }}</span>
+            <th v-for="c in columns" :key="c.key" :class="c.cls" :aria-sort="sortKey === c.key ? (desc ? 'descending' : 'ascending') : 'none'"
+                class="border-b border-line px-3 py-2 font-medium whitespace-nowrap text-muted">
+              <button class="hover:text-fg" @click="sortBy(c.key)">
+                {{ c.label }}<span class="ml-1 text-fg">{{ sortKey === c.key ? (desc ? '↓' : '↑') : '' }}</span>
+              </button>
             </th>
           </tr>
         </thead>
         <tbody>
           <template v-for="{ p, depth, kids, cpu, gpu, mem } in rows" :key="p.pid">
-            <tr class="cursor-pointer border-b border-line/60 hover:bg-hover" :class="open.has(p.pid) && 'bg-hover'"
-                @click="toggle(p.pid)">
+            <tr class="cursor-pointer border-b border-line/60 hover:bg-hover" :class="open.has(p.pid) && 'bg-hover'" @click="toggle(p.pid)">
               <td class="truncate px-3 py-1.5">
                 <span class="flex items-center gap-2" :style="{ paddingLeft: `${depth * 18}px` }">
-                  <Icon name="chevron" class="size-3! text-muted transition-transform" :class="open.has(p.pid) && 'rotate-90'" />
-                  <Icon v-if="!p.access" name="lock" class="size-3.5! text-muted" />
+                  <Icon name="chevron" class="size-3! shrink-0 text-muted transition-transform" :class="open.has(p.pid) && 'rotate-90'" />
+                  <Icon v-if="!p.access" name="lock" class="size-3.5! shrink-0 text-muted" />
                   <span class="truncate" :class="!p.access && 'text-muted'">{{ p.name }}</span>
-                  <span v-if="p.hung" class="shrink-0 border border-bad/50 bg-bad/10 px-1.5 text-[10px] text-bad">not responding</span>
-                  <span v-if="kids" class="shrink-0 bg-hover px-1.5 text-[10px] text-muted">{{ kids }}</span>
-                  <span v-if="p.ports?.length" class="shrink-0 text-[10px] text-accent">{{ p.ports.length }} ports</span>
+                  <span v-if="kids" class="text-xs text-muted">{{ kids }}</span>
+                  <span v-if="p.hung" class="chip border-bad/50 text-bad">Not responding</span>
                 </span>
               </td>
-              <td class="px-3 py-1.5 text-right text-muted tabular-nums">{{ p.pid }}</td>
+              <td class="px-3 py-1.5 text-right font-mono text-xs text-muted">{{ p.pid }}</td>
               <td class="px-3 py-1.5">
                 <span class="flex items-center justify-end gap-2">
-                  <span class="h-1.5 w-12 bg-hover"><span class="block h-full bg-accent transition-[width] duration-500" :style="{ width: `${Math.min(100, cpu)}%` }" /></span>
-                  <span class="w-10 text-right tabular-nums" :class="cpu >= 10 ? 'text-warn' : ''">{{ p.access || kids ? cpu.toFixed(1) : '--' }}</span>
+                  <span class="h-1 w-12 overflow-hidden rounded-full bg-hover"><span class="block h-full rounded-full bg-accent transition-[width] duration-500" :style="{ width: `${Math.min(100, cpu)}%` }" /></span>
+                  <span class="w-10 text-right" :class="cpu >= 25 ? 'text-warn' : ''">{{ p.access || kids ? cpu.toFixed(1) : '–' }}</span>
                 </span>
               </td>
-              <td class="px-3 py-1.5 text-right tabular-nums" :class="gpu >= 1 ? 'text-gpu' : 'text-muted'">{{ gpu ? gpu.toFixed(1) : '0' }}</td>
-              <td class="px-3 py-1.5 text-right tabular-nums" :class="mem >= 2 ** 30 ? 'text-mem' : ''">{{ p.access || kids ? formatBytes(mem) : '--' }}</td>
-              <td class="px-3 py-1.5 text-right text-muted tabular-nums">{{ p.threads }}</td>
+              <td class="px-3 py-1.5 text-right" :class="gpu < 1 && 'text-muted'">{{ gpu ? gpu.toFixed(1) : '0' }}</td>
+              <td class="px-3 py-1.5 text-right">{{ p.access || kids ? formatBytes(mem) : '–' }}</td>
+              <td class="px-3 py-1.5 text-right text-muted">{{ p.threads }}</td>
             </tr>
             <tr v-if="open.has(p.pid)" class="border-b border-line bg-raised">
-              <td colspan="6" class="py-4 pr-6" :style="{ paddingLeft: `${24 + depth * 18}px` }">
+              <td colspan="6" class="py-4 pr-6" :style="{ paddingLeft: `${30 + depth * 18}px` }">
                 <div class="flex flex-wrap items-start gap-x-10 gap-y-3">
-                  <dl class="grid min-w-0 flex-1 grid-cols-[6rem_1fr] gap-y-1">
-                    <dt class="text-muted">path</dt><dd class="truncate select-text" :title="p.path">{{ p.path || 'unknown (protected)' }}</dd>
-                    <dt class="text-muted">parent</dt>
-                    <dd>{{ procs.find((x) => x.pid === p.parentPid)?.name ?? 'exited' }} ({{ p.parentPid }})</dd>
-                    <dt v-if="kids" class="text-muted">children</dt><dd v-if="kids">{{ kids }}, listed below · totals include them</dd>
-                    <dt class="text-muted">working set</dt><dd>{{ p.access ? formatBytes(p.workingSet) : '--' }}</dd>
-                    <dt class="text-muted">status</dt><dd :class="p.hung ? 'text-bad' : 'text-ok'">{{ p.hung ? 'not responding' : 'responding' }}</dd>
+                  <dl class="grid min-w-0 flex-1 grid-cols-[7rem_1fr] gap-y-1.5">
+                    <dt class="text-muted">Path</dt><dd class="truncate font-mono text-xs select-text" :title="p.path">{{ p.path || 'Hidden by Windows (protected process)' }}</dd>
+                    <dt class="text-muted">Parent</dt>
+                    <dd>{{ procs.find((x) => x.pid === p.parentPid)?.name ?? 'No longer running' }} <span class="font-mono text-xs text-muted">{{ p.parentPid }}</span></dd>
+                    <template v-if="kids"><dt class="text-muted">Children</dt><dd>{{ kids }}, listed below</dd></template>
+                    <dt class="text-muted">Working set</dt><dd>{{ p.access ? formatBytes(p.workingSet) : '–' }}</dd>
+                    <dt class="text-muted">State</dt><dd :class="p.hung && 'text-bad'">{{ p.hung ? 'Not responding' : 'Responding' }}</dd>
                   </dl>
-                  <button class="flex h-8 items-center gap-2 border border-bad/50 px-3 text-bad transition hover:bg-bad hover:text-white"
-                          @click.stop="ending = p"><Icon name="close" class="size-3.5!" />end task</button>
+                  <button class="btn border-bad/50 text-bad hover:bg-bad hover:text-white" @click.stop="ending = p">End task</button>
                 </div>
-                <table v-if="p.ports?.length" class="mt-4 w-full max-w-2xl">
-                  <tr class="text-muted"><td class="w-16 pb-1">proto</td><td class="pb-1">local</td><td class="pb-1">remote</td><td class="pb-1">state</td></tr>
+                <table v-if="p.ports?.length" class="mt-4 w-full max-w-2xl text-[13px]">
+                  <tr class="text-muted"><th class="w-16 pb-1 text-left font-medium">Protocol</th><th class="pb-1 text-left font-medium">Local</th>
+                    <th class="pb-1 text-left font-medium">Remote</th><th class="pb-1 text-left font-medium">State</th></tr>
                   <tr v-for="(x, i) in p.ports" :key="i" class="border-t border-line/60">
-                    <td class="py-1 text-muted">{{ x.proto }}</td>
-                    <td class="py-1 text-accent select-text">{{ x.local }}:{{ x.port }}</td>
-                    <td class="py-1 text-muted">{{ x.remote || '--' }}</td>
-                    <td class="py-1" :class="x.state === 'listen' ? 'text-ok' : 'text-muted'">{{ x.state || 'bound' }}</td>
+                    <td class="py-1 text-muted uppercase">{{ x.proto }}</td>
+                    <td class="py-1 font-mono text-xs select-text">{{ x.local }}:{{ x.port }}</td>
+                    <td class="py-1 font-mono text-xs text-muted">{{ x.remote || '–' }}</td>
+                    <td class="py-1 capitalize" :class="x.state !== 'listen' && 'text-muted'">{{ x.state || 'Bound' }}</td>
                   </tr>
                 </table>
               </td>
@@ -252,9 +243,8 @@ async function endTask() {
       </table>
     </div>
 
-    <ConfirmDialog :open="!!ending" :title="`End ${ending?.name} (PID ${ending?.pid})?`" confirm="end task" danger :busy="busy"
-                   @yes="endTask" @no="ending = null">
-      The process stops at once. Unsaved work in it is lost{{ ending?.ports?.length ? ', and the ports it holds are freed' : '' }}.
+    <ConfirmDialog :open="!!ending" :title="`End ${ending?.name}?`" confirm="End task" danger :busy="busy" @yes="endTask" @no="ending = null">
+      Process {{ ending?.pid }} stops at once and any unsaved work in it is lost{{ ending?.ports?.length ? '. The ports it holds are freed' : '' }}.
     </ConfirmDialog>
   </section>
 </template>
