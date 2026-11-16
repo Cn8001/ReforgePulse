@@ -163,6 +163,37 @@ type Features interface {
 	SetFeature(ctx context.Context, name string, enabled bool) (restart bool, err error)
 }
 
+// MemoryModule is one RAM stick. ConfiguredMHz above RatedMHz means it runs
+// overclocked, as an XMP or EXPO profile does.
+type MemoryModule struct {
+	Slot, Maker, Part       string
+	CapacityBytes           uint64
+	RatedMHz, ConfiguredMHz uint32
+}
+
+// DiskHealth is one physical drive as Windows' storage stack reports it.
+// Counters are -1 when the drive does not report them.
+type DiskHealth struct {
+	Name, Media, Health, Status string
+	TempC, TempMaxC, Wear       int
+	ReadErrors, WriteErrors     int
+	PowerOnHours                int
+}
+
+// HardwareFacts are what Windows knows about the hardware behind a crash.
+type HardwareFacts struct {
+	Memory     []MemoryModule
+	Disks      []DiskHealth
+	Hypervisor bool // Hyper-V, WSL 2 or VBS has the CPU
+	BIOS       string
+	BIOSDate   string
+	Board      string
+}
+
+type Hardware interface {
+	HardwareFacts(ctx context.Context) (HardwareFacts, error)
+}
+
 // Sampler reads load since its previous call, in percent. The first call
 // only sets the baseline and may answer an average since boot.
 type Sampler interface {
