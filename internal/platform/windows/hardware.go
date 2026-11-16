@@ -26,8 +26,13 @@ $d = @(Get-PhysicalDisk | ForEach-Object {
     Status=($_.OperationalStatus -join ', '); TempC=(& $n $r.Temperature); TempMaxC=(& $n $r.TemperatureMax)
     Wear=(& $n $r.Wear); ReadErrors=(& $n $r.ReadErrorsUncorrected); WriteErrors=(& $n $r.WriteErrorsUncorrected)
     PowerOnHours=(& $n $r.PowerOnHours) } })
+$p = Get-CimInstance Win32_Processor | Select-Object -First 1
+$c = [pscustomobject]@{ Name=$p.Name.Trim(); Cores=[int]$p.NumberOfCores; Threads=[int]$p.NumberOfLogicalProcessors
+  MaxMHz=[int]$p.MaxClockSpeed; L2KB=[int]$p.L2CacheSize; L3KB=[int]$p.L3CacheSize }
+$g = @(Get-CimInstance Win32_VideoController | ForEach-Object { [pscustomobject]@{ Name=$_.Name; DriverVersion=$_.DriverVersion
+  DriverDate=$(if ($_.DriverDate) { $_.DriverDate.ToString('yyyy-MM-dd') } else { '' }) } })
 $cs = Get-CimInstance Win32_ComputerSystem; $b = Get-CimInstance Win32_BIOS; $bb = Get-CimInstance Win32_BaseBoard
-[pscustomobject]@{ Memory=$m; Disks=$d; Hypervisor=[bool]$cs.HypervisorPresent; BIOS=$b.SMBIOSBIOSVersion
+[pscustomobject]@{ CPU=$c; GPUs=$g; Memory=$m; Disks=$d; Hypervisor=[bool]$cs.HypervisorPresent; BIOS=$b.SMBIOSBIOSVersion
   BIOSDate=$b.ReleaseDate.ToString('yyyy-MM-dd'); Board=($bb.Manufacturer+' '+$bb.Product) } | ConvertTo-Json -Depth 4 -Compress`
 
 func (System) HardwareFacts(ctx context.Context) (platform.HardwareFacts, error) {

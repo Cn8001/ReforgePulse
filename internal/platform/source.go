@@ -180,8 +180,23 @@ type DiskHealth struct {
 	PowerOnHours                int
 }
 
+// GPUInfo is a display adapter and its driver.
+type GPUInfo struct {
+	Name, DriverVersion, DriverDate string
+}
+
+// CPUInfo is what Windows reports about the processor package.
+type CPUInfo struct {
+	Name           string
+	Cores, Threads int
+	MaxMHz         int // the rated maximum, not the live boost
+	L2KB, L3KB     int
+}
+
 // HardwareFacts are what Windows knows about the hardware behind a crash.
 type HardwareFacts struct {
+	CPU        CPUInfo
+	GPUs       []GPUInfo
 	Memory     []MemoryModule
 	Disks      []DiskHealth
 	Hypervisor bool // Hyper-V, WSL 2 or VBS has the CPU

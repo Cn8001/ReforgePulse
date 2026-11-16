@@ -13,6 +13,8 @@ import (
 	"github.com/cn8001/reforgepulse/internal/agents"
 	"github.com/cn8001/reforgepulse/internal/app"
 	"github.com/cn8001/reforgepulse/internal/cleanup"
+	"github.com/cn8001/reforgepulse/internal/coretest"
+	"github.com/cn8001/reforgepulse/internal/inspect/cores"
 	"github.com/cn8001/reforgepulse/internal/inspect/crashes"
 	"github.com/cn8001/reforgepulse/internal/inspect/features"
 	"github.com/cn8001/reforgepulse/internal/inspect/leftovers"
@@ -44,10 +46,14 @@ type backend struct {
 	Scan    *app.ScanService
 	CPUCap  *app.CPUCapService
 	Feats   *app.FeatureService
+	HW      *app.HardwareService
 
 	overview *system.Inspector
 	journal  *journal.Journal
 	sampler  *windows.Sampler
+	cpus     *windows.CPUs
+	host     windows.System
+	cores    *cores.Inspector
 	procs    *processes.Inspector
 	startup  *startup.Inspector
 	programs *programs.Inspector
@@ -73,6 +79,8 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 		return nil, fmt.Errorf("find home folder: %w", err)
 	}
 	sampler := windows.NewSampler()
+	cpus := windows.NewCPUs()
+	coreMap := cores.New(cpus, host)
 	overview := system.New(host, host, sampler)
 	runner := tasks.New(maxTasks, notify)
 	procs := processes.New(processes.Deps{Processes: host, GPU: sampler, CPUs: runtime.NumCPU()})
@@ -90,6 +98,10 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 		Scan:    scan,
 		CPUCap:  cpuCap,
 		Feats:   feats,
+		HW: app.NewHardwareService(app.HardwareDeps{
+			Facts: host, Cores: coreMap, Loads: cpus, Runner: runner,
+			Tester: coretest.New(coretest.Deps{CPUs: cpus, WHEA: coreMap.WHEAByAPIC}),
+		}),
 		Old: app.NewOldFilesService(app.LeftoverDeps{
 			What:   "old downloads",
 			Finder: oldfiles.New([]oldfiles.Folder{{Name: "Downloads", Path: filepath.Join(home, "Downloads")}}),
@@ -115,6 +127,9 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 		overview: overview,
 		journal:  j,
 		sampler:  sampler,
+		cpus:     cpus,
+		host:     host,
+		cores:    coreMap,
 		procs:    procs,
 		startup:  startupApps,
 		programs: progs,
@@ -140,16 +155,21 @@ func (b *backend) services() []application.Service {
 		application.NewService(b.Scan),
 		application.NewService(b.CPUCap),
 		application.NewService(b.Feats),
+		application.NewService(b.HW),
 	}
 }
 
 func (b *backend) tools() []mcp.Tool {
 	return mcp.Tools(mcp.Deps{System: b.overview, Live: b.overview, Processes: b.procs, Startup: b.startup,
-		Programs: b.programs, Leftovers: b.left, Scanner: b.Scan, Power: b.CPUCap, History: b.journal})
+		Programs: b.programs, Leftovers: b.left, Scanner: b.Scan, Power: b.CPUCap,
+		Hardware: hwInfo{b.host, b.cores}, History: b.journal})
 }
 
 // Close releases what the backend holds open.
-func (b *backend) Close() { b.sampler.Close() }
+func (b *backend) Close() {
+	b.sampler.Close()
+	b.cpus.Close()
+}
 
 // dataDir is the one folder ReforgePulse keeps everything in, as bmeditor
 // does: %LOCALAPPDATA%\ReforgePulse, which os.UserCacheDir answers on
@@ -166,4 +186,10 @@ func dataDir() (string, error) {
 func runProgram(ctx context.Context, name string, args ...string) (string, error) {
 	out, err := exec.CommandContext(ctx, name, args...).CombinedOutput()
 	return string(out), err
+}
+
+// hwInfo joins the two hardware readers the MCP tool needs.
+type hwInfo struct {
+	windows.System
+	*cores.Inspector
 }

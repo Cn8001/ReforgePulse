@@ -20,7 +20,13 @@ type Deps struct {
 	Leftovers app.LeftoverFinder
 	Scanner   Scanner
 	Power     PowerReader
+	Hardware  HardwareInfo
 	History   app.ChangeLog
+}
+
+type HardwareInfo interface {
+	HardwareFacts(ctx context.Context) (platform.HardwareFacts, error)
+	List(ctx context.Context) ([]domain.CoreInfo, error)
 }
 
 type PowerReader interface {
@@ -113,6 +119,20 @@ func Tools(d Deps) []Tool {
 			Schema:      noArgs,
 			Call: func(ctx context.Context, _ json.RawMessage) (any, error) {
 				return d.Leftovers.List(ctx)
+			},
+		},
+		{
+			Name: "get_hardware",
+			Description: "CPU, motherboard, BIOS, every RAM stick (rated vs configured speed), GPUs with driver versions, disk health, " +
+				"and every logical processor with its core, P/E type, x2APIC ID and how many WHEA errors named it in 30 days.",
+			Schema: noArgs,
+			Call: func(ctx context.Context, _ json.RawMessage) (any, error) {
+				f, err := d.Hardware.HardwareFacts(ctx)
+				if err != nil {
+					return nil, err
+				}
+				cs, _ := d.Hardware.List(ctx)
+				return map[string]any{"hardware": f, "cores": cs}, nil
 			},
 		},
 		{
