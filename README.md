@@ -1,144 +1,103 @@
-<p align="center"><img src="build/appicon.png" width="96" alt="ReforgePulse"></p>
+<p align="center"><img src="build/appicon.png" alt="" width="96"></p>
 
 <h1 align="center">ReforgePulse</h1>
 
-<p align="center"><b>Diagnose. Explain. Fix. Verify.</b></p>
+Crash and slowdown diagnostics for Windows, with cleanup that asks first:
+a desktop app on Wails v3, Vue and Go that reads what Windows already
+records (event logs, WHEA, minidumps, counters, sensors) and says which part
+of the PC it points at. It runs elevated; every change goes through a
+confirmation and into a git-style change log.
 
-ReforgePulse is a Windows maintenance and diagnostics application. Its purpose
-is to recover as much of a PC's original performance, stability and usable
-storage as is realistically possible: it finds what changed, explains what is
-wrong in plain language, offers safe corrective actions, and records every
-change it makes.
+- **Issues**: Scan PC reads 30 days of stop errors (WER 1001), unexpected
+  restarts (Kernel-Power 41), WHEA errors with their APIC IDs, display
+  driver resets (4101), application and service failures, disk and NTFS
+  errors, firmware throttling, microcode, tuning drivers (XTU, NTIOLib,
+  WinRing0...) and devices without drivers. Findings have a severity and a
+  confidence. On an unstable PC it weighs each suspect (CPU, memory, storage,
+  heat, power, drivers, software) with the evidence for and against, and
+  says "unmeasured" where Windows cannot see, rather than "fine".
+- **Cleanup**: temp, browser, app, developer and shader caches; Windows
+  Update and WER leftovers; old logs; the Recycle Bin. Leftover folders of
+  uninstalled programs in Program Files, ProgramData and AppData, matched
+  against installed programs, services, startup entries and running
+  processes. Downloads untouched for 180 days. Programs Prefetch says have
+  not run in 90 days, removed by their own uninstaller. Startup apps with
+  the memory they use now, disabled through `StartupApproved` like Task
+  Manager does. Optional Windows features (SMB 1.0, PowerShell 2.0...).
+  Leftovers and old downloads go to the Recycle Bin.
+- **Processes**: a tree under parents, with CPU, GPU (per-process 3D engine
+  share), private memory, TCP/UDP ports and "not responding". Search `:8080`
+  for a port. End task refuses Windows' own processes.
+- **Tools**
+  - Hardware & cores: board, BIOS, RAM sticks (rated vs configured speed),
+    GPUs and drivers, disk health; every logical processor with its live
+    effective clock (PDH `% Processor Performance`), P/E class and x2APIC ID
+    from `CPUID`, so a WHEA "APIC 32" shows as LP 8, P-core 4.
+  - Core test: runs deterministic SHA-256 and floating-point rounds on one
+    pinned core at a time and compares results by majority vote.
+  - Sensors: NVIDIA through `nvml.dll`; CPU temperatures and voltages from
+    HWiNFO's shared memory (`HWiNFO_SENS_SM2`) when HWiNFO runs with Shared
+    Memory Support. There is no driver of its own, so without HWiNFO the CPU
+    temperature is not measured.
+  - Events: System and Application, grouped by provider and ID with counts,
+    messages through `EvtFormatMessage`, known noise (DCOM 10016...) hidden.
+  - Minidumps: stop code and parameters from the `PAGEDU64` header;
+    `!analyze -v` through cdb when WinDbg or the SDK debuggers are installed.
+  - Recorder: load and per-process private bytes every 2 s; a linear fit
+    flags steady growth as a likely leak.
+  - Drivers: problem devices (ConfigManagerErrorCode) and what Windows
+    Update offers, read through the Windows Update Agent. Installing is left
+    to Windows Update and the makers' pages it links to.
+  - System checks: `sfc /verifyonly`, `DISM /ScanHealth`, `chkdsk /scan`,
+    Windows Memory Diagnostic.
+  - CPU cap: `PROCFREQMAX` and `PROCFREQMAX1` on every power plan through
+    `powrprof.dll`, old values kept for revert.
+- **MCP**: `reforgepulse.exe mcp` is a read-only MCP server over stdio,
+  running unelevated. The MCP button registers it with Claude Code, Codex or
+  OpenCode. Agents can scan and read; changes stay in the window.
 
-It is not a system tweaker or a collection of administration tools. It uses
-the evidence those tools expose to answer practical questions:
+Long work (scans, cleanup, checks, the core test) runs as tasks in the
+status bar, at most four at a time, each cancellable.
 
-- Why does the PC crash or restart on its own?
-- Why is it slower than it used to be?
-- What is taking up storage, and what can safely be removed?
-- Is the cause software, a driver, the configuration, heat, power or the
-  hardware itself?
+## Use
 
-Software cannot repair failing hardware or restore performance lost to
-physical wear. ReforgePulse states which findings are confirmed, which are
-likely and which it cannot measure, and does not present a correlation as a
-cause.
-
-> **Status:** 0.0.1, early development. Windows 11 x64 is the primary target.
-
-## Principles
-
-| Principle | Meaning |
-|---|---|
-| Evidence first | Every finding names its source: event log records, crash dumps, sensors, performance counters. |
-| No placebo | No RAM cleaner, registry cleaner, one-click optimiser or driver installer. |
-| Consent | Nothing changes without a preview and an explicit confirmation. |
-| Accountability | Every change is written to a local change log before it is applied, with the values before and after. Reversible changes can be reverted from the log. |
-| Local only | No account, no telemetry, no uploads. |
-
-## Features
-
-### Issues
-
-A single scan reads what Windows has recorded over the last 30 days: stop
-errors, unexpected restarts, WHEA hardware errors, GPU driver resets,
-application and service failures, disk and file system errors, firmware
-throttling, the microcode revision, tuning drivers, devices without drivers,
-and the drivers and updates installed before the first crash.
-
-Each finding carries a severity and a confidence, kept separate. When the
-system is unstable, the scan weighs every possible cause in turn (processor,
-memory, storage, temperature, power, drivers and software), lists the
-evidence for and against each, and names the next check to run.
-
-### Cleanup
-
-| Area | Scope | Removal |
-|---|---|---|
-| Disk space | Temporary files; browser, application, developer and shader caches; Windows Update and error report data; old logs; the Recycle Bin | Permanent; files in use are skipped |
-| Leftovers | Folders in Program Files, ProgramData and AppData that no installed program, process, service or startup entry claims | Recycle Bin |
-| Old downloads | Items in Downloads untouched for 180 days | Recycle Bin |
-| Programs | Installed programs Windows has not started in 90 days | The program's own uninstaller |
-| Startup apps | Programs that start at sign-in, with the memory they use now | Disabled as Task Manager does it; reversible |
-| Windows features | Optional features that are rarely needed or carry known risk, such as SMB 1.0 | Reversible |
-
-### Processes
-
-A live process tree with CPU, GPU and memory per process, open TCP and UDP
-ports, and applications that have stopped responding. Ending a process
-requires confirmation and is logged.
-
-### Tools
-
-| Tool | Purpose |
-|---|---|
-| Hardware & cores | CPU, motherboard, BIOS, memory modules, GPUs and drives; every logical processor with its live clock, core type, APIC ID and WHEA error count |
-| Core test | Stresses selected cores one at a time and reports cores that return wrong results |
-| Sensors | GPU readings through the NVIDIA driver; CPU temperatures and voltages through HWiNFO's shared memory when HWiNFO is running |
-| Events | System and Application logs grouped by event, counted and explained |
-| Minidumps | Stop code and parameters read from each dump; full analysis through the Windows debugger engine when it is installed |
-| Recorder | Records load and per-process memory over a session and flags processes with steady memory growth |
-| Drivers | Devices with driver problems and the drivers Windows Update offers; installation is left to Windows Update and the manufacturers |
-| System checks | `sfc /verifyonly`, `DISM /ScanHealth`, `chkdsk /scan` and Windows Memory Diagnostic |
-| CPU cap | A user-defined P-core and E-core frequency limit, applied to every power plan |
-
-## Privacy and network use
-
-ReforgePulse works offline. It uses the network in one case only: when the
-user asks the Windows debugger to analyse a crash dump, the debugger downloads
-symbol files from Microsoft's public symbol server. The dump itself never
-leaves the computer, and the application asks before the download.
-
-All application data, including the change log, is stored in
-`%LOCALAPPDATA%\ReforgePulse`.
-
-## Requirements
-
-- Windows 11 x64. Windows 10 is expected to work but is not tested.
-- Administrator rights. The application requests elevation at start and runs
-  with reduced functionality if it is declined.
-- Optional: [HWiNFO](https://www.hwinfo.com/) with Shared Memory Support
-  enabled, for CPU temperatures and voltages.
-- Optional: WinDbg, for crash dump analysis.
-
-## AI agent integration
-
-`reforgepulse.exe mcp` starts a read-only [Model Context Protocol](https://modelcontextprotocol.io)
-server over standard input and output, with the user's normal rights. It can
-be registered with Claude Code, Codex or OpenCode from the MCP panel in the
-application. Agents can run the scan and read hardware, crash evidence,
-processes, startup apps, programs, leftovers, power plans and the change log.
-They cannot make changes.
-
-## Building from source
-
-Requires Go, Node.js and the Wails v3 CLI (`wails3`). The project builds on
-Windows and under WSL.
-
-```sh
-make build              # bin/reforgepulse.exe
-make run                # build and start
-make test               # Go tests with the race detector
-make installer          # NSIS installer
-make release            # release assets and SHA256SUMS for the Wails updater
-make version V=1.2.3    # set the version in build/config.yml
+```
+make run                # build bin/reforgepulse.exe and start it
+make test               # go test -race ./internal/...
+make vet                # go vet for GOOS=windows
+make installer          # bin/reforgepulse-amd64-installer.exe (NSIS)
+make release            # dist/: release assets and SHA256SUMS for the updater
+make version V=1.2.3    # the version lives in build/config.yml only
 ```
 
-## Project layout
+Builds from Windows or WSL with Go, Node and `wails3`. The app is Windows
+only; the packages under `internal/` other than `platform/windows` build and
+test anywhere.
 
-```text
-main.go, services.go   wiring: window, services, MCP mode, elevation
-internal/domain        shared models
-internal/platform      operating system interfaces; windows/ implements them
-internal/inspect       read-only analysis: processes, crashes, cores, leftovers and more
-internal/diagnosis     rules that turn evidence into findings and suspects
-internal/app           services used by the window and the MCP server
-internal/journal       the change log
-internal/mcp           the MCP server
-frontend/              Vue 3, TypeScript and Tailwind CSS
+Data is in `%LOCALAPPDATA%\ReforgePulse`: `journal.jsonl` (the change
+log), `webview/` and the debugger's `symbols/` cache. The only network use
+is that symbol download, and only when you ask for a dump analysis.
+
+## Layout
+
+```
+main.go, services.go   wiring: window, services, mcp mode, UAC relaunch
+internal/
+  domain       shared models
+  platform     OS interfaces; windows/ implements them (Win32, PDH, WUA, NVML, wevtapi)
+  inspect      read-only analysis: system, processes, startup, programs,
+               leftovers, crashes, cores, events, dumps, features
+  diagnosis    rules: evidence to findings and suspects
+  cleanup      safe deletion in known locations
+  coretest     the per-core stress test
+  recorder     session recording and leak detection
+  journal      the change log
+  tasks        bounded, cancellable background work for the status bar
+  agents       registers the MCP server with agent CLIs
+  mcp          the MCP server
+  app          services the window and MCP call
+frontend/src   Vue shell, Tailwind, one component per page and tab
 ```
 
-## License
-
-Free to use. Provided as is, without warranty of any kind. See
+ReforgePulse is free to use and provided as is, without warranty: see
 [TERMS.md](TERMS.md).
