@@ -272,6 +272,12 @@ type Checks interface {
 	RunCheck(ctx context.Context, name string) (exitCode int, output string, err error)
 }
 
+// Debugger runs Windows' debugger engine (cdb) on a crash dump.
+type Debugger interface {
+	DebuggerPath() string // empty when no debugger is installed
+	Analyze(ctx context.Context, dump, symbols string) (string, error)
+}
+
 // Sampler reads load since its previous call, in percent. The first call
 // only sets the baseline and may answer an average since boot.
 type Sampler interface {

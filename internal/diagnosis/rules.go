@@ -42,8 +42,8 @@ func Evaluate(in Input) []domain.Finding {
 	return out
 }
 
-// bugcheckNames are the stop codes worth a name; the rest show as hex.
-var bugcheckNames = map[string]string{
+// BugcheckNames are the stop codes worth a name; the rest show as hex.
+var BugcheckNames = map[string]string{
 	"0xA": "IRQL_NOT_LESS_OR_EQUAL", "0x1A": "MEMORY_MANAGEMENT", "0x1E": "KMODE_EXCEPTION_NOT_HANDLED",
 	"0x3B": "SYSTEM_SERVICE_EXCEPTION", "0x50": "PAGE_FAULT_IN_NONPAGED_AREA", "0x7E": "SYSTEM_THREAD_EXCEPTION_NOT_HANDLED",
 	"0x9F": "DRIVER_POWER_STATE_FAILURE", "0xD1": "DRIVER_IRQL_NOT_LESS_OR_EQUAL", "0xEF": "CRITICAL_PROCESS_DIED",
@@ -86,7 +86,7 @@ func bugchecks(in Input) []domain.Finding {
 	}
 	var codes []string
 	for c, n := range counts {
-		name := bugcheckNames[c]
+		name := BugcheckNames[c]
 		if name == "" {
 			name = "stop code"
 		}

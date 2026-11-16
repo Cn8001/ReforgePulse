@@ -14,8 +14,10 @@ import (
 	"github.com/cn8001/reforgepulse/internal/app"
 	"github.com/cn8001/reforgepulse/internal/cleanup"
 	"github.com/cn8001/reforgepulse/internal/coretest"
+	"github.com/cn8001/reforgepulse/internal/diagnosis"
 	"github.com/cn8001/reforgepulse/internal/inspect/cores"
 	"github.com/cn8001/reforgepulse/internal/inspect/crashes"
+	"github.com/cn8001/reforgepulse/internal/inspect/dumps"
 	"github.com/cn8001/reforgepulse/internal/inspect/events"
 	"github.com/cn8001/reforgepulse/internal/inspect/features"
 	"github.com/cn8001/reforgepulse/internal/inspect/leftovers"
@@ -53,6 +55,7 @@ type backend struct {
 	Events  *app.EventService
 	Checks  *app.CheckService
 	Rec     *app.RecorderService
+	Dumps   *app.DumpService
 
 	overview *system.Inspector
 	journal  *journal.Journal
@@ -110,6 +113,9 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 		Events:  app.NewEventService(events.New(host), runner),
 		Checks:  app.NewCheckService(host, runner),
 		Rec:     app.NewRecorderService(recorder.New(overview, procs), runner),
+		Dumps: app.NewDumpService(dumps.New(dumps.Deps{
+			Dir: host.DumpDir(), Symbols: filepath.Join(dataDir, "symbols"), Debugger: host, Names: diagnosis.BugcheckNames,
+		}), runner),
 		HW: app.NewHardwareService(app.HardwareDeps{
 			Facts: host, Cores: coreMap, Loads: cpus, Runner: runner,
 			Tester: coretest.New(coretest.Deps{CPUs: cpus, WHEA: coreMap.WHEAByAPIC}),
@@ -173,6 +179,7 @@ func (b *backend) services() []application.Service {
 		application.NewService(b.Events),
 		application.NewService(b.Checks),
 		application.NewService(b.Rec),
+		application.NewService(b.Dumps),
 	}
 }
 
