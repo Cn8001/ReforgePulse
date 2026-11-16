@@ -150,6 +150,19 @@ type Power interface {
 	SetCPUCaps(ctx context.Context, p PowerPlan) error
 }
 
+// Feature is a Windows optional feature, as Windows Features lists them.
+type Feature struct {
+	Name    string
+	Enabled bool
+}
+
+// Features reads and toggles Windows optional features.
+type Features interface {
+	OptionalFeatures(ctx context.Context) ([]Feature, error)
+	// SetFeature turns a feature on or off; restart says Windows needs one.
+	SetFeature(ctx context.Context, name string, enabled bool) (restart bool, err error)
+}
+
 // Sampler reads load since its previous call, in percent. The first call
 // only sets the baseline and may answer an average since boot.
 type Sampler interface {

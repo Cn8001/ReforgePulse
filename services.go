@@ -14,6 +14,7 @@ import (
 	"github.com/cn8001/reforgepulse/internal/app"
 	"github.com/cn8001/reforgepulse/internal/cleanup"
 	"github.com/cn8001/reforgepulse/internal/inspect/crashes"
+	"github.com/cn8001/reforgepulse/internal/inspect/features"
 	"github.com/cn8001/reforgepulse/internal/inspect/leftovers"
 	"github.com/cn8001/reforgepulse/internal/inspect/processes"
 	"github.com/cn8001/reforgepulse/internal/inspect/programs"
@@ -40,6 +41,7 @@ type backend struct {
 	Left    *app.LeftoverService
 	Scan    *app.ScanService
 	CPUCap  *app.CPUCapService
+	Feats   *app.FeatureService
 
 	overview *system.Inspector
 	journal  *journal.Journal
@@ -75,6 +77,7 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 	startupApps := startup.New(host, procs)
 	startupSvc := app.NewStartupService(startupApps, host, j)
 	cpuCap := app.NewCPUCapService(host, j)
+	feats := app.NewFeatureService(app.FeatureDeps{List: features.New(host), Switch: host, Runner: runner, Journal: j})
 	progs := programs.New(host)
 	left := leftovers.New(leftovers.Deps{Machine: host, Startup: host, Processes: procs, Files: host})
 	scan := app.NewScanService(app.ScanDeps{
@@ -84,6 +87,7 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 		Startup: startupSvc,
 		Scan:    scan,
 		CPUCap:  cpuCap,
+		Feats:   feats,
 		Left: app.NewLeftoverService(app.LeftoverDeps{
 			Finder: left,
 			Bin:    host, Runner: runner, Journal: j,
@@ -96,7 +100,7 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 		Cleanup: app.NewCleanupService(cleanup.New(host.CleanupLocations(), j), runner),
 		System:  app.NewSystemService(overview, overview, runner),
 		Tasks:   app.NewTaskService(runner),
-		History: app.NewHistoryService(j, map[string]app.Reverter{"startup": startupSvc, "cpu-cap": cpuCap}),
+		History: app.NewHistoryService(j, map[string]app.Reverter{"startup": startupSvc, "cpu-cap": cpuCap, "feature": feats}),
 		Agent: app.NewAgentService(exe, agents.New(agents.Deps{
 			Exe: exe, Home: home, LookPath: exec.LookPath, Run: runProgram,
 		}), j),
@@ -126,6 +130,7 @@ func (b *backend) services() []application.Service {
 		application.NewService(b.Left),
 		application.NewService(b.Scan),
 		application.NewService(b.CPUCap),
+		application.NewService(b.Feats),
 	}
 }
 
