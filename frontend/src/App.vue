@@ -3,15 +3,17 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 import Icon from './components/Icon.vue'
 import HomeView from './components/HomeView.vue'
 import ComingSoon from './components/ComingSoon.vue'
+import ProcessesView from './components/ProcessesView.vue'
 import AgentPanel from './components/AgentPanel.vue'
 import StatusBar from './components/StatusBar.vue'
 import logo from './assets/logo.svg'
 import { theme } from './lib/theme'
 import type { IconName } from './lib/icons'
 
-type Page = 'home' | 'cleanup' | 'fix'
+type Page = 'home' | 'processes' | 'cleanup' | 'fix'
 const pages: { id: Page; label: string; icon: IconName }[] = [
   { id: 'home', label: 'Overview', icon: 'home' },
+  { id: 'processes', label: 'Processes', icon: 'list' },
   { id: 'cleanup', label: 'Cleanup', icon: 'cleanup' },
   { id: 'fix', label: 'Fix Issues', icon: 'fix' },
 ]
@@ -19,7 +21,7 @@ const page = ref<Page>('home')
 const agentOpen = ref(false)
 const elevated = ref<boolean | null>(null) // set by Home once the overview arrives
 
-// Ctrl+1..3 switch pages, Escape closes the agent panel.
+// Ctrl+1..4 switch pages, Escape closes the agent panel.
 function onKey(e: KeyboardEvent) {
   const n = Number(e.key)
   if (e.ctrlKey && n >= 1 && n <= pages.length) {
@@ -82,9 +84,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         </div>
       </aside>
 
-      <main class="scope min-w-0 flex-1 overflow-y-auto">
+      <main class="scope min-w-0 flex-1 overflow-y-auto" :class="page === 'processes' && 'overflow-hidden'">
         <Transition name="page" mode="out-in">
           <HomeView v-if="page === 'home'" @elevated="elevated = $event" />
+          <ProcessesView v-else-if="page === 'processes'" />
           <ComingSoon v-else-if="page === 'cleanup'" key="cleanup" icon="cleanup" title="Cleanup"
                       text="Find what takes up space and remove what is not needed, always after you approve it." />
           <ComingSoon v-else key="fix" icon="fix" title="Fix Issues"
