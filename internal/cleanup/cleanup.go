@@ -120,7 +120,7 @@ func (e *Engine) Clean(ctx context.Context, ids []string) (domain.CleanupResult,
 // are links or junctions are skipped, so the walk never leaves the location.
 func (e *Engine) walk(ctx context.Context, l platform.Location, fn func(path string, size int64)) error {
 	cutoff := e.now().Add(-l.MinAge)
-	for _, root := range l.Paths {
+	for _, root := range expand(l.Paths) {
 		if !filepath.IsAbs(root) {
 			continue
 		}
@@ -157,11 +157,26 @@ func (e *Engine) walk(ctx context.Context, l platform.Location, fn func(path str
 	return nil
 }
 
+// expand resolves glob paths such as a browser's User Data\*\Cache, one
+// root per match, so each profile is cleaned without its parent.
+func expand(paths []string) []string {
+	var out []string
+	for _, p := range paths {
+		if !strings.ContainsAny(p, "*?[") {
+			out = append(out, p)
+			continue
+		}
+		matches, _ := filepath.Glob(p)
+		out = append(out, matches...)
+	}
+	return out
+}
+
 // removeEmpty drops folders the cleanup emptied, deepest first, but never a
 // location root. os.Remove refuses a folder that still holds anything.
 func removeEmpty(dirs, roots []string) {
 	isRoot := map[string]bool{}
-	for _, r := range roots {
+	for _, r := range expand(roots) {
 		isRoot[filepath.Clean(r)] = true
 	}
 	sort.Slice(dirs, func(i, j int) bool { return len(dirs[i]) > len(dirs[j]) })

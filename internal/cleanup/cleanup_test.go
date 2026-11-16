@@ -136,3 +136,26 @@ func TestEngine_IgnoresRelativePaths(t *testing.T) {
 		t.Fatalf("areas = %+v, err = %v", areas, err)
 	}
 }
+
+func TestEngine_GlobPathsCleanEachMatch(t *testing.T) {
+	// Arrange
+	base := t.TempDir()
+	write(t, filepath.Join(base, "Profile 1", "Cache", "a"), 10, 48*time.Hour)
+	write(t, filepath.Join(base, "Default", "Cache", "b"), 20, 48*time.Hour)
+	write(t, filepath.Join(base, "Default", "Bookmarks"), 5, 48*time.Hour)
+	e := New([]platform.Location{{ID: "browser", Paths: []string{filepath.Join(base, "*", "Cache")}}}, &fakeJournal{})
+
+	// Act
+	r, err := e.Clean(context.Background(), []string{"browser"})
+
+	// Assert
+	if err != nil || r.Deleted != 2 || r.Freed != 30 {
+		t.Fatalf("result = %+v, err = %v", r, err)
+	}
+	if _, err := os.Stat(filepath.Join(base, "Default", "Bookmarks")); err != nil {
+		t.Fatal("a file outside the cache was deleted")
+	}
+	if _, err := os.Stat(filepath.Join(base, "Default", "Cache")); err != nil {
+		t.Fatal("the matched cache root itself was removed")
+	}
+}
