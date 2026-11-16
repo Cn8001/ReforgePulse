@@ -126,115 +126,116 @@ async function revert() {
   }
 }
 
-const statusTone: Record<string, string> = {
-  applied: 'text-ok',
-  failed: 'text-bad',
-  reverted: 'text-muted line-through',
-  started: 'text-warn',
+const statusText: Record<string, [string, string]> = {
+  applied: ['Applied', 'text-fg'],
+  failed: ['Failed', 'text-bad'],
+  reverted: ['Reverted', 'text-muted line-through'],
+  started: ['Interrupted', 'text-warn'],
 }
+
+const headline = computed(() => {
+  if (scanning.value) return 'Scanning…'
+  if (!scan.value) return 'Not scanned yet'
+  if (!issues.value) return 'No urgent issues found'
+  return issues.value === 1 ? '1 issue needs attention' : `${issues.value} issues need attention`
+})
 </script>
 
 <template>
-  <section class="flex flex-col gap-5 p-6">
-    <header class="flex flex-wrap items-end justify-between gap-4">
+  <section class="mx-auto flex max-w-6xl flex-col gap-5 p-6">
+    <header class="flex flex-wrap items-center justify-between gap-4">
       <div>
-        <p class="caption">status ·
-          <span v-if="scanning" class="text-accent">scanning…</span>
-          <span v-else-if="!scan" class="text-warn">not scanned</span>
-          <span v-else-if="issues" class="text-warn">{{ issues }} issues need attention</span>
-          <span v-else class="text-ok">no urgent issues found</span>
+        <h1 class="heading">{{ headline }}</h1>
+        <p class="mt-1 text-muted">
+          {{ scan ? `Last scan ${since(scan.at)}.` : 'A scan reads crash records, hardware errors, drives and memory. It changes nothing.' }}
         </p>
-        <h1 class="mt-1 text-2xl font-semibold">System overview</h1>
       </div>
       <div class="flex items-center gap-2">
-        <button class="flex size-10 items-center justify-center border border-line bg-panel transition hover:bg-raised disabled:opacity-50"
-                title="Refresh" :disabled="loading" @click="load">
-          <Icon name="refresh" :class="loading && 'animate-spin'" />
+        <button class="btn size-9 px-0" title="Refresh" aria-label="Refresh" :disabled="loading" @click="load">
+          <Icon name="refresh" class="size-4!" :class="loading && 'animate-spin'" />
         </button>
-        <button :disabled="scanning" @click="runScan"
-                class="h-10 bg-accent px-6 font-mono text-xs font-bold tracking-[.2em] text-white uppercase shadow-[0_0_24px_-6px_var(--accent)] transition hover:brightness-110 active:translate-y-px disabled:opacity-60">
-          {{ scanning ? 'Scanning' : 'Scan PC' }}
-        </button>
+        <button class="btn-primary h-9 px-5" :disabled="scanning" @click="runScan">{{ scanning ? 'Scanning…' : 'Scan PC' }}</button>
       </div>
     </header>
 
-    <div v-if="overview && !overview.elevated" class="flex items-center gap-3 border border-warn/40 bg-warn/10 px-4 py-2.5 font-mono text-xs text-warn">
-      <Icon name="shield" />
-      WARN: running without administrator rights; event logs and repairs are limited.
+    <div v-if="overview && !overview.elevated" class="notice flex items-center gap-3 border-warn/40 bg-warn/10">
+      <Icon name="shield" class="text-warn" />
+      ReforgePulse is running without administrator rights, so some event logs and every repair are unavailable.
     </div>
 
-    <div v-if="top.length" class="flex flex-col border border-line bg-panel">
-      <button v-for="(f, i) in top" :key="i" class="flex items-center gap-3 border-b border-line px-4 py-2.5 text-left transition last:border-0 hover:bg-hover"
-              @click="emit('open', 'fix')">
-        <span class="h-4 w-[3px]" :style="{ background: severityTone[f.severity] }" />
-        <span class="flex-1 truncate">{{ f.title }}</span>
-        <span class="font-mono text-[10px] text-muted uppercase">{{ f.severity }} · {{ f.confidence }}</span>
-        <Icon name="chevron" class="size-3.5! text-muted" />
-      </button>
-    </div>
+    <ul v-if="top.length" class="panel divide-y divide-line">
+      <li v-for="(f, i) in top" :key="i">
+        <button class="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-hover" @click="emit('open', 'fix')">
+          <span class="size-2 shrink-0 rounded-full" :style="{ background: severityTone[f.severity] }" />
+          <span class="flex-1 truncate">{{ f.title }}</span>
+          <span class="text-xs text-muted capitalize">{{ f.severity }}</span>
+          <Icon name="chevron" class="size-3.5! text-muted" />
+        </button>
+      </li>
+    </ul>
 
-    <p v-if="error" class="border border-bad/40 bg-bad/10 px-4 py-3 font-mono text-xs text-bad">ERROR: {{ error }}</p>
+    <p v-if="error" class="notice border-bad/40 bg-bad/10 text-bad">{{ error }}</p>
 
     <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
-      <Tile title="CPU" icon="cpu" tint="var(--accent)" :value="pct(now.cpu)" unit="%" class="cursor-pointer" @click="emit('open', 'processes', 'cpu')"
-            :sub="overview ? `${overview.cpuModel || 'unknown'} · ${overview.logicalCpus} threads` : ''">
+      <Tile title="Processor" icon="cpu" :value="pct(now.cpu)" unit="%" :sub="overview ? overview.cpuModel || 'Unknown processor' : ''"
+            class="cursor-pointer" @click="emit('open', 'processes', 'cpu')">
         <ClockTemp :clock="cpuClock" :temp="cpuTemp"
                    missing="Windows has no reliable CPU temperature. Run HWiNFO with Shared Memory Support on and it shows here." />
         <Sparkline :values="history.cpu" color="var(--accent)" />
       </Tile>
-      <Tile title="GPU" icon="gpu" tint="var(--gpu)" :value="pct(now.gpu)" unit="%" :sub="overview?.gpuModel || 'unknown'"
+      <Tile title="Graphics" icon="gpu" :value="pct(now.gpu)" unit="%" :sub="overview?.gpuModel || 'Unknown graphics card'"
             class="cursor-pointer" @click="emit('open', 'processes', 'gpu')">
-        <ClockTemp :clock="gpuClock" :temp="gpuTemp" :missing="sensors?.nvml || 'No NVIDIA GPU sensors.'" />
-        <Sparkline :values="history.gpu" color="var(--gpu)" />
+        <ClockTemp :clock="gpuClock" :temp="gpuTemp" :missing="sensors?.nvml || 'No graphics sensors found.'" />
+        <Sparkline :values="history.gpu" color="var(--accent)" />
       </Tile>
-      <Tile title="Memory" icon="memory" tint="var(--mem)" :value="pct(now.memory)" unit="%" :sub="memoryDetail"
+      <Tile title="Memory" icon="memory" :value="pct(now.memory)" unit="%" :sub="memoryDetail"
             class="cursor-pointer" @click="emit('open', 'processes', 'private')">
         <ClockTemp :clock="memClock" />
-        <Sparkline :values="history.memory" color="var(--mem)" />
+        <Sparkline :values="history.memory" color="var(--accent)" />
       </Tile>
-      <Tile title="Disks" icon="disk" tint="var(--disk)" class="cursor-pointer md:col-span-2" @click="emit('open', 'cleanup')">
-        <template #badge><span class="ml-auto font-mono text-[11px] text-muted">{{ drives.length }} fixed</span></template>
-        <div class="flex flex-col gap-2.5">
-          <div v-for="d in drives" :key="d.root" class="grid grid-cols-[2.5rem_1fr_3rem_9rem] items-center gap-3 font-mono text-xs">
-            <span class="text-disk">{{ d.root.replace('\\', '') }}</span>
-            <Bar :ratio="d.ratio" tint="var(--disk)" />
-            <span class="text-right tabular-nums">{{ d.used }}%</span>
-            <span class="truncate text-right text-muted">{{ d.detail }}</span>
-          </div>
-          <p v-if="!drives.length" class="font-mono text-xs text-muted">--</p>
-        </div>
+
+      <Tile title="Drives" icon="disk" class="cursor-pointer md:col-span-2" @click="emit('open', 'cleanup')">
+        <table class="w-full text-[13px] tabular-nums">
+          <tr v-for="d in drives" :key="d.root">
+            <td class="w-12 py-1.5 font-mono">{{ d.root.replace('\\', '') }}</td>
+            <td class="py-1.5"><Bar :ratio="d.ratio" /></td>
+            <td class="w-14 py-1.5 text-right">{{ d.used }}%</td>
+            <td class="w-44 py-1.5 text-right text-muted">{{ d.detail }}</td>
+          </tr>
+        </table>
+        <p v-if="!drives.length" class="text-muted">No fixed drives found.</p>
       </Tile>
-      <Tile title="System" icon="system" tint="var(--muted)" :sub="overview?.os || ''">
-        <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 font-mono text-xs">
-          <dt class="text-muted">uptime</dt><dd>{{ overview ? show(overview.uptime, formatDuration) : '--' }}</dd>
-          <dt class="text-muted">access</dt>
-          <dd :class="overview?.elevated ? 'text-ok' : 'text-warn'">{{ overview ? (overview.elevated ? 'administrator' : 'limited') : '--' }}</dd>
-          <dt class="text-muted">network</dt><dd class="text-ok">none used</dd>
+      <Tile title="System" icon="system" :sub="overview?.os || ''">
+        <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[13px]">
+          <dt class="text-muted">Running for</dt><dd class="tabular-nums">{{ overview ? show(overview.uptime, formatDuration) : '–' }}</dd>
+          <dt class="text-muted">Rights</dt>
+          <dd :class="overview && !overview.elevated ? 'text-warn' : ''">{{ overview ? (overview.elevated ? 'Administrator' : 'Limited') : '–' }}</dd>
+          <dt class="text-muted">Network</dt><dd>Not used</dd>
         </dl>
       </Tile>
     </div>
 
-    <article class="border border-line bg-panel">
-      <header class="flex items-center gap-2 border-b border-line px-4 py-3">
-        <Icon name="history" />
-        <span class="caption">change log</span>
-        <span class="ml-auto font-mono text-[11px] text-muted">{{ changes.length }} entries</span>
+    <article class="panel">
+      <header class="flex items-baseline justify-between border-b border-line px-4 py-3">
+        <h2 class="text-[13px] font-semibold">Change log</h2>
+        <span class="text-xs text-muted">{{ changes.length ? `${changes.length} changes` : '' }}</span>
       </header>
-      <p v-if="!changes.length" class="px-4 py-4 font-mono text-xs text-muted">// no changes made yet. every change is logged here, git style, before it happens.</p>
-      <table v-else class="w-full font-mono text-xs">
+      <p v-if="!changes.length" class="px-4 py-4 text-muted">Nothing has been changed yet. Every change ReforgePulse makes is recorded here before it happens.</p>
+      <table v-else class="w-full text-[13px]">
         <tr v-for="c in changes.slice(0, 8)" :key="c.id" class="border-b border-line last:border-0 hover:bg-hover">
-          <td class="w-24 px-4 py-2 text-accent">{{ c.id }}</td>
+          <td class="w-24 px-4 py-2 font-mono text-xs text-muted">{{ c.id }}</td>
           <td class="truncate py-2" :title="c.before && c.after ? `${c.before} → ${c.after}` : ''">{{ c.summary }}</td>
-          <td class="w-24 py-2" :class="statusTone[c.status]">{{ c.status }}</td>
+          <td class="w-24 py-2" :class="statusText[c.status]?.[1]">{{ statusText[c.status]?.[0] ?? c.status }}</td>
           <td class="w-28 py-2 text-right text-muted">{{ since(c.at) }}</td>
           <td class="w-24 px-4 py-2 text-right">
-            <button v-if="c.reversible && c.status === 'applied'" class="text-accent hover:underline" @click="reverting = c">revert</button>
+            <button v-if="c.reversible && c.status === 'applied'" class="text-accent hover:underline" @click="reverting = c">Revert</button>
           </td>
         </tr>
       </table>
     </article>
-    <ConfirmDialog :open="!!reverting" :title="`Revert ${reverting?.id}?`" confirm="revert" :busy="busy" @yes="revert" @no="reverting = null">
-      {{ reverting?.summary }}: goes back from <b>{{ reverting?.after }}</b> to <b>{{ reverting?.before }}</b>. The revert is logged as a new change.
+
+    <ConfirmDialog :open="!!reverting" :title="`Revert “${reverting?.summary}”?`" confirm="Revert" :busy="busy" @yes="revert" @no="reverting = null">
+      This goes back from <b class="text-fg">{{ reverting?.after }}</b> to <b class="text-fg">{{ reverting?.before }}</b>. The revert is recorded as a new change.
     </ConfirmDialog>
   </section>
 </template>

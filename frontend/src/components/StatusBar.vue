@@ -40,34 +40,34 @@ const finishedText = computed(() => {
   if (!s) return ''
   if (s.state === State.Failed) return `${s.title} failed: ${s.error}`
   if (s.state === State.Cancelled) return `${s.title} cancelled`
-  return `${s.title} done`
+  return `${s.title}: done`
 })
 </script>
 
 <template>
-  <footer class="flex h-7 shrink-0 items-center gap-4 border-t border-line bg-panel px-3 font-mono text-[11px] text-muted">
+  <footer class="flex h-7 shrink-0 items-center gap-4 border-t border-line bg-panel px-3 text-[12px] text-muted">
     <Transition name="page" mode="out-in">
-      <div v-if="current" key="busy" class="flex min-w-0 items-center gap-2">
-        <span class="text-accent">[RUN]</span>
-        <span class="truncate text-fg">{{ current.title }}<span v-if="current.note" class="text-muted"> :: {{ current.note }}</span></span>
-        <span v-if="running.size > 1">(+{{ running.size - 1 }} queued)</span>
-        <span class="relative h-1.5 w-28 overflow-hidden bg-hover">
-          <span v-if="current.progress >= 0" class="absolute inset-y-0 left-0 bg-accent transition-[width] duration-300"
+      <div v-if="current" key="busy" class="flex min-w-0 items-center gap-2.5">
+        <span class="size-2 shrink-0 animate-pulse rounded-full bg-accent" />
+        <span class="truncate text-fg">{{ current.title }}<span v-if="current.note" class="text-muted">, {{ current.note }}</span></span>
+        <span v-if="running.size > 1">and {{ running.size - 1 }} more</span>
+        <span class="relative h-1 w-28 overflow-hidden rounded-full bg-hover">
+          <span v-if="current.progress >= 0" class="absolute inset-y-0 left-0 rounded-full bg-accent transition-[width] duration-300"
                 :style="{ width: `${current.progress * 100}%` }" />
-          <span v-else class="absolute inset-y-0 w-1/3 animate-[slide_1s_linear_infinite] bg-accent" />
+          <span v-else class="absolute inset-y-0 w-1/3 animate-[slide_1s_linear_infinite] rounded-full bg-accent" />
         </span>
-        <button class="px-1 text-fg transition hover:bg-hover" @click="Cancel(current.id)">^C cancel</button>
+        <button class="rounded px-1.5 text-fg transition hover:bg-hover" @click="Cancel(current.id)">Cancel</button>
       </div>
       <div v-else key="idle" class="flex min-w-0 items-center gap-2">
-        <span :class="last?.state === State.Failed ? 'text-bad' : 'text-ok'">{{ last?.state === State.Failed ? '[ERR]' : '[OK]' }}</span>
-        <span class="truncate">{{ finishedText || 'ready' }}</span>
+        <span class="size-2 shrink-0 rounded-full" :class="last?.state === State.Failed ? 'bg-bad' : 'bg-ok'" />
+        <span class="truncate">{{ finishedText || 'Ready' }}</span>
       </div>
     </Transition>
 
-    <span class="ml-auto shrink-0" :class="elevated ? 'text-ok' : elevated === false ? 'text-warn' : ''">
-      {{ elevated === null ? '' : elevated ? 'admin' : 'limited' }}
+    <span class="ml-auto shrink-0" :class="elevated === false ? 'text-warn' : ''">
+      {{ elevated === null ? '' : elevated ? 'Administrator' : 'Limited rights' }}
     </span>
-    <span class="shrink-0">offline · local only</span>
+    <span class="shrink-0">Offline</span>
   </footer>
 </template>
 

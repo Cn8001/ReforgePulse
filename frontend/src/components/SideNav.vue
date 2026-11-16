@@ -18,11 +18,9 @@ const index = computed(() => props.pages.findIndex((p) => p.id === props.page))
         <span class="bar absolute inset-y-0 left-0 w-[3px]" />
       </span>
       <button v-for="p in pages" :key="p.id"
-              class="group relative flex h-10 w-full items-center gap-3 px-4 text-left transition-colors"
+              class="relative flex h-10 w-full items-center gap-3 px-4 text-left text-[13px] transition-colors"
               :class="page === p.id ? 'text-fg' : 'text-muted hover:text-fg'" @click="emit('go', p.id)">
-        <span class="transition-transform duration-200 group-hover:scale-110" :class="page === p.id && 'text-accent'">
-          <Icon :name="p.icon" />
-        </span>
+        <span :class="page === p.id && 'text-accent'"><Icon :name="p.icon" /></span>
         <span class="flex-1" :class="page === p.id && 'font-semibold'">{{ p.label }}</span>
       </button>
     </nav>

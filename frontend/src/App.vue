@@ -59,7 +59,7 @@ function openAgent() {
 
     <div class="flex min-h-0 flex-1">
     <SideNav :pages="pages" :page="page" @go="go($event as Page)" />
-    <main class="scope min-w-0 flex-1" :class="page === 'processes' ? 'overflow-hidden' : 'overflow-y-auto'">
+    <main class="min-w-0 flex-1" :class="page === 'processes' ? 'overflow-hidden' : 'overflow-y-auto'">
       <Transition name="page" mode="out-in">
         <HomeView v-if="page === 'home'" @elevated="elevated = $event" @open="(p, s) => go(p as Page, s)" />
         <ProcessesView v-else-if="page === 'processes'" :key="sort" :sort="sort as any" />

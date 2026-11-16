@@ -1,47 +1,42 @@
 @import "tailwindcss";
 
-/* Dark by default, light on request (data-theme="light"). --accent is the
-   Windows accent colour, set at runtime; each resource keeps its own tint so
-   the tiles read apart at a glance. */
+/* The look of a bench instrument: a graphite chassis, quiet panels, and two
+   colours with fixed jobs. --accent is Windows' accent colour, set at
+   runtime: live signal and the primary action only. --warn is the amber of
+   the logo's bolt: things that need attention only. Dark by default, light
+   on request (data-theme="light"). */
 :root {
   color-scheme: dark;
-  --accent: rgb(0 120 212);
-  --bg: rgb(19 22 28 / 0.84); /* lets the dark Mica through */
-  --panel: #1b1f27;
-  --raised: #222733;
-  --fg: #e4e7ee;
-  --muted: #8a93a4;
-  --line: rgb(255 255 255 / 0.08);
+  --accent: rgb(59 142 234);
+  --bg: rgb(21 24 29 / 0.9); /* lets the dark Mica through a little */
+  --panel: #1d2128;
+  --raised: #242932;
+  --fg: #e6e8eb;
+  --muted: #9aa3ae;
+  --line: #2c323b;
   --hover: rgb(255 255 255 / 0.05);
-  --grid: rgb(255 255 255 / 0.03);
-  --gpu: #a78bfa;
-  --mem: #22d3ee;
-  --disk: #fbbf24;
-  --ok: #4ade80;
-  --warn: #fbbf24;
-  --bad: #f87171;
+  --ok: #5fbf77;
+  --warn: #e8a33d;
+  --bad: #e5534b;
 }
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #eceef3;
+  --bg: #f2f3f5;
   --panel: #ffffff;
-  --raised: #f6f7fa;
-  --fg: #1a1e26;
-  --muted: #5b6474;
-  --line: rgb(0 0 0 / 0.09);
-  --hover: rgb(0 0 0 / 0.045);
-  --grid: rgb(0 0 0 / 0.035);
-  --gpu: #7c3aed;
-  --mem: #0891b2;
-  --disk: #d97706;
-  --ok: #15803d;
-  --warn: #b45309;
-  --bad: #dc2626;
+  --raised: #f7f8f9;
+  --fg: #1b1f24;
+  --muted: #5c6570;
+  --line: #dadde2;
+  --hover: rgb(0 0 0 / 0.04);
+  --ok: #1e7d3a;
+  --warn: #a86400;
+  --bad: #c2362f;
 }
 
 @theme inline {
   --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
   --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
   --color-accent: var(--accent);
   --color-bg: var(--bg);
@@ -51,12 +46,14 @@
   --color-muted: var(--muted);
   --color-line: var(--line);
   --color-hover: var(--hover);
-  --color-gpu: var(--gpu);
-  --color-mem: var(--mem);
-  --color-disk: var(--disk);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-bad: var(--bad);
+  /* Live readouts of every resource share the signal colour; kept as names
+     so a resource can get its own colour again in one place. */
+  --color-gpu: var(--accent);
+  --color-mem: var(--accent);
+  --color-disk: var(--accent);
 }
 
 html,
@@ -66,19 +63,57 @@ body,
   margin: 0;
   background: var(--bg);
   color: var(--fg);
+  font-size: 13px;
   user-select: none;
 }
 
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 @layer components {
-  .caption {
-    @apply font-mono text-[11px] tracking-[.08em] text-muted uppercase;
+  /* Radius follows hierarchy: panels 6px, controls 4px, chips round. */
+  .panel {
+    @apply rounded-md border border-line bg-panel;
   }
-  /* The oscilloscope grid from the logo, faint behind the content. */
-  .scope {
-    background-image:
-      linear-gradient(var(--grid) 1px, transparent 1px),
-      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-    background-size: 32px 32px;
+  /* A small instrument label: sentence case, never shouted. */
+  .label {
+    @apply text-xs text-muted;
+  }
+  .heading {
+    @apply font-display text-[22px] leading-tight font-semibold;
+  }
+  .readout {
+    @apply font-display text-[34px] leading-none font-semibold tabular-nums;
+  }
+  .btn {
+    @apply inline-flex h-8 items-center justify-center gap-1.5 rounded border border-line px-3 text-[13px] whitespace-nowrap transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply inline-flex h-8 items-center justify-center gap-1.5 rounded bg-accent px-3.5 text-[13px] font-semibold whitespace-nowrap text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-danger {
+    @apply inline-flex h-8 items-center justify-center gap-1.5 rounded bg-bad px-3.5 text-[13px] font-semibold whitespace-nowrap text-white transition hover:brightness-110 disabled:opacity-50;
+  }
+  .chip {
+    @apply inline-flex items-center rounded-full border px-2 text-[11px] leading-[18px] whitespace-nowrap;
+  }
+  .field {
+    @apply h-8 rounded border border-line bg-raised px-2 text-[13px] outline-none focus:border-accent;
+  }
+  .notice {
+    @apply rounded-md border px-4 py-3 text-[13px];
+  }
+  /* Tabs that switch a page's sections. */
+  .tabs {
+    @apply flex flex-wrap gap-1 border-b border-line;
+  }
+  .tab {
+    @apply -mb-px flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-[13px] text-muted transition-colors hover:text-fg;
+  }
+  .tab-on {
+    @apply border-accent font-semibold text-fg;
   }
 }
 
@@ -92,4 +127,13 @@ body,
 }
 .page-leave-to {
   opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

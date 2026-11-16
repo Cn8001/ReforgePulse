@@ -1,13 +1,13 @@
 <script setup lang="ts">
-defineProps<{ on: boolean; disabled?: boolean }>()
+defineProps<{ on: boolean; disabled?: boolean; label?: string }>()
 defineEmits<{ toggle: [] }>()
 </script>
 
 <template>
-  <button role="switch" :aria-checked="on" :disabled="disabled"
-          class="relative h-5 w-9 shrink-0 border transition-colors disabled:opacity-50"
+  <button role="switch" :aria-checked="on" :aria-label="label" :disabled="disabled"
+          class="relative h-5 w-9 shrink-0 rounded-full border transition-colors disabled:opacity-50"
           :class="on ? 'border-accent bg-accent' : 'border-line bg-hover'" @click="$emit('toggle')">
-    <span class="absolute top-0.5 size-3.5 bg-white transition-transform duration-200"
-          :class="on ? 'translate-x-[18px]' : 'translate-x-0.5'" />
+    <span class="absolute top-[3px] size-3 rounded-full bg-white transition-transform duration-200"
+          :class="on ? 'translate-x-[19px]' : 'translate-x-[3px]'" />
   </button>
 </template>
