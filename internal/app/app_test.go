@@ -261,3 +261,33 @@ func TestProcessService_EndIsLogged(t *testing.T) {
 		t.Fatalf("err = %v, killed = %v, log = %+v", err, k.killed, j.begun)
 	}
 }
+
+type fakeFinder []domain.Leftover
+
+func (f fakeFinder) List(context.Context) ([]domain.Leftover, error) { return f, nil }
+
+type fakeBin struct{ got []string }
+
+func (b *fakeBin) Recycle(_ context.Context, paths []string) error {
+	b.got = append(b.got, paths...)
+	return nil
+}
+
+func TestLeftoverService_RefusesUnscannedPaths(t *testing.T) {
+	// Arrange
+	bin := &fakeBin{}
+	s := NewLeftoverService(LeftoverDeps{Finder: fakeFinder{{Path: `C:\Old`}}, Bin: bin, Runner: tasks.New(1, func(tasks.Status) {}), Journal: &memJournal{}})
+	_, _ = s.List(context.Background())
+
+	// Act
+	err := s.Recycle(context.Background(), []string{`C:\Windows`})
+	okErr := s.Recycle(context.Background(), []string{`C:\Old`})
+
+	// Assert
+	if err == nil {
+		t.Fatal("a path outside the scan was accepted")
+	}
+	if okErr != nil || len(bin.got) != 1 || bin.got[0] != `C:\Old` {
+		t.Fatalf("err = %v, recycled = %v", okErr, bin.got)
+	}
+}

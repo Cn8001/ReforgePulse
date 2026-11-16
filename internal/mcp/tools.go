@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 
 	"github.com/cn8001/reforgepulse/internal/app"
+	"github.com/cn8001/reforgepulse/internal/domain"
 )
 
 // Deps are the read-only services the tools draw on. Tools never change the
@@ -14,7 +15,13 @@ type Deps struct {
 	Live      app.LiveReader
 	Processes app.ProcessLister
 	Startup   app.StartupLister
+	Programs  ProgramLister
+	Leftovers app.LeftoverFinder
 	History   app.ChangeLog
+}
+
+type ProgramLister interface {
+	List(ctx context.Context) ([]domain.InstalledProgram, error)
 }
 
 var noArgs = json.RawMessage(`{"type":"object","properties":{}}`)
@@ -60,6 +67,22 @@ func Tools(d Deps) []Tool {
 			Schema:      noArgs,
 			Call: func(ctx context.Context, _ json.RawMessage) (any, error) {
 				return d.Startup.List(ctx)
+			},
+		},
+		{
+			Name:        "list_programs",
+			Description: "Installed programs with size, when Windows last saw them start (Prefetch) and whether they look forgotten (unused for 90+ days). Launch history needs ReforgePulse's window running as administrator.",
+			Schema:      noArgs,
+			Call: func(ctx context.Context, _ json.RawMessage) (any, error) {
+				return d.Programs.List(ctx)
+			},
+		},
+		{
+			Name:        "list_leftovers",
+			Description: "Folders in Program Files, ProgramData and AppData that no installed program, process, service or startup entry claims and that have not changed for 90 days: likely remains of uninstalled programs. Matching is by name, so review before removing.",
+			Schema:      noArgs,
+			Call: func(ctx context.Context, _ json.RawMessage) (any, error) {
+				return d.Leftovers.List(ctx)
 			},
 		},
 		{

@@ -13,6 +13,7 @@ import (
 	"github.com/cn8001/reforgepulse/internal/agents"
 	"github.com/cn8001/reforgepulse/internal/app"
 	"github.com/cn8001/reforgepulse/internal/cleanup"
+	"github.com/cn8001/reforgepulse/internal/inspect/leftovers"
 	"github.com/cn8001/reforgepulse/internal/inspect/processes"
 	"github.com/cn8001/reforgepulse/internal/inspect/programs"
 	"github.com/cn8001/reforgepulse/internal/inspect/startup"
@@ -35,12 +36,15 @@ type backend struct {
 	Cleanup *app.CleanupService
 	Startup *app.StartupService
 	Progs   *app.ProgramService
+	Left    *app.LeftoverService
 
 	overview *system.Inspector
 	journal  *journal.Journal
 	sampler  *windows.Sampler
 	procs    *processes.Inspector
 	startup  *startup.Inspector
+	programs *programs.Inspector
+	left     *leftovers.Inspector
 }
 
 // maxTasks bounds how much work runs at once, so a scan never starves the
@@ -67,10 +71,16 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 	procs := processes.New(processes.Deps{Processes: host, GPU: sampler, CPUs: runtime.NumCPU()})
 	startupApps := startup.New(host, procs)
 	startupSvc := app.NewStartupService(startupApps, host, j)
+	progs := programs.New(host)
+	left := leftovers.New(leftovers.Deps{Machine: host, Startup: host, Processes: procs, Files: host})
 	return &backend{
 		Startup: startupSvc,
+		Left: app.NewLeftoverService(app.LeftoverDeps{
+			Finder: left,
+			Bin:    host, Runner: runner, Journal: j,
+		}),
 		Progs: app.NewProgramService(app.ProgramDeps{
-			Finder: programs.New(host), Uninstaller: host, Runner: runner, Journal: j,
+			Finder: progs, Uninstaller: host, Runner: runner, Journal: j,
 		}),
 		Procs:   app.NewProcessService(procs, procs, j, uint32(os.Getpid())),
 		About:   app.NewAboutService(about),
@@ -86,6 +96,8 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 		sampler:  sampler,
 		procs:    procs,
 		startup:  startupApps,
+		programs: progs,
+		left:     left,
 	}, nil
 }
 
@@ -102,11 +114,13 @@ func (b *backend) services() []application.Service {
 		application.NewService(b.Cleanup),
 		application.NewService(b.Startup),
 		application.NewService(b.Progs),
+		application.NewService(b.Left),
 	}
 }
 
 func (b *backend) tools() []mcp.Tool {
-	return mcp.Tools(mcp.Deps{System: b.overview, Live: b.overview, Processes: b.procs, Startup: b.startup, History: b.journal})
+	return mcp.Tools(mcp.Deps{System: b.overview, Live: b.overview, Processes: b.procs, Startup: b.startup,
+		Programs: b.programs, Leftovers: b.left, History: b.journal})
 }
 
 // Close releases what the backend holds open.

@@ -1,0 +1,103 @@
+package app
+
+import (
+	"context"
+	"fmt"
+	"strings"
+	"sync"
+
+	"github.com/cn8001/reforgepulse/internal/domain"
+	"github.com/cn8001/reforgepulse/internal/tasks"
+)
+
+type LeftoverFinder interface {
+	List(ctx context.Context) ([]domain.Leftover, error)
+}
+
+type Recycler interface {
+	Recycle(ctx context.Context, paths []string) error
+}
+
+// LeftoverService finds folders uninstalled programs left behind and moves
+// the ones the user picks to the Recycle Bin.
+type LeftoverService struct {
+	finder  LeftoverFinder
+	bin     Recycler
+	runner  TaskRunner
+	journal Recorder
+
+	mu    sync.Mutex
+	found map[string]domain.Leftover // the last scan; only these may be recycled
+}
+
+// LeftoverDeps are the leftover service's dependencies.
+type LeftoverDeps struct {
+	Finder  LeftoverFinder
+	Bin     Recycler
+	Runner  TaskRunner
+	Journal Recorder
+}
+
+func NewLeftoverService(d LeftoverDeps) *LeftoverService {
+	return &LeftoverService{finder: d.Finder, bin: d.Bin, runner: d.Runner, journal: d.Journal}
+}
+
+func (s *LeftoverService) List(ctx context.Context) ([]domain.Leftover, error) {
+	var out []domain.Leftover
+	err := s.runner.Do(ctx, "Looking for leftovers", func(ctx context.Context, _ tasks.Report) error {
+		var err error
+		out, err = s.finder.List(ctx)
+		return err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("find leftovers: %w", err)
+	}
+	found := make(map[string]domain.Leftover, len(out))
+	for _, l := range out {
+		found[l.Path] = l
+	}
+	s.mu.Lock()
+	s.found = found
+	s.mu.Unlock()
+	return out, nil
+}
+
+// Recycle moves leftovers to the Recycle Bin. A path the last scan did not
+// report is refused, whatever the window sends.
+func (s *LeftoverService) Recycle(ctx context.Context, paths []string) error {
+	s.mu.Lock()
+	var total uint64
+	for _, p := range paths {
+		l, ok := s.found[p]
+		if !ok {
+			s.mu.Unlock()
+			return fmt.Errorf("%s is not a leftover from the last scan", p)
+		}
+		total += l.Size
+	}
+	s.mu.Unlock()
+	if len(paths) == 0 {
+		return fmt.Errorf("nothing selected")
+	}
+	return s.runner.Do(ctx, "Moving leftovers to the Recycle Bin", func(ctx context.Context, _ tasks.Report) error {
+		id, err := s.journal.Begin(ctx, domain.Change{
+			Action: "recycle", Summary: fmt.Sprintf("Move %d leftover folders to the Recycle Bin", len(paths)),
+			Target: strings.Join(paths, "; "), Before: fmt.Sprintf("%d bytes", total),
+		})
+		if err != nil {
+			return fmt.Errorf("log recycle: %w", err)
+		}
+		err = s.bin.Recycle(ctx, paths)
+		if ferr := s.journal.Finish(ctx, id, "in the Recycle Bin; restore from there", err); ferr != nil && err == nil {
+			err = ferr
+		}
+		if err == nil {
+			s.mu.Lock()
+			for _, p := range paths {
+				delete(s.found, p)
+			}
+			s.mu.Unlock()
+		}
+		return err
+	})
+}

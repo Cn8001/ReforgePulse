@@ -117,6 +117,19 @@ type Startup interface {
 	SetStartupEnabled(ctx context.Context, id string, enabled bool) error
 }
 
+// LeftoverRoot is a folder whose subfolders each usually belong to one
+// program, such as Program Files or AppData\Roaming.
+type LeftoverRoot struct {
+	Name, Path string
+}
+
+// Files reaches the parts of the file system cleanup needs beyond deleting.
+type Files interface {
+	LeftoverRoots() []LeftoverRoot
+	// Recycle moves paths to the Recycle Bin, so the user can restore them.
+	Recycle(ctx context.Context, paths []string) error
+}
+
 // Sampler reads load since its previous call, in percent. The first call
 // only sets the baseline and may answer an average since boot.
 type Sampler interface {
