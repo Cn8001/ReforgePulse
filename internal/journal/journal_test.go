@@ -113,8 +113,8 @@ func TestJournal_EmptyLog(t *testing.T) {
 	log, err := j.Log(context.Background())
 
 	// Assert
-	if err != nil || len(log) != 0 {
-		t.Fatalf("log = %+v, err = %v", log, err)
+	if err != nil || log == nil || len(log) != 0 {
+		t.Fatalf("log = %#v, err = %v", log, err)
 	}
 }
 

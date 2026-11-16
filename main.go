@@ -1,14 +1,18 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"errors"
 	"log"
 	"os"
+	"os/signal"
+	"path/filepath"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/cn8001/reforgepulse/internal/app"
+	"github.com/cn8001/reforgepulse/internal/mcp"
 	"github.com/cn8001/reforgepulse/internal/platform"
 	"github.com/cn8001/reforgepulse/internal/platform/windows"
 )
@@ -24,18 +28,35 @@ func main() {
 
 func run() error {
 	host := windows.System{}
-	if elevate(host) {
+	mcpMode := len(os.Args) > 1 && os.Args[1] == "mcp"
+	if !mcpMode && elevate(host) {
 		return nil
 	}
-	b, err := newBackend(host)
+	dir, err := dataDir()
 	if err != nil {
 		return err
 	}
+	b, err := newBackend(host, dir)
+	if err != nil {
+		return err
+	}
+	if mcpMode {
+		// stdout carries the protocol, so the log goes to stderr only.
+		log.SetOutput(os.Stderr)
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+		defer stop()
+		return mcp.Serve(ctx, os.Stdin, os.Stdout, b.tools())
+	}
+	return runWindow(b, dir)
+}
+
+func runWindow(b *backend, dir string) error {
 	a := application.New(application.Options{
 		Name:        "ReforgePulse",
 		Description: "Finds what slows down or crashes a Windows PC and cleans up what is not needed",
 		Services:    b.services(),
 		Assets:      application.AssetOptions{Handler: application.AssetFileServerFS(assets)},
+		Windows:     application.WindowsOptions{WebviewUserDataPath: filepath.Join(dir, "webview")},
 	})
 	// The accent comes from a.Env, which exists only once the app does.
 	a.RegisterService(application.NewService(app.NewThemeService(a.Env)))
@@ -46,6 +67,8 @@ func run() error {
 		Title:          "ReforgePulse",
 		Width:          1100,
 		Height:         700,
+		MinWidth:       760,
+		MinHeight:      520,
 		BackgroundType: application.BackgroundTypeTranslucent,
 		Windows:        application.WindowsWindow{BackdropType: application.Mica},
 		URL:            "/",

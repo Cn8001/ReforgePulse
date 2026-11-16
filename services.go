@@ -10,6 +10,7 @@ import (
 	"github.com/cn8001/reforgepulse/internal/app"
 	"github.com/cn8001/reforgepulse/internal/collectors/system"
 	"github.com/cn8001/reforgepulse/internal/journal"
+	"github.com/cn8001/reforgepulse/internal/mcp"
 	"github.com/cn8001/reforgepulse/internal/platform/windows"
 )
 
@@ -18,22 +19,28 @@ import (
 type backend struct {
 	System  *app.SystemService
 	History *app.HistoryService
+	Agent   *app.AgentService
+
+	overview *system.Collector
+	journal  *journal.Journal
 }
 
-// newBackend keeps its data in %LOCALAPPDATA%\ReforgePulse: os.UserCacheDir
-// answers LocalAppData on Windows, which keeps the log off roaming profiles.
-func newBackend(host windows.System) (*backend, error) {
-	base, err := os.UserCacheDir()
-	if err != nil {
-		return nil, fmt.Errorf("find app data dir: %w", err)
-	}
-	j, err := journal.Open(filepath.Join(base, "ReforgePulse"))
+func newBackend(host windows.System, dataDir string) (*backend, error) {
+	j, err := journal.Open(dataDir)
 	if err != nil {
 		return nil, fmt.Errorf("open change log: %w", err)
 	}
+	exe, err := os.Executable()
+	if err != nil {
+		return nil, fmt.Errorf("find executable: %w", err)
+	}
+	overview := system.New(host, host)
 	return &backend{
-		System:  app.NewSystemService(system.New(host, host)),
-		History: app.NewHistoryService(j),
+		System:   app.NewSystemService(overview),
+		History:  app.NewHistoryService(j),
+		Agent:    app.NewAgentService(exe),
+		overview: overview,
+		journal:  j,
 	}, nil
 }
 
@@ -43,5 +50,21 @@ func (b *backend) services() []application.Service {
 	return []application.Service{
 		application.NewService(b.System),
 		application.NewService(b.History),
+		application.NewService(b.Agent),
 	}
+}
+
+func (b *backend) tools() []mcp.Tool {
+	return mcp.Tools(mcp.Deps{System: b.overview, History: b.journal})
+}
+
+// dataDir is the one folder ReforgePulse keeps everything in, as bmeditor
+// does: %LOCALAPPDATA%\ReforgePulse, which os.UserCacheDir answers on
+// Windows. Local rather than roaming, so it never follows the user around.
+func dataDir() (string, error) {
+	base, err := os.UserCacheDir()
+	if err != nil {
+		return "", fmt.Errorf("find app data folder: %w", err)
+	}
+	return filepath.Join(base, "ReforgePulse"), nil
 }

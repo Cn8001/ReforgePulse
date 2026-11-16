@@ -59,7 +59,7 @@ func (j *Journal) Log(ctx context.Context) ([]domain.Change, error) {
 	defer j.mu.Unlock()
 	f, err := os.Open(j.path)
 	if errors.Is(err, os.ErrNotExist) {
-		return nil, nil
+		return []domain.Change{}, nil // an empty list, not null, for the UI and agents
 	}
 	if err != nil {
 		return nil, fmt.Errorf("open journal: %w", err)
