@@ -16,6 +16,7 @@ import (
 	"github.com/cn8001/reforgepulse/internal/inspect/crashes"
 	"github.com/cn8001/reforgepulse/internal/inspect/features"
 	"github.com/cn8001/reforgepulse/internal/inspect/leftovers"
+	"github.com/cn8001/reforgepulse/internal/inspect/oldfiles"
 	"github.com/cn8001/reforgepulse/internal/inspect/processes"
 	"github.com/cn8001/reforgepulse/internal/inspect/programs"
 	"github.com/cn8001/reforgepulse/internal/inspect/startup"
@@ -39,6 +40,7 @@ type backend struct {
 	Startup *app.StartupService
 	Progs   *app.ProgramService
 	Left    *app.LeftoverService
+	Old     *app.OldFilesService
 	Scan    *app.ScanService
 	CPUCap  *app.CPUCapService
 	Feats   *app.FeatureService
@@ -88,7 +90,13 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 		Scan:    scan,
 		CPUCap:  cpuCap,
 		Feats:   feats,
+		Old: app.NewOldFilesService(app.LeftoverDeps{
+			What:   "old downloads",
+			Finder: oldfiles.New([]oldfiles.Folder{{Name: "Downloads", Path: filepath.Join(home, "Downloads")}}),
+			Bin:    host, Runner: runner, Journal: j,
+		}),
 		Left: app.NewLeftoverService(app.LeftoverDeps{
+			What:   "leftovers",
 			Finder: left,
 			Bin:    host, Runner: runner, Journal: j,
 		}),
@@ -128,6 +136,7 @@ func (b *backend) services() []application.Service {
 		application.NewService(b.Startup),
 		application.NewService(b.Progs),
 		application.NewService(b.Left),
+		application.NewService(b.Old),
 		application.NewService(b.Scan),
 		application.NewService(b.CPUCap),
 		application.NewService(b.Feats),

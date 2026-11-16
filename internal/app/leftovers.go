@@ -18,9 +18,11 @@ type Recycler interface {
 	Recycle(ctx context.Context, paths []string) error
 }
 
-// LeftoverService finds folders uninstalled programs left behind and moves
-// the ones the user picks to the Recycle Bin.
+// LeftoverService finds things the user may not need, such as folders an
+// uninstalled program left behind or downloads untouched for months, and
+// moves the ones the user picks to the Recycle Bin.
 type LeftoverService struct {
+	what    string // what it looks for, for the status bar and the log
 	finder  LeftoverFinder
 	bin     Recycler
 	runner  TaskRunner
@@ -32,6 +34,7 @@ type LeftoverService struct {
 
 // LeftoverDeps are the leftover service's dependencies.
 type LeftoverDeps struct {
+	What    string // "leftovers", "old downloads"
 	Finder  LeftoverFinder
 	Bin     Recycler
 	Runner  TaskRunner
@@ -39,18 +42,18 @@ type LeftoverDeps struct {
 }
 
 func NewLeftoverService(d LeftoverDeps) *LeftoverService {
-	return &LeftoverService{finder: d.Finder, bin: d.Bin, runner: d.Runner, journal: d.Journal}
+	return &LeftoverService{what: d.What, finder: d.Finder, bin: d.Bin, runner: d.Runner, journal: d.Journal}
 }
 
 func (s *LeftoverService) List(ctx context.Context) ([]domain.Leftover, error) {
 	var out []domain.Leftover
-	err := s.runner.Do(ctx, "Looking for leftovers", func(ctx context.Context, _ tasks.Report) error {
+	err := s.runner.Do(ctx, "Looking for "+s.what, func(ctx context.Context, _ tasks.Report) error {
 		var err error
 		out, err = s.finder.List(ctx)
 		return err
 	})
 	if err != nil {
-		return nil, fmt.Errorf("find leftovers: %w", err)
+		return nil, fmt.Errorf("find %s: %w", s.what, err)
 	}
 	found := make(map[string]domain.Leftover, len(out))
 	for _, l := range out {
@@ -71,7 +74,7 @@ func (s *LeftoverService) Recycle(ctx context.Context, paths []string) error {
 		l, ok := s.found[p]
 		if !ok {
 			s.mu.Unlock()
-			return fmt.Errorf("%s is not a leftover from the last scan", p)
+			return fmt.Errorf("%s was not found by the last scan for %s", p, s.what)
 		}
 		total += l.Size
 	}
@@ -79,9 +82,9 @@ func (s *LeftoverService) Recycle(ctx context.Context, paths []string) error {
 	if len(paths) == 0 {
 		return fmt.Errorf("nothing selected")
 	}
-	return s.runner.Do(ctx, "Moving leftovers to the Recycle Bin", func(ctx context.Context, _ tasks.Report) error {
+	return s.runner.Do(ctx, "Moving "+s.what+" to the Recycle Bin", func(ctx context.Context, _ tasks.Report) error {
 		id, err := s.journal.Begin(ctx, domain.Change{
-			Action: "recycle", Summary: fmt.Sprintf("Move %d leftover folders to the Recycle Bin", len(paths)),
+			Action: "recycle", Summary: fmt.Sprintf("Move %d %s to the Recycle Bin", len(paths), s.what),
 			Target: strings.Join(paths, "; "), Before: fmt.Sprintf("%d bytes", total),
 		})
 		if err != nil {
@@ -100,4 +103,12 @@ func (s *LeftoverService) Recycle(ctx context.Context, paths []string) error {
 		}
 		return err
 	})
+}
+
+// OldFilesService is the same service pointed at old downloads. It is its
+// own type because the window binds services by type.
+type OldFilesService struct{ *LeftoverService }
+
+func NewOldFilesService(d LeftoverDeps) *OldFilesService {
+	return &OldFilesService{NewLeftoverService(d)}
 }
