@@ -16,6 +16,7 @@ import (
 // Input is everything a scan gathered.
 type Input struct {
 	Hardware  platform.HardwareFacts
+	Sensors   platform.SensorStatus
 	Overview  domain.Overview
 	Live      domain.Live
 	Crashes   domain.CrashEvidence

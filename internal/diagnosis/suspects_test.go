@@ -80,3 +80,37 @@ func TestSuspects_WeighsEveryAreaNotJustCPU(t *testing.T) {
 		t.Fatalf("software = %+v, want strong (tuning tools and hypervisor errors)", s)
 	}
 }
+
+func TestSuspects_HotSensorIsEvidence(t *testing.T) {
+	// Arrange
+	in := Input{
+		Crashes: domain.CrashEvidence{Restarts: []domain.CrashEvent{{}}},
+		Sensors: platform.SensorStatus{Sensors: []platform.Sensor{
+			{Source: "hwinfo", Group: "CPU [#0]", Name: "Core Max", Kind: "temp", Value: 70, Max: 100, Unit: "°C"},
+		}},
+	}
+
+	// Act
+	s := suspect(Suspects(in), "heat")
+
+	// Assert
+	if s.Verdict != strong || !strings.Contains(strings.Join(s.For, " "), "reached 100") {
+		t.Fatalf("heat = %+v", s)
+	}
+}
+
+func TestSuspects_CoolSensorsRuleHeatOut(t *testing.T) {
+	// Arrange
+	in := Input{
+		Crashes: domain.CrashEvidence{Restarts: []domain.CrashEvent{{}}},
+		Sensors: platform.SensorStatus{Sensors: []platform.Sensor{{Source: "nvml", Kind: "temp", Value: 40, Unit: "°C"}}},
+	}
+
+	// Act
+	s := suspect(Suspects(in), "heat")
+
+	// Assert
+	if s.Verdict != none {
+		t.Fatalf("heat = %+v", s)
+	}
+}

@@ -23,6 +23,7 @@ type HardwareReader interface {
 // ScanDeps are what a scan reads from.
 type ScanDeps struct {
 	Hardware  HardwareReader
+	Sensors   SensorReader
 	Overview  OverviewReader
 	Live      LiveReader
 	Crashes   CrashCollector
@@ -58,6 +59,7 @@ func (s *ScanService) Scan(ctx context.Context) (domain.ScanResult, error) {
 		}
 		report(0.65, "memory and drives")
 		in.Hardware, _ = s.d.Hardware.HardwareFacts(ctx) // missing facts leave those areas unmeasured
+		in.Sensors = s.d.Sensors.Sensors(ctx)
 		report(0.8, "startup apps")
 		in.Startup, _ = s.d.Startup.List(ctx)
 		report(0.9, "processes")

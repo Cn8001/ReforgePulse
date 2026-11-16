@@ -305,6 +305,7 @@ func TestScanService_EvaluatesAndKeepsLast(t *testing.T) {
 	// Arrange
 	s := NewScanService(ScanDeps{
 		Hardware:  fakeHardware{},
+		Sensors:   fakeHardware{},
 		Overview:  fakeReader{o: domain.Overview{Elevated: true}},
 		Live:      fakeReader{},
 		Crashes:   fakeCrashes{ev: domain.CrashEvidence{Restarts: []domain.CrashEvent{{}, {}}}},
@@ -385,3 +386,5 @@ type fakeHardware struct{}
 func (fakeHardware) HardwareFacts(context.Context) (platform.HardwareFacts, error) {
 	return platform.HardwareFacts{}, nil
 }
+
+func (fakeHardware) Sensors(context.Context) platform.SensorStatus { return platform.SensorStatus{} }

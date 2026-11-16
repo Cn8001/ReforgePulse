@@ -235,6 +235,29 @@ type CPUs interface {
 	RunPinned(cpu int, fn func()) error
 }
 
+// Sensor is one live hardware reading.
+type Sensor struct {
+	Source string  `json:"source"` // nvml, hwinfo
+	Group  string  `json:"group"`  // the chip or device it belongs to
+	Name   string  `json:"name"`
+	Kind   string  `json:"kind"` // temp, volt, fan, power, clock, load
+	Value  float64 `json:"value"`
+	Unit   string  `json:"unit"`
+	Max    float64 `json:"max"` // highest since the source started; 0 when unknown
+}
+
+// SensorStatus says which sources answered, so the window can explain what
+// is missing instead of showing nothing.
+type SensorStatus struct {
+	Sensors []Sensor `json:"sensors"`
+	NVML    string   `json:"nvml"`   // "", or why NVIDIA's library did not answer
+	HWiNFO  string   `json:"hwinfo"` // "", or why HWiNFO's shared memory was not there
+}
+
+type Sensors interface {
+	Sensors(ctx context.Context) SensorStatus
+}
+
 // Sampler reads load since its previous call, in percent. The first call
 // only sets the baseline and may answer an average since boot.
 type Sampler interface {

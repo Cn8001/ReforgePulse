@@ -150,14 +150,39 @@ func heatSuspect(in Input) domain.Suspect {
 	if n := len(in.Crashes.Throttling); n > 0 {
 		s.For = append(s.For, fmt.Sprintf("firmware limited processor speed %d times (heat or power limits)", n))
 	}
+	measured, hot := false, false
+	for _, x := range in.Sensors.Sensors {
+		if x.Kind != "temp" {
+			continue
+		}
+		measured = true
+		peak := max(x.Value, x.Max)
+		// CPUs throttle near 100 °C and GPUs near 90 °C; a few degrees short
+		// of that already means the cooling has no headroom.
+		limit := 95.0
+		if x.Source == "nvml" || strings.Contains(strings.ToLower(x.Group), "gpu") {
+			limit = 85
+		}
+		if peak >= limit {
+			hot = true
+			s.For = append(s.For, fmt.Sprintf("%s %s reached %.0f%s", x.Group, x.Name, peak, x.Unit))
+		}
+	}
+	if measured && !hot {
+		s.Against = append(s.Against, "temperatures measured now are within limits")
+	}
 	// Windows has no reliable CPU temperature, so without throttling records
-	// this stays unmeasured rather than clean.
-	if len(s.For) == 0 {
+	// or sensors this stays unmeasured rather than clean.
+	if len(s.For) == 0 && !measured {
 		s.Against = append(s.Against, "no firmware throttling recorded")
 		s.Verdict = unmeasured
 		return s
 	}
-	return verdict(s, len(in.Crashes.Throttling) >= 10)
+	if len(s.For) == 0 {
+		s.Verdict = none
+		return s
+	}
+	return verdict(s, hot || len(in.Crashes.Throttling) >= 10)
 }
 
 func powerSuspect(in Input) domain.Suspect {

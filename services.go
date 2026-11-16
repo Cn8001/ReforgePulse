@@ -47,11 +47,13 @@ type backend struct {
 	CPUCap  *app.CPUCapService
 	Feats   *app.FeatureService
 	HW      *app.HardwareService
+	Sens    *app.SensorService
 
 	overview *system.Inspector
 	journal  *journal.Journal
 	sampler  *windows.Sampler
 	cpus     *windows.CPUs
+	sensors  *windows.SensorReader
 	host     windows.System
 	cores    *cores.Inspector
 	procs    *processes.Inspector
@@ -80,6 +82,7 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 	}
 	sampler := windows.NewSampler()
 	cpus := windows.NewCPUs()
+	sensors := windows.NewSensorReader()
 	coreMap := cores.New(cpus, host)
 	overview := system.New(host, host, sampler)
 	runner := tasks.New(maxTasks, notify)
@@ -91,13 +94,14 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 	progs := programs.New(host)
 	left := leftovers.New(leftovers.Deps{Machine: host, Startup: host, Processes: procs, Files: host})
 	scan := app.NewScanService(app.ScanDeps{
-		Hardware: host, Overview: overview, Live: overview, Crashes: crashes.New(host), Startup: startupApps, Processes: procs, Runner: runner,
+		Hardware: host, Sensors: sensors, Overview: overview, Live: overview, Crashes: crashes.New(host), Startup: startupApps, Processes: procs, Runner: runner,
 	})
 	return &backend{
 		Startup: startupSvc,
 		Scan:    scan,
 		CPUCap:  cpuCap,
 		Feats:   feats,
+		Sens:    app.NewSensorService(sensors),
 		HW: app.NewHardwareService(app.HardwareDeps{
 			Facts: host, Cores: coreMap, Loads: cpus, Runner: runner,
 			Tester: coretest.New(coretest.Deps{CPUs: cpus, WHEA: coreMap.WHEAByAPIC}),
@@ -128,6 +132,7 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 		journal:  j,
 		sampler:  sampler,
 		cpus:     cpus,
+		sensors:  sensors,
 		host:     host,
 		cores:    coreMap,
 		procs:    procs,
@@ -156,6 +161,7 @@ func (b *backend) services() []application.Service {
 		application.NewService(b.CPUCap),
 		application.NewService(b.Feats),
 		application.NewService(b.HW),
+		application.NewService(b.Sens),
 	}
 }
 
@@ -169,6 +175,7 @@ func (b *backend) tools() []mcp.Tool {
 func (b *backend) Close() {
 	b.sampler.Close()
 	b.cpus.Close()
+	b.sensors.Close()
 }
 
 // dataDir is the one folder ReforgePulse keeps everything in, as bmeditor
