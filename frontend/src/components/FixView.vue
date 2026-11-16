@@ -17,6 +17,7 @@ const counts = computed(() => {
 
 function act(kind: string, arg?: string) {
   if (kind === 'cpu-cap') emit('open', 'tools', 'cpu-cap')
+  else if (kind === 'open-tools') emit('open', 'tools', arg)
   else if (kind === 'open-processes') emit('open', 'processes', arg)
   else if (kind === 'open-cleanup') emit('open', 'cleanup', 'disk')
   else if (kind === 'open-startup') emit('open', 'cleanup', 'startup')

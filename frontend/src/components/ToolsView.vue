@@ -8,6 +8,7 @@ import EventsPanel from './EventsPanel.vue'
 import DumpsPanel from './DumpsPanel.vue'
 import RecorderPanel from './RecorderPanel.vue'
 import ChecksPanel from './ChecksPanel.vue'
+import DriversPanel from './DriversPanel.vue'
 import type { IconName } from '../lib/icons'
 
 const props = defineProps<{ tab?: string }>()
@@ -17,6 +18,7 @@ const tabs: { id: string; label: string; icon: IconName }[] = [
   { id: 'events', label: 'Events', icon: 'history' },
   { id: 'dumps', label: 'Minidumps', icon: 'disk' },
   { id: 'recorder', label: 'Recorder', icon: 'fix' },
+  { id: 'drivers', label: 'Drivers', icon: 'plug' },
   { id: 'checks', label: 'System checks', icon: 'check' },
   { id: 'cpu-cap', label: 'CPU cap', icon: 'cpu' },
 ]
@@ -43,6 +45,7 @@ const tab = ref(props.tab ?? 'hardware')
       <EventsPanel v-else-if="tab === 'events'" />
       <DumpsPanel v-else-if="tab === 'dumps'" />
       <RecorderPanel v-else-if="tab === 'recorder'" />
+      <DriversPanel v-else-if="tab === 'drivers'" />
       <ChecksPanel v-else-if="tab === 'checks'" />
       <CpuCapPanel v-else />
     </KeepAlive>
