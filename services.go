@@ -39,6 +39,7 @@ type backend struct {
 	Progs   *app.ProgramService
 	Left    *app.LeftoverService
 	Scan    *app.ScanService
+	CPUCap  *app.CPUCapService
 
 	overview *system.Inspector
 	journal  *journal.Journal
@@ -73,6 +74,7 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 	procs := processes.New(processes.Deps{Processes: host, GPU: sampler, CPUs: runtime.NumCPU()})
 	startupApps := startup.New(host, procs)
 	startupSvc := app.NewStartupService(startupApps, host, j)
+	cpuCap := app.NewCPUCapService(host, j)
 	progs := programs.New(host)
 	left := leftovers.New(leftovers.Deps{Machine: host, Startup: host, Processes: procs, Files: host})
 	scan := app.NewScanService(app.ScanDeps{
@@ -81,6 +83,7 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 	return &backend{
 		Startup: startupSvc,
 		Scan:    scan,
+		CPUCap:  cpuCap,
 		Left: app.NewLeftoverService(app.LeftoverDeps{
 			Finder: left,
 			Bin:    host, Runner: runner, Journal: j,
@@ -93,7 +96,7 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 		Cleanup: app.NewCleanupService(cleanup.New(host.CleanupLocations(), j), runner),
 		System:  app.NewSystemService(overview, overview, runner),
 		Tasks:   app.NewTaskService(runner),
-		History: app.NewHistoryService(j, map[string]app.Reverter{"startup": startupSvc}),
+		History: app.NewHistoryService(j, map[string]app.Reverter{"startup": startupSvc, "cpu-cap": cpuCap}),
 		Agent: app.NewAgentService(exe, agents.New(agents.Deps{
 			Exe: exe, Home: home, LookPath: exec.LookPath, Run: runProgram,
 		}), j),
@@ -122,12 +125,13 @@ func (b *backend) services() []application.Service {
 		application.NewService(b.Progs),
 		application.NewService(b.Left),
 		application.NewService(b.Scan),
+		application.NewService(b.CPUCap),
 	}
 }
 
 func (b *backend) tools() []mcp.Tool {
 	return mcp.Tools(mcp.Deps{System: b.overview, Live: b.overview, Processes: b.procs, Startup: b.startup,
-		Programs: b.programs, Leftovers: b.left, Scanner: b.Scan, History: b.journal})
+		Programs: b.programs, Leftovers: b.left, Scanner: b.Scan, Power: b.CPUCap, History: b.journal})
 }
 
 // Close releases what the backend holds open.

@@ -6,6 +6,7 @@ import (
 
 	"github.com/cn8001/reforgepulse/internal/app"
 	"github.com/cn8001/reforgepulse/internal/domain"
+	"github.com/cn8001/reforgepulse/internal/platform"
 )
 
 // Deps are the read-only services the tools draw on. Tools never change the
@@ -18,7 +19,12 @@ type Deps struct {
 	Programs  ProgramLister
 	Leftovers app.LeftoverFinder
 	Scanner   Scanner
+	Power     PowerReader
 	History   app.ChangeLog
+}
+
+type PowerReader interface {
+	Plans(ctx context.Context) ([]platform.PowerPlan, error)
 }
 
 type Scanner interface {
@@ -107,6 +113,14 @@ func Tools(d Deps) []Tool {
 			Schema:      noArgs,
 			Call: func(ctx context.Context, _ json.RawMessage) (any, error) {
 				return d.Leftovers.List(ctx)
+			},
+		},
+		{
+			Name:        "get_power_plans",
+			Description: "Every Windows power plan with its processor frequency caps in MHz (0 = none): P-cores and E-cores, plugged in and on battery. Changing them is done by the user in ReforgePulse.",
+			Schema:      noArgs,
+			Call: func(ctx context.Context, _ json.RawMessage) (any, error) {
+				return d.Power.Plans(ctx)
 			},
 		},
 		{

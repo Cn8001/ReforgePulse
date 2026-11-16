@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/cn8001/reforgepulse/internal/domain"
+	"github.com/cn8001/reforgepulse/internal/platform"
 	"github.com/cn8001/reforgepulse/internal/tasks"
 )
 
@@ -323,5 +324,57 @@ func TestScanService_EvaluatesAndKeepsLast(t *testing.T) {
 	}
 	if s.Last() == nil || len(s.Last().Findings) != 1 {
 		t.Fatal("the result was not kept")
+	}
+}
+
+type fakePower struct{ plans []platform.PowerPlan }
+
+func (f *fakePower) PowerPlans(context.Context) ([]platform.PowerPlan, error) {
+	return append([]platform.PowerPlan(nil), f.plans...), nil
+}
+
+func (f *fakePower) SetCPUCaps(_ context.Context, p platform.PowerPlan) error {
+	for i := range f.plans {
+		if f.plans[i].GUID == p.GUID {
+			f.plans[i] = p
+		}
+	}
+	return nil
+}
+
+func TestCPUCapService_ApplyThenRevertRestoresEveryPlan(t *testing.T) {
+	// Arrange
+	power := &fakePower{plans: []platform.PowerPlan{{GUID: "a", Name: "Balanced"}, {GUID: "b", Name: "MSI", PCoreAC: 5800}}}
+	j := &memJournal{}
+	s := NewCPUCapService(power, j)
+
+	// Act
+	err := s.Apply(context.Background(), 5500, 0)
+	applied := j.begun[0]
+	applied.ID, applied.Status = "abc", domain.Applied
+	rerr := s.Revert(context.Background(), applied)
+
+	// Assert
+	if err != nil || rerr != nil {
+		t.Fatalf("apply = %v, revert = %v", err, rerr)
+	}
+	if power.plans[0].PCoreAC != 0 || power.plans[1].PCoreAC != 5800 {
+		t.Fatalf("plans after revert = %+v", power.plans)
+	}
+	if j.begun[1].Reverts != "abc" {
+		t.Fatalf("revert entry = %+v", j.begun[1])
+	}
+}
+
+func TestCPUCapService_RejectsSillyValues(t *testing.T) {
+	// Arrange
+	s := NewCPUCapService(&fakePower{}, &memJournal{})
+
+	// Act
+	err := s.Apply(context.Background(), 50, 0)
+
+	// Assert
+	if err == nil {
+		t.Fatal("50 MHz was accepted")
 	}
 }

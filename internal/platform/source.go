@@ -130,6 +130,26 @@ type Files interface {
 	Recycle(ctx context.Context, paths []string) error
 }
 
+// PowerPlan is a Windows power plan with its processor frequency caps in
+// MHz, 0 meaning no cap. P is efficiency class 1 (performance cores), E is
+// class 0 (efficiency cores, or every core on a CPU without classes).
+type PowerPlan struct {
+	GUID    string `json:"guid"`
+	Name    string `json:"name"`
+	Active  bool   `json:"active"`
+	PCoreAC uint32 `json:"pCoreAc"`
+	PCoreDC uint32 `json:"pCoreDc"`
+	ECoreAC uint32 `json:"eCoreAc"`
+	ECoreDC uint32 `json:"eCoreDc"`
+}
+
+// Power reads and writes processor frequency caps on power plans.
+type Power interface {
+	PowerPlans(ctx context.Context) ([]PowerPlan, error)
+	// SetCPUCaps writes all four caps of one plan and reapplies the active plan.
+	SetCPUCaps(ctx context.Context, p PowerPlan) error
+}
+
 // Sampler reads load since its previous call, in percent. The first call
 // only sets the baseline and may answer an average since boot.
 type Sampler interface {
