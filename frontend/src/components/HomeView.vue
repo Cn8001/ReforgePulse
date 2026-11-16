@@ -7,6 +7,7 @@ import Sparkline from './Sparkline.vue'
 import { GetLive, GetOverview } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/systemservice'
 import { List, Revert } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/historyservice'
 import ConfirmDialog from './ConfirmDialog.vue'
+import { loadLastScan, runScan, scan, scanning, severityTone } from '../lib/scan'
 import { Availability, type Change, type Measurement, type Overview } from '../../bindings/github.com/cn8001/reforgepulse/internal/domain/models'
 import { formatBytes, formatDuration, measured, show, since } from '../lib/format'
 
@@ -49,6 +50,7 @@ async function sample() {
 
 onMounted(() => {
   load()
+  loadLastScan()
   sample()
   timer = setInterval(sample, 1000)
 })
@@ -69,6 +71,10 @@ const drives = computed(() =>
     return { root: v.root, ratio, used: Math.round(ratio * 100).toString(), detail: `${formatBytes(v.free.value)} free / ${formatBytes(v.total.value)}` }
   }),
 )
+
+// Up to three findings worth acting on; info-only ones stay on Fix Issues.
+const top = computed(() => (scan.value?.findings ?? []).filter((f) => f.severity !== 'info').slice(0, 3))
+const issues = computed(() => (scan.value?.findings ?? []).filter((f) => f.severity !== 'info').length)
 
 const reverting = ref<Change | null>(null)
 const busy = ref(false)
@@ -98,7 +104,12 @@ const statusTone: Record<string, string> = {
   <section class="flex flex-col gap-5 p-6">
     <header class="flex flex-wrap items-end justify-between gap-4">
       <div>
-        <p class="caption">status · <span class="text-warn">not scanned</span></p>
+        <p class="caption">status ·
+          <span v-if="scanning" class="text-accent">scanning…</span>
+          <span v-else-if="!scan" class="text-warn">not scanned</span>
+          <span v-else-if="issues" class="text-warn">{{ issues }} issues need attention</span>
+          <span v-else class="text-ok">no urgent issues found</span>
+        </p>
         <h1 class="mt-1 text-2xl font-semibold">System overview</h1>
       </div>
       <div class="flex items-center gap-2">
@@ -106,9 +117,9 @@ const statusTone: Record<string, string> = {
                 title="Refresh" :disabled="loading" @click="load">
           <Icon name="refresh" :class="loading && 'animate-spin'" />
         </button>
-        <button disabled title="Scanning arrives in the next version"
-                class="h-10 bg-accent px-6 font-mono text-xs font-bold tracking-[.2em] text-white uppercase shadow-[0_0_24px_-6px_var(--accent)] transition hover:brightness-110 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60">
-          Scan PC
+        <button :disabled="scanning" @click="runScan"
+                class="h-10 bg-accent px-6 font-mono text-xs font-bold tracking-[.2em] text-white uppercase shadow-[0_0_24px_-6px_var(--accent)] transition hover:brightness-110 active:translate-y-px disabled:opacity-60">
+          {{ scanning ? 'Scanning' : 'Scan PC' }}
         </button>
       </div>
     </header>
@@ -116,6 +127,16 @@ const statusTone: Record<string, string> = {
     <div v-if="overview && !overview.elevated" class="flex items-center gap-3 border border-warn/40 bg-warn/10 px-4 py-2.5 font-mono text-xs text-warn">
       <Icon name="shield" />
       WARN: running without administrator rights; event logs and repairs are limited.
+    </div>
+
+    <div v-if="top.length" class="flex flex-col border border-line bg-panel">
+      <button v-for="(f, i) in top" :key="i" class="flex items-center gap-3 border-b border-line px-4 py-2.5 text-left transition last:border-0 hover:bg-hover"
+              @click="emit('open', 'fix')">
+        <span class="h-4 w-[3px]" :style="{ background: severityTone[f.severity] }" />
+        <span class="flex-1 truncate">{{ f.title }}</span>
+        <span class="font-mono text-[10px] text-muted uppercase">{{ f.severity }} · {{ f.confidence }}</span>
+        <Icon name="chevron" class="size-3.5! text-muted" />
+      </button>
     </div>
 
     <p v-if="error" class="border border-bad/40 bg-bad/10 px-4 py-3 font-mono text-xs text-bad">ERROR: {{ error }}</p>

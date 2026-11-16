@@ -13,7 +13,8 @@ const tabs: { id: string; label: string; icon: IconName }[] = [
   { id: 'programs', label: 'Programs', icon: 'list' },
   { id: 'startup', label: 'Startup apps', icon: 'power' },
 ]
-const tab = ref('disk')
+const props = defineProps<{ tab?: string }>()
+const tab = ref(props.tab ?? 'disk')
 </script>
 
 <template>

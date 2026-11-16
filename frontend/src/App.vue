@@ -4,7 +4,7 @@ import TopBar from './components/TopBar.vue'
 import SideNav from './components/SideNav.vue'
 import HomeView from './components/HomeView.vue'
 import ProcessesView from './components/ProcessesView.vue'
-import ComingSoon from './components/ComingSoon.vue'
+import FixView from './components/FixView.vue'
 import CleanupView from './components/CleanupView.vue'
 import AgentPanel from './components/AgentPanel.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
@@ -19,7 +19,7 @@ const pages: { id: Page; label: string; icon: IconName }[] = [
   { id: 'fix', label: 'Fix Issues', icon: 'fix' },
 ]
 const page = ref<Page>('home')
-const sort = ref<string | undefined>() // how Processes opens when a Home tile sent us there
+const sort = ref<string | undefined>() // how the page opens: the Processes sort or the Cleanup tab
 const agentOpen = ref(false)
 const settingsOpen = ref(false)
 const elevated = ref<boolean | null>(null) // set by Home once the overview arrives
@@ -61,9 +61,8 @@ function openAgent() {
       <Transition name="page" mode="out-in">
         <HomeView v-if="page === 'home'" @elevated="elevated = $event" @open="(p, s) => go(p as Page, s)" />
         <ProcessesView v-else-if="page === 'processes'" :key="sort" :sort="sort as any" />
-        <CleanupView v-else-if="page === 'cleanup'" />
-        <ComingSoon v-else key="fix" icon="fix" title="Fix Issues"
-                    text="Crashes, WHEA hardware errors and bottlenecks, correlated into incidents with safe next steps." />
+        <CleanupView v-else-if="page === 'cleanup'" :key="sort" :tab="sort" />
+        <FixView v-else @open="(p, s) => go(p as Page, s)" />
       </Transition>
     </main>
     </div>
