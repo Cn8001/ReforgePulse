@@ -127,3 +127,26 @@ func TestProcessService_ListsAndWraps(t *testing.T) {
 		t.Fatalf("err = %v", badErr)
 	}
 }
+
+func TestVersionFrom_ReadsInfoVersion(t *testing.T) {
+	// Arrange
+	config := []byte("version: '3'\ninfo:\n  productName: \"ReforgePulse\"\n  version: \"0.1.0\" # The application version\nios:\n  version: \"9.9.9\"\n")
+
+	// Act
+	got := VersionFrom(config)
+
+	// Assert
+	if got != "0.1.0" {
+		t.Fatalf("version = %q, want 0.1.0", got)
+	}
+}
+
+func TestVersionFrom_MissingIsDev(t *testing.T) {
+	// Act
+	got := VersionFrom([]byte("version: '3'\n"))
+
+	// Assert
+	if got != "dev" {
+		t.Fatalf("version = %q, want dev", got)
+	}
+}

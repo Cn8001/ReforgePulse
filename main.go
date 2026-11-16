@@ -18,8 +18,14 @@ import (
 	"github.com/cn8001/reforgepulse/internal/tasks"
 )
 
-//go:embed all:frontend/dist
-var assets embed.FS
+var (
+	//go:embed all:frontend/dist
+	assets embed.FS
+	//go:embed build/config.yml
+	buildConfig []byte // the version lives here
+	//go:embed TERMS.md
+	terms string
+)
 
 func main() {
 	if err := run(); err != nil {
@@ -78,8 +84,11 @@ func runWindow(b *backend, dir string, emit *func(tasks.Status)) error {
 
 	// Mica gives the window the Windows 11 material. It starts dark, the
 	// default theme; light mode paints its own opaque background over it.
+	// Frameless, as in bmeditor: the frontend draws its own top bar with the
+	// tabs, settings and window buttons.
 	a.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:          "ReforgePulse",
+		Frameless:      true,
 		Width:          1100,
 		Height:         700,
 		MinWidth:       760,

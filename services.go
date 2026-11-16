@@ -25,6 +25,7 @@ type backend struct {
 	Agent   *app.AgentService
 	Tasks   *app.TaskService
 	Procs   *app.ProcessService
+	About   *app.AboutService
 
 	overview *system.Inspector
 	journal  *journal.Journal
@@ -37,6 +38,7 @@ type backend struct {
 const maxTasks = 4
 
 func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*backend, error) {
+	about := app.About{Version: app.VersionFrom(buildConfig), DataDir: dataDir, Terms: terms}
 	j, err := journal.Open(dataDir)
 	if err != nil {
 		return nil, fmt.Errorf("open change log: %w", err)
@@ -51,6 +53,7 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 	procs := processes.New(host, runtime.NumCPU())
 	return &backend{
 		Procs:    app.NewProcessService(procs),
+		About:    app.NewAboutService(about),
 		System:   app.NewSystemService(overview, overview, runner),
 		Tasks:    app.NewTaskService(runner),
 		History:  app.NewHistoryService(j),
@@ -71,6 +74,7 @@ func (b *backend) services() []application.Service {
 		application.NewService(b.Agent),
 		application.NewService(b.Tasks),
 		application.NewService(b.Procs),
+		application.NewService(b.About),
 	}
 }
 

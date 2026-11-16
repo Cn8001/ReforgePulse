@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
-import Icon from './components/Icon.vue'
+import TopBar from './components/TopBar.vue'
 import HomeView from './components/HomeView.vue'
-import ComingSoon from './components/ComingSoon.vue'
 import ProcessesView from './components/ProcessesView.vue'
+import ComingSoon from './components/ComingSoon.vue'
 import AgentPanel from './components/AgentPanel.vue'
+import SettingsDialog from './components/SettingsDialog.vue'
 import StatusBar from './components/StatusBar.vue'
-import logo from './assets/logo.svg'
-import { theme } from './lib/theme'
 import type { IconName } from './lib/icons'
 
 type Page = 'home' | 'processes' | 'cleanup' | 'fix'
@@ -19,84 +18,48 @@ const pages: { id: Page; label: string; icon: IconName }[] = [
 ]
 const page = ref<Page>('home')
 const agentOpen = ref(false)
+const settingsOpen = ref(false)
 const elevated = ref<boolean | null>(null) // set by Home once the overview arrives
 
-// Ctrl+1..4 switch pages, Escape closes the agent panel.
+// Ctrl+1..4 switch pages, Ctrl+, opens settings, Escape closes what is open.
 function onKey(e: KeyboardEvent) {
   const n = Number(e.key)
   if (e.ctrlKey && n >= 1 && n <= pages.length) {
     page.value = pages[n - 1].id
     e.preventDefault()
+  } else if (e.ctrlKey && e.key === ',') {
+    settingsOpen.value = true
+    e.preventDefault()
   } else if (e.key === 'Escape') {
-    agentOpen.value = false
+    agentOpen.value = settingsOpen.value = false
   }
 }
 onMounted(() => window.addEventListener('keydown', onKey))
 onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
+
+function openAgent() {
+  settingsOpen.value = false
+  agentOpen.value = true
+}
 </script>
 
 <template>
   <div class="flex h-full flex-col font-sans text-sm text-fg">
-    <div class="flex min-h-0 flex-1">
-      <aside class="flex w-56 shrink-0 flex-col border-r border-line bg-panel/60">
-        <div class="flex items-center gap-2.5 border-b border-line px-4 py-4">
-          <img :src="logo" alt="" class="size-8" />
-          <div class="leading-tight">
-            <p class="font-mono text-[13px] font-bold tracking-wide">REFORGEPULSE</p>
-            <p class="caption text-[10px]! tracking-normal!">diagnose · fix · verify</p>
-          </div>
-        </div>
+    <TopBar :pages="pages" :page="page" @go="page = $event as Page" @agent="openAgent" @settings="settingsOpen = true" />
 
-        <nav class="flex flex-col py-2">
-          <button
-            v-for="(p, i) in pages"
-            :key="p.id"
-            class="group relative flex h-10 items-center gap-3 px-4 text-left transition-colors duration-150"
-            :class="page === p.id ? 'bg-hover text-fg' : 'text-muted hover:bg-hover/60 hover:text-fg'"
-            @click="page = p.id"
-          >
-            <span class="absolute inset-y-0 left-0 w-[3px] bg-accent transition-transform duration-200 ease-out"
-                  :class="page === p.id ? 'scale-y-100' : 'scale-y-0'" />
-            <span :class="page === p.id && 'text-accent'"><Icon :name="p.icon" /></span>
-            <span class="flex-1" :class="page === p.id && 'font-semibold'">{{ p.label }}</span>
-            <kbd class="font-mono text-[10px] text-muted opacity-0 transition-opacity group-hover:opacity-100">^{{ i + 1 }}</kbd>
-          </button>
-        </nav>
-
-        <div class="mt-auto border-t border-line">
-          <button
-            class="flex h-10 w-full items-center gap-3 px-4 text-muted transition-colors hover:bg-hover hover:text-fg"
-            @click="agentOpen = true"
-          >
-            <Icon name="plug" />
-            <span class="flex-1 text-left">Connect an agent</span>
-            <span class="font-mono text-[10px]">MCP</span>
-          </button>
-          <button
-            class="flex h-10 w-full items-center gap-3 px-4 text-muted transition-colors hover:bg-hover hover:text-fg"
-            @click="theme = theme === 'dark' ? 'light' : 'dark'"
-          >
-            <Transition name="page" mode="out-in">
-              <Icon :key="theme" :name="theme === 'dark' ? 'moon' : 'sun'" />
-            </Transition>
-            <span class="flex-1 text-left">{{ theme === 'dark' ? 'Dark' : 'Light' }} theme</span>
-          </button>
-        </div>
-      </aside>
-
-      <main class="scope min-w-0 flex-1 overflow-y-auto" :class="page === 'processes' && 'overflow-hidden'">
-        <Transition name="page" mode="out-in">
-          <HomeView v-if="page === 'home'" @elevated="elevated = $event" />
-          <ProcessesView v-else-if="page === 'processes'" />
-          <ComingSoon v-else-if="page === 'cleanup'" key="cleanup" icon="cleanup" title="Cleanup"
-                      text="Find what takes up space and remove what is not needed, always after you approve it." />
-          <ComingSoon v-else key="fix" icon="fix" title="Fix Issues"
-                      text="Crashes, WHEA hardware errors and bottlenecks, correlated into incidents with safe next steps." />
-        </Transition>
-      </main>
-    </div>
+    <main class="scope min-h-0 flex-1" :class="page === 'processes' ? 'overflow-hidden' : 'overflow-y-auto'">
+      <Transition name="page" mode="out-in">
+        <HomeView v-if="page === 'home'" @elevated="elevated = $event" />
+        <ProcessesView v-else-if="page === 'processes'" />
+        <ComingSoon v-else-if="page === 'cleanup'" key="cleanup" icon="cleanup" title="Cleanup"
+                    text="Find what takes up space and remove what is not needed, always after you approve it." />
+        <ComingSoon v-else key="fix" icon="fix" title="Fix Issues"
+                    text="Crashes, WHEA hardware errors and bottlenecks, correlated into incidents with safe next steps." />
+      </Transition>
+    </main>
 
     <StatusBar :elevated="elevated" />
     <AgentPanel :open="agentOpen" @close="agentOpen = false" />
+    <SettingsDialog :open="settingsOpen" @close="settingsOpen = false" @agent="openAgent" />
   </div>
 </template>

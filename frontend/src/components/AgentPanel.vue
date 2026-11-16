@@ -32,12 +32,12 @@ async function copy() {
 <template>
   <Transition enter-from-class="opacity-0" leave-to-class="opacity-0"
               enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-200">
-    <div v-if="open" class="fixed inset-0 bg-black/40" @click="$emit('close')" />
+    <div v-if="open" class="fixed inset-0 z-40 bg-black/40" @click="$emit('close')" />
   </Transition>
   <Transition enter-from-class="translate-x-full" leave-to-class="translate-x-full"
               enter-active-class="transition-transform duration-200 ease-out" leave-active-class="transition-transform duration-150 ease-in">
     <aside v-if="open"
-           class="fixed inset-y-0 right-0 flex w-[440px] max-w-full flex-col gap-5 border-l border-line bg-panel p-6 shadow-2xl">
+           class="fixed inset-y-0 right-0 z-50 flex w-[440px] max-w-full flex-col gap-5 border-l border-line bg-panel p-6 shadow-2xl">
       <header class="flex items-start justify-between gap-4">
         <div>
           <p class="caption">mcp · stdio · read-only</p>
