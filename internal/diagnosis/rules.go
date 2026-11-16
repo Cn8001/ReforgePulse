@@ -46,6 +46,7 @@ var bugcheckNames = map[string]string{
 	"0x9F": "DRIVER_POWER_STATE_FAILURE", "0xD1": "DRIVER_IRQL_NOT_LESS_OR_EQUAL", "0xEF": "CRITICAL_PROCESS_DIED",
 	"0x101": "CLOCK_WATCHDOG_TIMEOUT", "0x116": "VIDEO_TDR_FAILURE", "0x124": "WHEA_UNCORRECTABLE_ERROR",
 	"0x133": "DPC_WATCHDOG_VIOLATION", "0x139": "KERNEL_SECURITY_CHECK_FAILURE", "0x154": "UNEXPECTED_STORE_EXCEPTION",
+	"0x162": "KERNEL_AUTO_BOOST_INVALID_LOCK_RELEASE", "0x20001": "HYPERVISOR_ERROR",
 }
 
 func restarts(in Input) []domain.Finding {
@@ -122,10 +123,9 @@ func whea(in Input) []domain.Finding {
 		Alternatives: "An overclock, undervolt or XMP profile, an outdated BIOS, heat, power delivery, " +
 			"or a degraded CPU can all cause these; the evidence does not name one part.",
 	}
-	for a, c := range apic {
-		if n >= 3 && c*10 >= n*6 {
-			f.Summary += fmt.Sprintf(" %d of %d come from processor %s: one core may be involved, which is possible but not proven.", c, n, a)
-		}
+	if len(apic) > 0 {
+		f.Summary += " By processor: " + apicSummary(apic) + "."
+		f.Summary += " Errors that keep coming from the same few processors make a degraded core possible, but not proven."
 	}
 	if desktopRaptorLake.MatchString(in.Overview.CPUModel) {
 		f.Action = &domain.Action{Label: "Cap CPU frequency", Kind: "cpu-cap"}
@@ -183,7 +183,26 @@ func diskErrors(in Input) []domain.Finding {
 	}}
 }
 
+// manyApps is when crashes stop being about the apps: this many different
+// programs failing on one PC that also blue-screens points at the PC.
+const manyApps = 5
+
 func appCrashes(in Input) []domain.Finding {
+	distinct := map[string]bool{}
+	for _, e := range in.Crashes.AppCrashes {
+		distinct[strings.SplitN(e.Detail, " in ", 2)[0]] = true
+	}
+	unstable := len(in.Crashes.Bugchecks)+len(in.Crashes.WHEA)+len(in.Crashes.Restarts) > 0
+	if len(distinct) >= manyApps && unstable {
+		return []domain.Finding{{
+			Rule: "system-instability", Severity: domain.High, Confidence: domain.Likely,
+			Title: fmt.Sprintf("%d different programs crashed %d times", len(distinct), len(in.Crashes.AppCrashes)),
+			Summary: "Together with the blue screens and hardware errors, this points at the PC rather than the programs: " +
+				"processor, memory, power or a tuning profile. Reinstalling apps will not fix it.",
+			Evidence:     times("Application Error", in.Crashes.AppCrashes),
+			Alternatives: "A broken system file or a bad shared library (such as a .NET or Visual C++ runtime) can also crash many apps.",
+		}}
+	}
 	var out []domain.Finding
 	for app, n := range top(in.Crashes.AppCrashes, 3) {
 		out = append(out, domain.Finding{
@@ -218,12 +237,46 @@ func tuningTools(in Input) []domain.Finding {
 	if len(in.Crashes.Tuning) == 0 {
 		return nil
 	}
-	return []domain.Finding{{
+	f := domain.Finding{
 		Rule: "tuning-tools", Severity: domain.Info, Confidence: domain.Confirmed,
 		Title:    "Hardware tuning tools are installed",
 		Summary:  "These drivers can change clocks and voltages at every boot and override limits set elsewhere.",
 		Evidence: in.Crashes.Tuning,
-	}}
+	}
+	if len(in.Crashes.WHEA)+len(in.Crashes.Bugchecks) > 0 {
+		f.Severity = domain.Medium
+		f.Summary += " While the PC is unstable, uninstall or disable them so their profiles are not part of the problem."
+		f.Action = &domain.Action{Label: "Review programs", Kind: "open-programs"}
+	}
+	return []domain.Finding{f}
+}
+
+// apicSummary lists processors by error count and pairs IDs that differ
+// only in the last bit, which on Intel are the two threads of one core.
+func apicSummary(apic map[string]int) string {
+	type c struct {
+		id string
+		n  int
+	}
+	var cs []c
+	for id, n := range apic {
+		cs = append(cs, c{id, n})
+	}
+	sort.Slice(cs, func(i, j int) bool { return cs[i].n > cs[j].n || cs[i].n == cs[j].n && cs[i].id < cs[j].id })
+	parts := make([]string, len(cs))
+	for i, x := range cs {
+		parts[i] = fmt.Sprintf("%s ×%d", x.id, x.n)
+	}
+	out := strings.Join(parts, ", ")
+	for _, a := range cs {
+		var id int
+		if _, err := fmt.Sscanf(a.id, "APIC %d", &id); err == nil && id%2 == 0 {
+			if _, ok := apic[fmt.Sprintf("APIC %d", id+1)]; ok {
+				out += fmt.Sprintf(" (APIC %d and %d are likely two threads of one core)", id, id+1)
+			}
+		}
+	}
+	return out
 }
 
 func memoryPressure(in Input) []domain.Finding {

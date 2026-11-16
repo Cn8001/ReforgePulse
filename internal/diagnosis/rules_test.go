@@ -54,7 +54,7 @@ func TestEvaluate_RaptorLakeOldMicrocode(t *testing.T) {
 		t.Fatalf("intel-vmin = %+v", v)
 	}
 	w := find(got, "whea")
-	if w == nil || w.Confidence != domain.Likely || !strings.Contains(w.Summary, "APIC 20") {
+	if w == nil || w.Confidence != domain.Likely || !strings.Contains(w.Summary, "APIC 20 ×4") {
 		t.Fatalf("whea = %+v", w)
 	}
 }
@@ -110,5 +110,28 @@ func TestEvaluate_AppCrashesNeedRepeats(t *testing.T) {
 	// Assert
 	if len(got) != 1 || !strings.Contains(got[0].Title, "game.exe") {
 		t.Fatalf("findings = %+v", got)
+	}
+}
+
+func TestEvaluate_ManyCrashingAppsOnUnstablePC(t *testing.T) {
+	// Arrange
+	var crashes []domain.CrashEvent
+	for _, app := range []string{"a.exe", "b.exe", "c.exe", "d.exe", "e.exe"} {
+		crashes = append(crashes, events(2, app+" in x.dll")...)
+	}
+	in := Input{Overview: domain.Overview{Elevated: true},
+		Crashes: domain.CrashEvidence{AppCrashes: crashes, WHEA: append(events(2, "APIC 32"), events(1, "APIC 33")...)}}
+
+	// Act
+	got := Evaluate(in)
+
+	// Assert
+	f := find(got, "system-instability")
+	if f == nil || find(got, "app-crash") != nil {
+		t.Fatalf("findings = %+v", got)
+	}
+	w := find(got, "whea")
+	if !strings.Contains(w.Summary, "APIC 32 and 33 are likely two threads of one core") {
+		t.Fatalf("whea = %s", w.Summary)
 	}
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/cn8001/reforgepulse/internal/agents"
 	"github.com/cn8001/reforgepulse/internal/app"
 	"github.com/cn8001/reforgepulse/internal/cleanup"
+	"github.com/cn8001/reforgepulse/internal/inspect/crashes"
 	"github.com/cn8001/reforgepulse/internal/inspect/leftovers"
 	"github.com/cn8001/reforgepulse/internal/inspect/processes"
 	"github.com/cn8001/reforgepulse/internal/inspect/programs"
@@ -37,6 +38,7 @@ type backend struct {
 	Startup *app.StartupService
 	Progs   *app.ProgramService
 	Left    *app.LeftoverService
+	Scan    *app.ScanService
 
 	overview *system.Inspector
 	journal  *journal.Journal
@@ -73,8 +75,12 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 	startupSvc := app.NewStartupService(startupApps, host, j)
 	progs := programs.New(host)
 	left := leftovers.New(leftovers.Deps{Machine: host, Startup: host, Processes: procs, Files: host})
+	scan := app.NewScanService(app.ScanDeps{
+		Overview: overview, Live: overview, Crashes: crashes.New(host), Startup: startupApps, Processes: procs, Runner: runner,
+	})
 	return &backend{
 		Startup: startupSvc,
+		Scan:    scan,
 		Left: app.NewLeftoverService(app.LeftoverDeps{
 			Finder: left,
 			Bin:    host, Runner: runner, Journal: j,
@@ -115,12 +121,13 @@ func (b *backend) services() []application.Service {
 		application.NewService(b.Startup),
 		application.NewService(b.Progs),
 		application.NewService(b.Left),
+		application.NewService(b.Scan),
 	}
 }
 
 func (b *backend) tools() []mcp.Tool {
 	return mcp.Tools(mcp.Deps{System: b.overview, Live: b.overview, Processes: b.procs, Startup: b.startup,
-		Programs: b.programs, Leftovers: b.left, History: b.journal})
+		Programs: b.programs, Leftovers: b.left, Scanner: b.Scan, History: b.journal})
 }
 
 // Close releases what the backend holds open.

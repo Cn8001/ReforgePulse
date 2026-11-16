@@ -17,7 +17,13 @@ type Deps struct {
 	Startup   app.StartupLister
 	Programs  ProgramLister
 	Leftovers app.LeftoverFinder
+	Scanner   Scanner
 	History   app.ChangeLog
+}
+
+type Scanner interface {
+	Scan(ctx context.Context) (domain.ScanResult, error)
+	Evidence(ctx context.Context) (domain.CrashEvidence, error)
 }
 
 type ProgramLister interface {
@@ -28,6 +34,24 @@ var noArgs = json.RawMessage(`{"type":"object","properties":{}}`)
 
 func Tools(d Deps) []Tool {
 	return []Tool{
+		{
+			Name: "scan_pc",
+			Description: "Runs ReforgePulse's full read-only scan and returns findings: crashes, blue screens, WHEA hardware errors, " +
+				"Intel microcode, disk errors, app and service failures, memory pressure, full drives and heavy startup. " +
+				"Each finding has severity, confidence, evidence and other explanations the evidence allows.",
+			Schema: noArgs,
+			Call: func(ctx context.Context, _ json.RawMessage) (any, error) {
+				return d.Scanner.Scan(ctx)
+			},
+		},
+		{
+			Name:        "get_crash_evidence",
+			Description: "The raw crash evidence of the last 30 days: blue screen codes, unexpected restarts, WHEA errors with APIC IDs, GPU driver resets, app crashes and hangs, disk errors, failed services, minidumps, microcode and tuning drivers.",
+			Schema:      noArgs,
+			Call: func(ctx context.Context, _ json.RawMessage) (any, error) {
+				return d.Scanner.Evidence(ctx)
+			},
+		},
 		{
 			Name:        "get_system_overview",
 			Description: "OS, CPU, memory use, uptime and fixed drives of this PC. Each value says whether it was measured, unsupported or unknown.",

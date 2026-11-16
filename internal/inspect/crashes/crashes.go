@@ -61,7 +61,10 @@ func (in *Inspector) Collect(ctx context.Context) (domain.CrashEvidence, error) 
 	ev.GPUResets = read("Display", []uint32{4101}, func(e platform.Event) string { return e.Data["param1"] })
 	ev.DiskErrors = append(read("disk", []uint32{7, 51, 153}, device), read("Microsoft-Windows-Ntfs", []uint32{55}, device)...)
 	ev.Services = read("Service Control Manager", []uint32{7000, 7009, 7031, 7034}, func(e platform.Event) string {
-		return field(e, "param1", "param1")
+		if e.ID == 7009 {
+			return e.Data["param2"] // 7009 puts the timeout first and the service second
+		}
+		return e.Data["param1"]
 	})
 	ev.AppCrashes = append(readApp("Application Error", []uint32{1000}, func(e platform.Event) string {
 		app, mod := field(e, "AppName", "param1"), field(e, "ModuleName", "param4")

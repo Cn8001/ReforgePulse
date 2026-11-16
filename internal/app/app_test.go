@@ -291,3 +291,37 @@ func TestLeftoverService_RefusesUnscannedPaths(t *testing.T) {
 		t.Fatalf("err = %v, recycled = %v", okErr, bin.got)
 	}
 }
+
+type fakeCrashes struct{ ev domain.CrashEvidence }
+
+func (f fakeCrashes) Collect(context.Context) (domain.CrashEvidence, error) { return f.ev, nil }
+
+type fakeStartupList []domain.StartupApp
+
+func (f fakeStartupList) List(context.Context) ([]domain.StartupApp, error) { return f, nil }
+
+func TestScanService_EvaluatesAndKeepsLast(t *testing.T) {
+	// Arrange
+	s := NewScanService(ScanDeps{
+		Overview:  fakeReader{o: domain.Overview{Elevated: true}},
+		Live:      fakeReader{},
+		Crashes:   fakeCrashes{ev: domain.CrashEvidence{Restarts: []domain.CrashEvent{{}, {}}}},
+		Startup:   fakeStartupList{},
+		Processes: fakeLister{},
+		Runner:    tasks.New(1, func(tasks.Status) {}),
+	})
+
+	// Act
+	res, err := s.Scan(context.Background())
+
+	// Assert
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Findings) != 1 || res.Findings[0].Rule != "unexpected-restarts" {
+		t.Fatalf("findings = %+v", res.Findings)
+	}
+	if s.Last() == nil || len(s.Last().Findings) != 1 {
+		t.Fatal("the result was not kept")
+	}
+}
