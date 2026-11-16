@@ -2,11 +2,11 @@
 
 <h1 align="center">ReforgePulse</h1>
 
-Crash and slowdown diagnostics, with cleanup that asks first: a desktop app
-on Wails v3, Vue and Go, currently for Windows. It reads what the system
-already records (event logs, WHEA, minidumps, counters, sensors) and says
-which part of the PC it points at. It runs elevated; every change goes
-through a confirmation and into a git-style change log.
+PC diagnostics and cleanup: a desktop app on Wails v3, Vue and Go,
+currently for Windows. It reads what the system already records (event
+logs, WHEA, minidumps, counters, sensors) to find why a PC crashes or slows
+down, and cleans up what it no longer needs. It runs elevated; every change
+goes through a confirmation and into a git-style change log.
 
 - **Issues**: Scan PC reads 30 days of stop errors (WER 1001), unexpected
   restarts (Kernel-Power 41), WHEA errors with their APIC IDs, display
