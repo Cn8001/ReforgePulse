@@ -61,8 +61,15 @@ type GPUByProcess interface {
 type Event struct {
 	Provider string
 	ID       uint32
+	Level    uint8 // 1 critical, 2 error, 3 warning, 4 information
 	Time     time.Time
 	Data     map[string]string
+	Message  string // only filled by Recent, where formatting is worth its cost
+}
+
+// EventLog reads recent events of any source, with their messages.
+type EventLog interface {
+	Recent(ctx context.Context, channel string, maxLevel int, since time.Time, max int) ([]Event, error)
 }
 
 // Service is a driver or service registration, running or not.

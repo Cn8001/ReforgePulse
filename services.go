@@ -16,6 +16,7 @@ import (
 	"github.com/cn8001/reforgepulse/internal/coretest"
 	"github.com/cn8001/reforgepulse/internal/inspect/cores"
 	"github.com/cn8001/reforgepulse/internal/inspect/crashes"
+	"github.com/cn8001/reforgepulse/internal/inspect/events"
 	"github.com/cn8001/reforgepulse/internal/inspect/features"
 	"github.com/cn8001/reforgepulse/internal/inspect/leftovers"
 	"github.com/cn8001/reforgepulse/internal/inspect/oldfiles"
@@ -48,6 +49,7 @@ type backend struct {
 	Feats   *app.FeatureService
 	HW      *app.HardwareService
 	Sens    *app.SensorService
+	Events  *app.EventService
 
 	overview *system.Inspector
 	journal  *journal.Journal
@@ -102,6 +104,7 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 		CPUCap:  cpuCap,
 		Feats:   feats,
 		Sens:    app.NewSensorService(sensors),
+		Events:  app.NewEventService(events.New(host), runner),
 		HW: app.NewHardwareService(app.HardwareDeps{
 			Facts: host, Cores: coreMap, Loads: cpus, Runner: runner,
 			Tester: coretest.New(coretest.Deps{CPUs: cpus, WHEA: coreMap.WHEAByAPIC}),
@@ -162,6 +165,7 @@ func (b *backend) services() []application.Service {
 		application.NewService(b.Feats),
 		application.NewService(b.HW),
 		application.NewService(b.Sens),
+		application.NewService(b.Events),
 	}
 }
 
