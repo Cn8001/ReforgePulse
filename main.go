@@ -8,6 +8,7 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
+	"github.com/cn8001/reforgepulse/internal/app"
 	"github.com/cn8001/reforgepulse/internal/platform"
 	"github.com/cn8001/reforgepulse/internal/platform/windows"
 )
@@ -26,15 +27,19 @@ func run() error {
 	if elevate(host) {
 		return nil
 	}
-	app := application.New(application.Options{
+	b := newBackend(host)
+	a := application.New(application.Options{
 		Name:        "ReforgePulse",
 		Description: "Finds what slows down or crashes a Windows PC and cleans up what is not needed",
-		Services:    services(),
+		Services:    b.services(),
 		Assets:      application.AssetOptions{Handler: application.AssetFileServerFS(assets)},
 	})
+	// The accent comes from a.Env, which exists only once the app does.
+	a.RegisterService(application.NewService(app.NewThemeService(a.Env)))
+
 	// Translucent background plus Mica lets the window take the Windows 11
 	// material and theme instead of a colour of our own.
-	app.Window.NewWithOptions(application.WebviewWindowOptions{
+	a.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:          "ReforgePulse",
 		Width:          1100,
 		Height:         700,
@@ -42,7 +47,7 @@ func run() error {
 		Windows:        application.WindowsWindow{BackdropType: application.Mica},
 		URL:            "/",
 	})
-	return app.Run()
+	return a.Run()
 }
 
 // elevate restarts the app through UAC unless it already runs elevated, and
