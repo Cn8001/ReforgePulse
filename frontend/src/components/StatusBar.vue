@@ -7,11 +7,16 @@ import { State, type Status } from '../../bindings/github.com/cn8001/reforgepuls
 defineProps<{ elevated: boolean | null }>()
 
 const running = ref(new Map<string, Status>())
+// The first List can answer after a task's final event; those IDs must not
+// come back as running.
+const ended = new Set<string>()
 const last = ref<Status | null>(null) // the latest finished task, shown for a moment
 let hide: ReturnType<typeof setTimeout> | undefined
 
 function onTask(s: Status) {
   const live = s.state === State.Queued || s.state === State.Running
+  if (live && ended.has(s.id)) return
+  if (!live) ended.add(s.id)
   const next = new Map(running.value)
   live ? next.set(s.id, s) : next.delete(s.id)
   running.value = next
