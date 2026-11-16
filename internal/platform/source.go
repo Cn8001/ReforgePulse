@@ -265,6 +265,13 @@ type Sensors interface {
 	Sensors(ctx context.Context) SensorStatus
 }
 
+// Checks runs Windows' own read-only health checks by name: "sfc",
+// "dism", "chkdsk", or "memtest", which only opens Windows Memory
+// Diagnostic for the user to schedule.
+type Checks interface {
+	RunCheck(ctx context.Context, name string) (exitCode int, output string, err error)
+}
+
 // Sampler reads load since its previous call, in percent. The first call
 // only sets the baseline and may answer an average since boot.
 type Sampler interface {
