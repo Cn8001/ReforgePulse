@@ -14,3 +14,5 @@ build/android/gen/
 /.bmeditor
 
 CLAUDE.md
+*.syso
+frontend/bindings

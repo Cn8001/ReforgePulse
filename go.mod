@@ -1,4 +1,4 @@
-module github.com/cn8001/ReforgePulse
+module github.com/cn8001/reforgepulse
 
 go 1.26.0
 

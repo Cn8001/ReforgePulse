@@ -1,59 +1,30 @@
-# Welcome to Your New Wails3 Project!
+# ReforgePulse
 
-Congratulations on generating your Wails3 application! This README will guide you through the next steps to get your project up and running.
+A simple Windows app that helps bring a PC back to how it ran when it was new:
 
-## Getting Started
+- **Cleanup** finds what takes up space and deletes what is not needed, only after you approve it.
+- **Fix Issues** analyses crashes and bottlenecks and explains them in plain language.
 
-1. Navigate to your project directory in the terminal.
+It starts as Administrator (it asks through UAC), works offline, uploads nothing,
+and logs every change it makes.
 
-2. To run your application in development mode, use the following command:
+## Build
 
-   ```
-   wails3 dev
-   ```
+From WSL or Windows, with Go, Node and `wails3` installed:
 
-   This will start your application and enable hot-reloading for both frontend and backend changes.
+```sh
+make build   # bin/reforgepulse.exe
+make run     # build and start it
+make test    # Go tests under -race
+make help    # every target
+```
 
-3. To build your application for production, use:
+## Connect an AI agent
 
-   ```
-   wails3 build
-   ```
+`reforgepulse.exe mcp` is a read-only MCP server over stdio. It runs as your
+user, without asking for Administrator rights. The app's **Connect an agent**
+panel shows the exact command for Claude Code, Codex and OpenCode.
 
-   This will create a production-ready executable in the `build` directory.
+## Terms
 
-## Exploring Wails3 Features
-
-Now that you have your project set up, it's time to explore the features that Wails3 offers:
-
-1. **Check out the examples**: The best way to learn is by example. Visit the `examples` directory in the `v3/examples` directory to see various sample applications.
-
-2. **Run an example**: To run any of the examples, navigate to the example's directory and use:
-
-   ```
-   go run .
-   ```
-
-   Note: Some examples may be under development during the alpha phase.
-
-3. **Explore the documentation**: Visit the [Wails3 documentation](https://v3.wails.io/) for in-depth guides and API references.
-
-4. **Join the community**: Have questions or want to share your progress? Join the [Wails Discord](https://discord.gg/JDdSxwjhGf) or visit the [Wails discussions on GitHub](https://github.com/wailsapp/wails/discussions).
-
-## Project Structure
-
-Take a moment to familiarize yourself with your project structure:
-
-- `frontend/`: Contains your frontend code (HTML, CSS, JavaScript/TypeScript)
-- `main.go`: The entry point of your Go backend
-- `app.go`: Define your application structure and methods here
-- `wails.json`: Configuration file for your Wails project
-
-## Next Steps
-
-1. Modify the frontend in the `frontend/` directory to create your desired UI.
-2. Add backend functionality in `main.go`.
-3. Use `wails3 dev` to see your changes in real-time.
-4. When ready, build your application with `wails3 build`.
-
-Happy coding with Wails3! If you encounter any issues or have questions, don't hesitate to consult the documentation or reach out to the Wails community.
+Free to use, provided as is, without warranty. See [TERMS.md](TERMS.md).
