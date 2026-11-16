@@ -66,7 +66,7 @@ const drives = computed(() =>
   (overview.value?.volumes ?? []).map((v) => {
     if (!measured(v.total, v.free)) return { root: v.root, ratio: null, used: '--', detail: show(v.total, formatBytes) }
     const ratio = (v.total.value - v.free.value) / v.total.value
-    return { root: v.root, ratio, used: Math.round(ratio * 100).toString(), detail: `${formatBytes(v.free.value)} free of ${formatBytes(v.total.value)}` }
+    return { root: v.root, ratio, used: Math.round(ratio * 100).toString(), detail: `${formatBytes(v.free.value)} free / ${formatBytes(v.total.value)}` }
   }),
 )
 
@@ -120,7 +120,7 @@ const statusTone: Record<string, string> = {
 
     <p v-if="error" class="border border-bad/40 bg-bad/10 px-4 py-3 font-mono text-xs text-bad">ERROR: {{ error }}</p>
 
-    <div class="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] gap-3">
+    <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
       <Tile title="CPU" icon="cpu" tint="var(--accent)" :value="pct(now.cpu)" unit="%" class="cursor-pointer" @click="emit('open', 'processes', 'cpu')"
             :sub="overview ? `${overview.cpuModel || 'unknown'} · ${overview.logicalCpus} threads` : ''">
         <Sparkline :values="history.cpu" color="var(--accent)" />
@@ -133,9 +133,17 @@ const statusTone: Record<string, string> = {
             class="cursor-pointer" @click="emit('open', 'processes', 'private')">
         <Sparkline :values="history.memory" color="var(--mem)" />
       </Tile>
-      <Tile v-for="d in drives" :key="d.root" :title="`Disk ${d.root}`" icon="disk" tint="var(--disk)"
-            :value="d.used" unit="% used" :sub="d.detail" class="cursor-pointer" @click="emit('open', 'cleanup')">
-        <Bar :ratio="d.ratio" tint="var(--disk)" class="mt-auto" />
+      <Tile title="Disks" icon="disk" tint="var(--disk)" class="cursor-pointer md:col-span-2" @click="emit('open', 'cleanup')">
+        <template #badge><span class="ml-auto font-mono text-[11px] text-muted">{{ drives.length }} fixed</span></template>
+        <div class="flex flex-col gap-2.5">
+          <div v-for="d in drives" :key="d.root" class="grid grid-cols-[2.5rem_1fr_3rem_9rem] items-center gap-3 font-mono text-xs">
+            <span class="text-disk">{{ d.root.replace('\\', '') }}</span>
+            <Bar :ratio="d.ratio" tint="var(--disk)" />
+            <span class="text-right tabular-nums">{{ d.used }}%</span>
+            <span class="truncate text-right text-muted">{{ d.detail }}</span>
+          </div>
+          <p v-if="!drives.length" class="font-mono text-xs text-muted">--</p>
+        </div>
       </Tile>
       <Tile title="System" icon="system" tint="var(--muted)" :sub="overview?.os || ''">
         <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 font-mono text-xs">
