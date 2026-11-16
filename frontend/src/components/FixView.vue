@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
-import Icon from './Icon.vue'
 import FindingCard from './FindingCard.vue'
+import SuspectList from './SuspectList.vue'
 import { loadLastScan, runScan, scan, scanError, scanning } from '../lib/scan'
 import { since } from '../lib/format'
 
@@ -9,10 +9,11 @@ const emit = defineEmits<{ open: [page: string, arg?: string] }>()
 
 onMounted(loadLastScan)
 
+const order = ['critical', 'high', 'medium', 'low', 'info']
 const counts = computed(() => {
   const c: Record<string, number> = {}
   for (const f of scan.value?.findings ?? []) c[f.severity] = (c[f.severity] ?? 0) + 1
-  return c
+  return order.filter((s) => c[s]).map((s) => `${c[s]} ${s}`)
 })
 
 function act(kind: string, arg?: string) {
@@ -26,35 +27,32 @@ function act(kind: string, arg?: string) {
 </script>
 
 <template>
-  <section class="flex flex-col gap-5 p-6">
-    <header class="flex flex-wrap items-end justify-between gap-4">
+  <section class="mx-auto flex max-w-6xl flex-col gap-5 p-6">
+    <header class="flex flex-wrap items-center justify-between gap-4">
       <div>
-        <p class="caption">crashes · hardware errors · bottlenecks · last 30 days</p>
-        <h1 class="mt-1 text-2xl font-semibold">Issues</h1>
+        <h1 class="heading">Issues</h1>
+        <p class="mt-1 text-muted">
+          <template v-if="scan">Scanned {{ since(scan.at) }}. {{ counts.length ? `Found ${counts.join(', ')}.` : 'Nothing in the last 30 days of records needs attention.' }}</template>
+          <template v-else>Crashes, hardware errors and slowdowns from the last 30 days of Windows records.</template>
+        </p>
       </div>
-      <button class="flex h-10 items-center gap-2 bg-accent px-5 font-mono text-xs font-bold tracking-[.15em] text-white uppercase shadow-[0_0_24px_-6px_var(--accent)] transition hover:brightness-110 disabled:opacity-60"
-              :disabled="scanning" @click="runScan">
-        <Icon name="refresh" class="size-3.5!" :class="scanning && 'animate-spin'" />{{ scanning ? 'scanning' : scan ? 'scan again' : 'scan pc' }}
-      </button>
+      <button class="btn-primary h-9 px-5" :disabled="scanning" @click="runScan">{{ scanning ? 'Scanning…' : scan ? 'Scan again' : 'Scan PC' }}</button>
     </header>
 
-    <p v-if="scanError" class="border border-bad/40 bg-bad/10 px-4 py-3 font-mono text-xs text-bad">ERROR: {{ scanError }}</p>
+    <p v-if="scanError" class="notice border-bad/40 bg-bad/10 text-bad">{{ scanError }}</p>
 
-    <div v-if="scan" class="flex flex-wrap items-center gap-x-6 gap-y-1 border border-line bg-panel px-5 py-3 font-mono text-xs">
-      <span class="text-muted">scanned {{ since(scan.at) }}</span>
-      <span v-for="s in ['critical', 'high', 'medium', 'low', 'info']" :key="s" v-show="counts[s]">
-        <b>{{ counts[s] }}</b> <span class="text-muted">{{ s }}</span>
-      </span>
-      <span v-if="!scan.findings?.length" class="text-ok">no problems found in the evidence Windows keeps</span>
-    </div>
-    <div v-else-if="!scanning" class="border border-line bg-panel px-5 py-8 text-center">
-      <p class="font-semibold">Not scanned yet</p>
-      <p class="mt-1 text-muted">The scan reads Windows' own records: blue screens, unexpected restarts, hardware errors, crashing apps and services, disks and memory. It changes nothing.</p>
+    <div v-if="!scan && !scanning" class="panel px-5 py-10 text-center">
+      <p class="text-[15px] font-semibold">Not scanned yet</p>
+      <p class="mx-auto mt-1 max-w-lg text-muted">
+        The scan reads blue screens, unexpected restarts, hardware errors, crashing apps and services, drives and memory. It changes nothing.
+      </p>
+      <button class="btn-primary mt-4" @click="runScan">Scan PC</button>
     </div>
 
-    <TransitionGroup tag="div" class="flex flex-col gap-3" enter-from-class="opacity-0 translate-y-1" enter-active-class="transition duration-300">
+    <SuspectList v-if="scan?.suspects?.length" :suspects="scan.suspects" />
+
+    <div class="flex flex-col gap-3">
       <FindingCard v-for="(f, i) in scan?.findings ?? []" :key="f.rule + i" :f="f" @act="act" />
-    </TransitionGroup>
-
+    </div>
   </section>
 </template>

@@ -24,10 +24,12 @@ export async function loadLastScan() {
   scan.value = (await Last().catch(() => null)) ?? scan.value
 }
 
+// Red and amber are spent only on what needs attention; the signal colour
+// stays for live data, so low and info findings are grey.
 export const severityTone: Record<string, string> = {
   critical: 'var(--bad)',
-  high: '#ff8a00',
+  high: 'var(--bad)',
   medium: 'var(--warn)',
-  low: 'var(--accent)',
+  low: 'var(--muted)',
   info: 'var(--muted)',
 }
