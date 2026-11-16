@@ -3,12 +3,22 @@ import { ref } from 'vue'
 import Icon from './Icon.vue'
 import HardwarePanel from './HardwarePanel.vue'
 import CpuCapPanel from './CpuCapPanel.vue'
+import SensorsPanel from './SensorsPanel.vue'
+import EventsPanel from './EventsPanel.vue'
+import DumpsPanel from './DumpsPanel.vue'
+import RecorderPanel from './RecorderPanel.vue'
+import ChecksPanel from './ChecksPanel.vue'
 import type { IconName } from '../lib/icons'
 
 const props = defineProps<{ tab?: string }>()
 const tabs: { id: string; label: string; icon: IconName }[] = [
   { id: 'hardware', label: 'Hardware & cores', icon: 'cpu' },
-  { id: 'cpu-cap', label: 'CPU cap', icon: 'fix' },
+  { id: 'sensors', label: 'Sensors', icon: 'gpu' },
+  { id: 'events', label: 'Events', icon: 'history' },
+  { id: 'dumps', label: 'Minidumps', icon: 'disk' },
+  { id: 'recorder', label: 'Recorder', icon: 'fix' },
+  { id: 'checks', label: 'System checks', icon: 'check' },
+  { id: 'cpu-cap', label: 'CPU cap', icon: 'cpu' },
 ]
 const tab = ref(props.tab ?? 'hardware')
 </script>
@@ -29,6 +39,11 @@ const tab = ref(props.tab ?? 'hardware')
     </header>
     <KeepAlive>
       <HardwarePanel v-if="tab === 'hardware'" />
+      <SensorsPanel v-else-if="tab === 'sensors'" />
+      <EventsPanel v-else-if="tab === 'events'" />
+      <DumpsPanel v-else-if="tab === 'dumps'" />
+      <RecorderPanel v-else-if="tab === 'recorder'" />
+      <ChecksPanel v-else-if="tab === 'checks'" />
       <CpuCapPanel v-else />
     </KeepAlive>
   </section>
