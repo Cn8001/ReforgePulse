@@ -6,7 +6,8 @@ import type { PowerPlan } from '../../bindings/github.com/cn8001/reforgepulse/in
 
 const plans = ref<PowerPlan[]>([])
 const error = ref('')
-const pMHz = ref(5500)
+// Starts empty: the cap is the user's number, 0 meaning none.
+const pMHz = ref(0)
 const eMHz = ref(0)
 const pending = ref<{ p: number; e: number } | null>(null)
 const busy = ref(false)
@@ -15,9 +16,6 @@ const done = ref('')
 async function load() {
   try {
     plans.value = (await Plans()) ?? []
-    const active = plans.value.find((p) => p.active)
-    if (active?.pCoreAc) pMHz.value = active.pCoreAc
-    if (active) eMHz.value = active.eCoreAc
   } catch (e) {
     error.value = String(e)
   }
@@ -48,7 +46,7 @@ onMounted(load)
     <header class="border-b border-line px-5 py-3">
       <p class="caption">tool · reversible</p>
       <h3 class="mt-1 font-semibold">CPU frequency cap</h3>
-      <p class="mt-1 text-muted">Limits the top clock on every power plan, so switching plans cannot undo it. A common way to keep an unstable 13th or 14th gen Intel CPU stable while waiting for a fix. 0 means no cap.</p>
+      <p class="mt-1 text-muted">Limits the top clock on every power plan, so switching plans cannot undo it. Use it to test whether lower clocks stop crashes, whatever the cause turns out to be. Pick your own MHz; 0 means no cap.</p>
     </header>
     <div class="flex flex-wrap items-end gap-4 px-5 py-4 font-mono text-xs">
       <label class="flex flex-col gap-1"><span class="caption">p-cores mhz</span>

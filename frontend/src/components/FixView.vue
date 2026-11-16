@@ -1,13 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted } from 'vue'
 import Icon from './Icon.vue'
 import FindingCard from './FindingCard.vue'
-import CpuCapPanel from './CpuCapPanel.vue'
 import { loadLastScan, runScan, scan, scanError, scanning } from '../lib/scan'
 import { since } from '../lib/format'
 
 const emit = defineEmits<{ open: [page: string, arg?: string] }>()
-const capPanel = ref<HTMLElement>()
 
 onMounted(loadLastScan)
 
@@ -18,7 +16,7 @@ const counts = computed(() => {
 })
 
 function act(kind: string, arg?: string) {
-  if (kind === 'cpu-cap') capPanel.value?.scrollIntoView({ behavior: 'smooth' })
+  if (kind === 'cpu-cap') emit('open', 'tools', 'cpu-cap')
   else if (kind === 'open-processes') emit('open', 'processes', arg)
   else if (kind === 'open-cleanup') emit('open', 'cleanup', 'disk')
   else if (kind === 'open-startup') emit('open', 'cleanup', 'startup')
@@ -57,9 +55,5 @@ function act(kind: string, arg?: string) {
       <FindingCard v-for="(f, i) in scan?.findings ?? []" :key="f.rule + i" :f="f" @act="act" />
     </TransitionGroup>
 
-    <div ref="capPanel" class="mt-4 flex flex-col gap-3">
-      <p class="caption">tools</p>
-      <CpuCapPanel />
-    </div>
   </section>
 </template>
