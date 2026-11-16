@@ -306,6 +306,7 @@ func TestScanService_EvaluatesAndKeepsLast(t *testing.T) {
 	s := NewScanService(ScanDeps{
 		Hardware:  fakeHardware{},
 		Sensors:   fakeHardware{},
+		Devices:   fakeHardware{},
 		Overview:  fakeReader{o: domain.Overview{Elevated: true}},
 		Live:      fakeReader{},
 		Crashes:   fakeCrashes{ev: domain.CrashEvidence{Restarts: []domain.CrashEvent{{}, {}}}},
@@ -388,3 +389,7 @@ func (fakeHardware) HardwareFacts(context.Context) (platform.HardwareFacts, erro
 }
 
 func (fakeHardware) Sensors(context.Context) platform.SensorStatus { return platform.SensorStatus{} }
+
+func (fakeHardware) ProblemDevices(context.Context) ([]platform.ProblemDevice, error) {
+	return nil, nil
+}

@@ -22,13 +22,14 @@ type Input struct {
 	Crashes   domain.CrashEvidence
 	Startup   []domain.StartupApp
 	Processes []domain.Process
+	Devices   []platform.ProblemDevice
 }
 
 type rule func(Input) []domain.Finding
 
 var rules = []rule{
 	restarts, bugchecks, whea, intelVmin, gpuResets, diskErrors, appCrashes, serviceFailures,
-	tuningTools, memoryPressure, lowDisk, heavyStartup, hungApps, notElevated,
+	tuningTools, memoryPressure, lowDisk, heavyStartup, hungApps, problemDevices, notElevated,
 }
 
 // Evaluate runs every rule, most severe first.
@@ -345,6 +346,44 @@ func hungApps(in Input) []domain.Finding {
 		Title:   "Not responding: " + strings.Join(names, ", "),
 		Summary: "These apps have a window that stopped answering. Wait a moment, or end the task.",
 		Action:  &domain.Action{Label: "Show processes", Kind: "open-processes", Arg: "cpu"},
+	}}
+}
+
+// DeviceProblems explains Device Manager's error codes in plain words.
+var DeviceProblems = map[int]string{
+	1: "not set up correctly", 3: "driver may be corrupt", 10: "cannot start", 12: "not enough resources",
+	14: "needs a restart", 18: "reinstall its driver", 19: "registry entry is damaged", 21: "being removed",
+	22: "disabled", 24: "not present or not working", 28: "no driver installed", 31: "not working properly",
+	32: "driver service disabled", 37: "driver failed to load", 39: "driver missing or corrupt",
+	43: "Windows stopped it after it reported a problem", 48: "driver blocked as incompatible", 52: "driver signature not verified",
+}
+
+func problemDevices(in Input) []domain.Finding {
+	var missing, broken []string
+	for _, d := range in.Devices {
+		if d.ErrorCode == 22 {
+			continue // someone turned it off on purpose
+		}
+		line := fmt.Sprintf("%s: %s (code %d)", d.Name, DeviceProblems[d.ErrorCode], d.ErrorCode)
+		if d.ErrorCode == 28 || d.ErrorCode == 39 || d.ErrorCode == 18 {
+			missing = append(missing, line)
+		} else {
+			broken = append(broken, line)
+		}
+	}
+	if len(missing)+len(broken) == 0 {
+		return nil
+	}
+	sev := domain.Low
+	if len(missing) > 0 {
+		sev = domain.Medium
+	}
+	return []domain.Finding{{
+		Rule: "problem-devices", Severity: sev, Confidence: domain.Confirmed,
+		Title:    fmt.Sprintf("%d devices have driver problems", len(missing)+len(broken)),
+		Summary:  "Windows Update or the maker's site usually has the driver. Tools > Drivers shows what Windows Update offers and opens the right page.",
+		Evidence: append(missing, broken...),
+		Action:   &domain.Action{Label: "Find drivers", Kind: "open-tools", Arg: "drivers"},
 	}}
 }
 

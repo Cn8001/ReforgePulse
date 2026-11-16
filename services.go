@@ -56,6 +56,7 @@ type backend struct {
 	Checks  *app.CheckService
 	Rec     *app.RecorderService
 	Dumps   *app.DumpService
+	Drivers *app.DriverService
 
 	overview *system.Inspector
 	journal  *journal.Journal
@@ -102,7 +103,7 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 	progs := programs.New(host)
 	left := leftovers.New(leftovers.Deps{Machine: host, Startup: host, Processes: procs, Files: host})
 	scan := app.NewScanService(app.ScanDeps{
-		Hardware: host, Sensors: sensors, Overview: overview, Live: overview, Crashes: crashes.New(host), Startup: startupApps, Processes: procs, Runner: runner,
+		Hardware: host, Sensors: sensors, Devices: host, Overview: overview, Live: overview, Crashes: crashes.New(host), Startup: startupApps, Processes: procs, Runner: runner,
 	})
 	return &backend{
 		Startup: startupSvc,
@@ -112,6 +113,7 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 		Sens:    app.NewSensorService(sensors),
 		Events:  app.NewEventService(events.New(host), runner),
 		Checks:  app.NewCheckService(host, runner),
+		Drivers: app.NewDriverService(host, runner),
 		Rec:     app.NewRecorderService(recorder.New(overview, procs), runner),
 		Dumps: app.NewDumpService(dumps.New(dumps.Deps{
 			Dir: host.DumpDir(), Symbols: filepath.Join(dataDir, "symbols"), Debugger: host, Names: diagnosis.BugcheckNames,
@@ -180,13 +182,14 @@ func (b *backend) services() []application.Service {
 		application.NewService(b.Checks),
 		application.NewService(b.Rec),
 		application.NewService(b.Dumps),
+		application.NewService(b.Drivers),
 	}
 }
 
 func (b *backend) tools() []mcp.Tool {
 	return mcp.Tools(mcp.Deps{System: b.overview, Live: b.overview, Processes: b.procs, Startup: b.startup,
 		Programs: b.programs, Leftovers: b.left, Scanner: b.Scan, Power: b.CPUCap,
-		Hardware: hwInfo{b.host, b.cores}, History: b.journal})
+		Hardware: hwInfo{b.host, b.cores}, Devices: b.host, History: b.journal})
 }
 
 // Close releases what the backend holds open.

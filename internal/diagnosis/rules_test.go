@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/cn8001/reforgepulse/internal/domain"
+	"github.com/cn8001/reforgepulse/internal/platform"
 )
 
 func find(fs []domain.Finding, rule string) *domain.Finding {
@@ -133,5 +134,21 @@ func TestEvaluate_ManyCrashingAppsOnUnstablePC(t *testing.T) {
 	w := find(got, "whea")
 	if !strings.Contains(w.Summary, "APIC 32 and 33 are likely two threads of one core") {
 		t.Fatalf("whea = %s", w.Summary)
+	}
+}
+
+func TestEvaluate_MissingDriversButNotDisabledDevices(t *testing.T) {
+	// Arrange
+	in := Input{Overview: domain.Overview{Elevated: true}, Devices: []platform.ProblemDevice{
+		{Name: "PCI Device", ErrorCode: 28},
+		{Name: "Turned off on purpose", ErrorCode: 22},
+	}}
+
+	// Act
+	f := find(Evaluate(in), "problem-devices")
+
+	// Assert
+	if f == nil || f.Severity != domain.Medium || len(f.Evidence) != 1 || !strings.Contains(f.Evidence[0], "no driver installed") {
+		t.Fatalf("finding = %+v", f)
 	}
 }

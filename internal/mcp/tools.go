@@ -21,6 +21,7 @@ type Deps struct {
 	Scanner   Scanner
 	Power     PowerReader
 	Hardware  HardwareInfo
+	Devices   app.DeviceReader
 	History   app.ChangeLog
 }
 
@@ -133,6 +134,14 @@ func Tools(d Deps) []Tool {
 				}
 				cs, _ := d.Hardware.List(ctx)
 				return map[string]any{"hardware": f, "cores": cs}, nil
+			},
+		},
+		{
+			Name:        "list_problem_devices",
+			Description: "Devices Device Manager marks with a problem, with their hardware ID and error code (28 = no driver installed). Disconnected devices are left out.",
+			Schema:      noArgs,
+			Call: func(ctx context.Context, _ json.RawMessage) (any, error) {
+				return d.Devices.ProblemDevices(ctx)
 			},
 		},
 		{

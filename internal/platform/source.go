@@ -278,6 +278,37 @@ type Debugger interface {
 	Analyze(ctx context.Context, dump, symbols string) (string, error)
 }
 
+// ProblemDevice is a device Device Manager marks with a problem.
+type ProblemDevice struct {
+	Name       string `json:"name"`
+	Class      string `json:"class"`
+	HardwareID string `json:"hardwareId"`
+	DeviceID   string `json:"deviceId"`
+	ErrorCode  int    `json:"errorCode"` // ConfigManagerErrorCode; 28 means no driver
+}
+
+// DriverUpdate is a driver Windows Update offers for this PC.
+type DriverUpdate struct {
+	ID           string  `json:"id"` // Windows Update's update ID
+	Title        string  `json:"title"`
+	Manufacturer string  `json:"manufacturer"`
+	Model        string  `json:"model"`
+	Class        string  `json:"class"`
+	Date         string  `json:"date"`
+	SizeMB       float64 `json:"sizeMb"`
+	HardwareID   string  `json:"hardwareId"`
+}
+
+// Drivers finds devices without working drivers and what Windows Update
+// offers for them. It only reads: installing is left to Windows Update and
+// the makers' own tools, which the window opens.
+type Drivers interface {
+	ProblemDevices(ctx context.Context) ([]ProblemDevice, error)
+	DriverUpdates(ctx context.Context) ([]DriverUpdate, error)
+	// OpenDriverPlace opens "windows-update" or "device-manager".
+	OpenDriverPlace(place string) error
+}
+
 // Sampler reads load since its previous call, in percent. The first call
 // only sets the baseline and may answer an average since boot.
 type Sampler interface {
