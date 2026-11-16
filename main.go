@@ -27,7 +27,10 @@ func run() error {
 	if elevate(host) {
 		return nil
 	}
-	b := newBackend(host)
+	b, err := newBackend(host)
+	if err != nil {
+		return err
+	}
 	a := application.New(application.Options{
 		Name:        "ReforgePulse",
 		Description: "Finds what slows down or crashes a Windows PC and cleans up what is not needed",

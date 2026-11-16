@@ -58,3 +58,29 @@ func TestThemeService_ReturnsAccent(t *testing.T) {
 		t.Fatalf("accent = %q", got)
 	}
 }
+
+type fakeLog struct {
+	changes []domain.Change
+	err     error
+}
+
+func (f fakeLog) Log(context.Context) ([]domain.Change, error) { return f.changes, f.err }
+
+func TestHistoryService_ListsAndWraps(t *testing.T) {
+	// Arrange
+	cause := errors.New("disk full")
+	ok := NewHistoryService(fakeLog{changes: []domain.Change{{ID: "abc1234"}}})
+	bad := NewHistoryService(fakeLog{err: cause})
+
+	// Act
+	got, err := ok.List(context.Background())
+	_, badErr := bad.List(context.Background())
+
+	// Assert
+	if err != nil || len(got) != 1 || got[0].ID != "abc1234" {
+		t.Fatalf("got %+v, %v", got, err)
+	}
+	if !errors.Is(badErr, cause) {
+		t.Fatalf("err = %v, want it to wrap %v", badErr, cause)
+	}
+}
