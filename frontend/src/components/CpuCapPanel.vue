@@ -26,7 +26,7 @@ async function apply() {
   busy.value = true
   try {
     await Apply(pending.value.p, pending.value.e)
-    done.value = pending.value.p || pending.value.e ? 'cap applied to every plan, logged and revertible' : 'caps removed from every plan'
+    done.value = pending.value.p || pending.value.e ? 'Applied to every power plan.' : 'Caps removed from every power plan.'
     await load()
   } catch (e) {
     error.value = String(e)
@@ -36,44 +36,47 @@ async function apply() {
   }
 }
 
-const show = (v: number) => (v ? `${v}` : '—')
+const show = (v: number) => (v ? `${v} MHz` : 'None')
 const capped = computed(() => plans.value.some((p) => p.pCoreAc || p.eCoreAc))
 onMounted(load)
 </script>
 
 <template>
-  <article class="border border-line bg-panel">
-    <header class="border-b border-line px-5 py-3">
-      <p class="caption">tool · reversible</p>
-      <h3 class="mt-1 font-semibold">CPU frequency cap</h3>
-      <p class="mt-1 text-muted">Limits the top clock on every power plan, so switching plans cannot undo it. Use it to test whether lower clocks stop crashes, whatever the cause turns out to be. Pick your own MHz; 0 means no cap.</p>
+  <article class="panel">
+    <header class="border-b border-line px-5 py-4">
+      <h2 class="text-[14px] font-semibold">CPU frequency cap</h2>
+      <p class="mt-1 max-w-3xl text-muted">
+        Limits the highest clock on every power plan, so switching plans cannot undo it. Use it to test whether lower clocks stop the crashes,
+        whatever the cause turns out to be. Enter your own limit in MHz; 0 means no cap.
+      </p>
     </header>
-    <div class="flex flex-wrap items-end gap-4 px-5 py-4 font-mono text-xs">
-      <label class="flex flex-col gap-1"><span class="caption">p-cores mhz</span>
-        <input v-model.number="pMHz" type="number" min="0" max="7000" step="100" class="h-9 w-32 border border-line bg-raised px-2 outline-none focus:border-accent" /></label>
-      <label class="flex flex-col gap-1"><span class="caption">e-cores mhz</span>
-        <input v-model.number="eMHz" type="number" min="0" max="7000" step="100" class="h-9 w-32 border border-line bg-raised px-2 outline-none focus:border-accent" /></label>
-      <button class="h-9 bg-accent px-4 font-bold text-white transition hover:brightness-110" @click="pending = { p: pMHz, e: eMHz }">apply</button>
-      <button v-if="capped" class="h-9 border border-line px-4 transition hover:bg-hover" @click="pending = { p: 0, e: 0 }">remove caps</button>
+    <div class="flex flex-wrap items-end gap-4 px-5 py-4">
+      <label class="flex flex-col gap-1 text-xs text-muted">Performance cores (MHz)
+        <input v-model.number="pMHz" type="number" min="0" max="7000" step="100" class="field w-36" /></label>
+      <label class="flex flex-col gap-1 text-xs text-muted">Efficiency cores (MHz)
+        <input v-model.number="eMHz" type="number" min="0" max="7000" step="100" class="field w-36" /></label>
+      <button class="btn-primary" @click="pending = { p: pMHz, e: eMHz }">Apply</button>
+      <button v-if="capped" class="btn" @click="pending = { p: 0, e: 0 }">Remove caps</button>
       <span v-if="done" class="text-ok">{{ done }}</span>
       <span v-if="error" class="text-bad">{{ error }}</span>
     </div>
-    <table class="w-full border-t border-line font-mono text-xs">
-      <tr class="text-muted"><td class="px-5 py-2">plan</td><td>p-core ac</td><td>p-core dc</td><td>e-core ac</td><td>e-core dc</td></tr>
+    <table class="w-full border-t border-line text-[13px] tabular-nums">
+      <tr class="text-muted"><th class="px-5 py-2 text-left font-medium">Power plan</th><th class="text-left font-medium">P-cores, plugged in</th>
+        <th class="text-left font-medium">P-cores, battery</th><th class="text-left font-medium">E-cores, plugged in</th><th class="text-left font-medium">E-cores, battery</th></tr>
       <tr v-for="p in plans" :key="p.guid" class="border-t border-line/60">
-        <td class="px-5 py-1.5" :class="p.active && 'text-accent'">{{ p.name }}{{ p.active ? ' · active' : '' }}</td>
+        <td class="px-5 py-1.5">{{ p.name }}<span v-if="p.active" class="chip ml-2 border-accent text-accent">Active</span></td>
         <td>{{ show(p.pCoreAc) }}</td><td>{{ show(p.pCoreDc) }}</td><td>{{ show(p.eCoreAc) }}</td><td>{{ show(p.eCoreDc) }}</td>
       </tr>
     </table>
 
-    <ConfirmDialog :open="!!pending" :title="pending?.p || pending?.e ? 'Cap CPU frequency?' : 'Remove the CPU caps?'" confirm="apply" :busy="busy"
+    <ConfirmDialog :open="!!pending" :title="pending?.p || pending?.e ? 'Cap the CPU frequency?' : 'Remove the CPU caps?'" confirm="Apply" :busy="busy"
                    @yes="apply" @no="pending = null">
       <template v-if="pending?.p || pending?.e">
-        P-cores at {{ pending?.p || 'no cap' }} MHz and E-cores at {{ pending?.e || 'no cap' }} MHz, plugged in and on battery, on all {{ plans.length }} power plans.
-        Peak performance drops a little. Tuning tools such as XTU or MSI Center can override this at boot.
+        Performance cores at {{ pending?.p ? `${pending.p} MHz` : 'no cap' }} and efficiency cores at {{ pending?.e ? `${pending.e} MHz` : 'no cap' }},
+        plugged in and on battery, on all {{ plans.length }} power plans. Peak performance drops a little, and tuning tools such as XTU or MSI Center can override it at boot.
       </template>
-      <template v-else>Every plan goes back to no frequency cap.</template>
-      The old values are saved; revert from the change log at any time.
+      <template v-else>Every power plan goes back to no frequency cap.</template>
+      The old values are kept, so you can revert from the change log.
     </ConfirmDialog>
   </article>
 </template>

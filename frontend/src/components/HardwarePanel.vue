@@ -70,105 +70,112 @@ const loadTone = (l?: CoreLoad) => (!l ? 'var(--hover)' : l.load > 85 ? 'var(--b
 </script>
 
 <template>
-  <div class="flex flex-col gap-5">
-    <p v-if="error" class="border border-bad/40 bg-bad/10 px-4 py-3 font-mono text-xs text-bad">ERROR: {{ error }}</p>
+  <div class="flex flex-col gap-4">
+    <p v-if="error" class="notice border-bad/40 bg-bad/10 text-bad">{{ error }}</p>
 
     <div class="grid grid-cols-1 gap-3 lg:grid-cols-3">
-      <article class="border border-line bg-panel p-4">
-        <p class="caption">processor</p>
-        <p class="mt-1 font-semibold">{{ facts?.CPU.Name ?? '…' }}</p>
-        <dl class="mt-3 grid grid-cols-[6rem_1fr] gap-y-1 font-mono text-xs">
-          <dt class="text-muted">cores</dt><dd>{{ facts ? `${facts.CPU.Cores}` : '--' }}<span v-if="pCount" class="text-muted"> · {{ pCount }} P + {{ eCount }} E</span></dd>
-          <dt class="text-muted">threads</dt><dd>{{ facts?.CPU.Threads ?? '--' }}</dd>
-          <dt class="text-muted">base clock</dt><dd>{{ facts ? `${facts.CPU.MaxMHz} MHz` : '--' }}</dd>
-          <dt class="text-muted">peak now</dt><dd class="text-accent">{{ peak ? `${Math.round(peak)} MHz` : '--' }}</dd>
-          <dt class="text-muted">cache</dt><dd>{{ facts ? `L2 ${facts.CPU.L2KB / 1024} MB · L3 ${facts.CPU.L3KB / 1024} MB` : '--' }}</dd>
+      <article class="panel p-4">
+        <h2 class="label">Processor</h2>
+        <p class="mt-1 font-semibold">{{ facts?.CPU.Name ?? 'Reading…' }}</p>
+        <dl class="mt-3 grid grid-cols-[7rem_1fr] gap-y-1.5 text-[13px] tabular-nums">
+          <dt class="text-muted">Cores</dt><dd>{{ facts?.CPU.Cores ?? '–' }}<span v-if="pCount" class="text-muted">, {{ pCount }} performance and {{ eCount }} efficiency</span></dd>
+          <dt class="text-muted">Threads</dt><dd>{{ facts?.CPU.Threads ?? '–' }}</dd>
+          <dt class="text-muted">Base clock</dt><dd>{{ facts ? `${facts.CPU.MaxMHz} MHz` : '–' }}</dd>
+          <dt class="text-muted">Fastest core now</dt><dd>{{ peak ? `${Math.round(peak)} MHz` : '–' }}</dd>
+          <dt class="text-muted">Cache</dt><dd>{{ facts ? `${facts.CPU.L2KB / 1024} MB L2, ${facts.CPU.L3KB / 1024} MB L3` : '–' }}</dd>
         </dl>
       </article>
-      <article class="border border-line bg-panel p-4">
-        <p class="caption">motherboard</p>
-        <p class="mt-1 font-semibold">{{ facts?.Board ?? '…' }}</p>
-        <dl class="mt-3 grid grid-cols-[6rem_1fr] gap-y-1 font-mono text-xs">
-          <dt class="text-muted">bios</dt><dd>{{ facts ? `${facts.BIOS} · ${facts.BIOSDate}` : '--' }}</dd>
-          <dt class="text-muted">hypervisor</dt><dd>{{ facts ? (facts.Hypervisor ? 'on (Hyper-V, WSL 2 or VBS)' : 'off') : '--' }}</dd>
+      <article class="panel p-4">
+        <h2 class="label">Motherboard</h2>
+        <p class="mt-1 font-semibold">{{ facts?.Board ?? 'Reading…' }}</p>
+        <dl class="mt-3 grid grid-cols-[7rem_1fr] gap-y-1.5 text-[13px]">
+          <dt class="text-muted">BIOS</dt><dd>{{ facts ? `${facts.BIOS}, ${facts.BIOSDate}` : '–' }}</dd>
+          <dt class="text-muted">Hypervisor</dt><dd>{{ facts ? (facts.Hypervisor ? 'On (Hyper-V, WSL 2 or VBS)' : 'Off') : '–' }}</dd>
         </dl>
-        <p class="caption mt-4">graphics</p>
-        <p v-for="g in facts?.GPUs ?? []" :key="g.Name" class="mt-1 font-mono text-xs">{{ g.Name }} <span class="text-muted">· {{ g.DriverVersion }} · {{ g.DriverDate }}</span></p>
+        <h2 class="label mt-4">Graphics</h2>
+        <p v-for="g in facts?.GPUs ?? []" :key="g.Name" class="mt-1 text-[13px]">{{ g.Name }}<br /><span class="text-xs text-muted">Driver {{ g.DriverVersion }}, {{ g.DriverDate }}</span></p>
       </article>
-      <article class="border border-line bg-panel p-4">
-        <p class="caption">drives</p>
-        <div v-for="d in facts?.Disks ?? []" :key="d.Name" class="mt-2 font-mono text-xs">
-          <p class="text-fg">{{ d.Name }}</p>
-          <p class="text-muted">{{ d.Media }} · <span :class="d.Health === 'Healthy' ? 'text-ok' : 'text-bad'">{{ d.Health }}</span>
-            <template v-if="d.TempC >= 0"> · {{ d.TempC }}°C</template><template v-if="d.Wear >= 0"> · {{ d.Wear }}% worn</template></p>
+      <article class="panel p-4">
+        <h2 class="label">Drives</h2>
+        <div v-for="d in facts?.Disks ?? []" :key="d.Name" class="mt-2 text-[13px]">
+          <p>{{ d.Name }}</p>
+          <p class="text-xs text-muted">{{ d.Media }}, <span :class="d.Health !== 'Healthy' && 'text-bad'">{{ d.Health.toLowerCase() }}</span>
+            <template v-if="d.TempC >= 0">, {{ d.TempC }} °C</template><template v-if="d.Wear >= 0">, {{ d.Wear }}% worn</template></p>
         </div>
       </article>
     </div>
 
-    <article class="border border-line bg-panel">
-      <header class="border-b border-line px-4 py-3"><p class="caption">memory · {{ facts?.Memory?.length ?? 0 }} sticks · {{ formatBytes((facts?.Memory ?? []).reduce((n, m) => n + m.CapacityBytes, 0)) }}</p></header>
-      <table class="w-full font-mono text-xs">
-        <tr class="text-muted"><td class="px-4 py-2">slot</td><td>maker</td><td>part</td><td>size</td><td>rated</td><td>running at</td></tr>
+    <article class="panel">
+      <header class="border-b border-line px-4 py-3">
+        <h2 class="text-[13px] font-semibold">Memory</h2>
+        <p class="text-xs text-muted">{{ facts?.Memory?.length ?? 0 }} modules, {{ formatBytes((facts?.Memory ?? []).reduce((n, m) => n + m.CapacityBytes, 0)) }} in total</p>
+      </header>
+      <table class="w-full text-[13px] tabular-nums">
+        <tr class="text-muted"><th class="px-4 py-2 text-left font-medium">Slot</th><th class="text-left font-medium">Maker</th><th class="text-left font-medium">Part number</th>
+          <th class="text-left font-medium">Size</th><th class="text-left font-medium">Rated</th><th class="text-left font-medium">Running at</th></tr>
         <tr v-for="m in facts?.Memory ?? []" :key="m.Slot" class="border-t border-line/60">
-          <td class="px-4 py-1.5">{{ m.Slot }}</td><td>{{ m.Maker }}</td><td>{{ m.Part }}</td><td>{{ formatBytes(m.CapacityBytes) }}</td>
-          <td>{{ m.RatedMHz }} MT/s</td><td :class="m.ConfiguredMHz > m.RatedMHz ? 'text-warn' : ''">{{ m.ConfiguredMHz }} MT/s</td>
+          <td class="px-4 py-1.5">{{ m.Slot }}</td><td>{{ m.Maker }}</td><td class="font-mono text-xs">{{ m.Part }}</td><td>{{ formatBytes(m.CapacityBytes) }}</td>
+          <td>{{ m.RatedMHz }} MT/s</td><td :class="m.ConfiguredMHz > m.RatedMHz && 'text-warn'">{{ m.ConfiguredMHz }} MT/s</td>
         </tr>
       </table>
     </article>
 
-    <article class="border border-line bg-panel">
+    <article class="panel">
       <header class="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
-        <p class="caption">every core · live · click to pick for the test</p>
-        <div class="flex flex-wrap gap-1 font-mono text-[11px]">
-          <button class="border border-line px-2 py-1 hover:bg-hover" @click="pickWhere((c) => c.kind === 'P')">P-cores</button>
-          <button class="border border-line px-2 py-1 hover:bg-hover" @click="pickWhere((c) => c.kind === 'E')">E-cores</button>
-          <button class="border border-line px-2 py-1 hover:bg-hover" @click="pickWhere((c) => c.whea > 0)">with errors</button>
-          <button class="border border-line px-2 py-1 hover:bg-hover" @click="pickWhere(() => true)">all</button>
-          <button class="border border-line px-2 py-1 hover:bg-hover" @click="picked = new Set()">none</button>
+        <div>
+          <h2 class="text-[13px] font-semibold">Cores</h2>
+          <p class="text-xs text-muted">Live load and clock of each logical processor. A red count is the hardware errors Windows logged for it in 30 days. Select cores to test them.</p>
+        </div>
+        <div class="flex flex-wrap gap-1">
+          <button class="btn h-7 text-xs" @click="pickWhere((c) => c.kind === 'P')">Performance</button>
+          <button class="btn h-7 text-xs" @click="pickWhere((c) => c.kind === 'E')">Efficiency</button>
+          <button class="btn h-7 text-xs" @click="pickWhere((c) => c.whea > 0)">With errors</button>
+          <button class="btn h-7 text-xs" @click="pickWhere(() => true)">All</button>
+          <button class="btn h-7 text-xs" @click="picked = new Set()">None</button>
         </div>
       </header>
-      <div class="grid grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-1.5 p-3">
-        <button v-for="c in cores" :key="c.index"
-                class="relative flex flex-col gap-1 border p-2 text-left font-mono text-[11px] transition"
+      <div class="grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-1.5 p-3">
+        <button v-for="c in cores" :key="c.index" :aria-pressed="picked.has(c.index)"
+                class="flex flex-col gap-1.5 rounded border p-2 text-left text-xs tabular-nums transition"
                 :class="picked.has(c.index) ? 'border-accent bg-accent/10' : 'border-line hover:bg-hover'" @click="pick(c.index)">
           <span class="flex items-center justify-between">
-            <span><b class="text-fg">LP{{ c.index }}</b> <span class="text-muted">{{ c.kind }}{{ c.core }}</span></span>
-            <span v-if="c.whea" class="bg-bad px-1 text-[10px] font-bold text-white" :title="`${c.whea} WHEA errors named this processor in 30 days`">{{ c.whea }}</span>
+            <span><b class="text-[13px]">{{ c.index }}</b> <span class="text-muted">{{ c.kind === 'P' ? 'P-core' : c.kind === 'E' ? 'E-core' : 'Core' }} {{ c.core }}</span></span>
+            <span v-if="c.whea" class="rounded-full bg-bad px-1.5 text-[11px] font-semibold text-white" :title="`${c.whea} hardware errors named this processor in 30 days`">{{ c.whea }}</span>
           </span>
-          <span class="h-1.5 bg-hover"><span class="block h-full transition-[width] duration-500"
+          <span class="h-1 overflow-hidden rounded-full bg-hover"><span class="block h-full rounded-full transition-[width] duration-500"
                 :style="{ width: `${loads[c.index]?.load ?? 0}%`, background: loadTone(loads[c.index]) }" /></span>
-          <span class="flex justify-between text-muted"><span>{{ Math.round(loads[c.index]?.load ?? 0) }}%</span>
-            <span class="text-fg">{{ loads[c.index] ? Math.round(loads[c.index].mhz) : '--' }}</span></span>
-          <span class="text-[10px] text-muted">apic {{ c.apic }}{{ c.sibling >= 0 ? ` · ↔ LP${c.sibling}` : '' }}</span>
+          <span class="flex justify-between"><span class="text-muted">{{ Math.round(loads[c.index]?.load ?? 0) }}%</span>
+            <span>{{ loads[c.index] ? `${Math.round(loads[c.index].mhz)} MHz` : '–' }}</span></span>
+          <span class="font-mono text-[11px] text-muted">APIC {{ c.apic }}<template v-if="c.sibling >= 0">, pairs with {{ c.sibling }}</template></span>
         </button>
       </div>
-      <footer class="flex flex-wrap items-center gap-3 border-t border-line px-4 py-3 font-mono text-xs">
-        <span class="text-muted">core test: {{ picked.size }} picked ·</span>
-        <label class="flex items-center gap-2">seconds each
-          <input v-model.number="seconds" type="number" min="5" max="600" class="h-8 w-20 border border-line bg-raised px-2 outline-none focus:border-accent" /></label>
-        <button class="h-8 bg-accent px-4 font-bold text-white transition hover:brightness-110 disabled:opacity-50"
-                :disabled="!picked.size || testing" @click="confirm = true">{{ testing ? 'testing… (status bar)' : 'run test' }}</button>
-        <span class="text-muted">≈ {{ Math.ceil((picked.size * seconds) / 60) }} min</span>
+      <footer class="flex flex-wrap items-center gap-3 border-t border-line px-4 py-3">
+        <span>Core test on <b>{{ picked.size }}</b> selected</span>
+        <label class="flex items-center gap-2 text-muted">Seconds each
+          <input v-model.number="seconds" type="number" min="5" max="600" class="field w-20" /></label>
+        <span class="text-xs text-muted">About {{ Math.ceil((picked.size * seconds) / 60) }} min</span>
+        <button class="btn-primary ml-auto" :disabled="!picked.size || testing" @click="confirm = true">{{ testing ? 'Testing…' : 'Run core test' }}</button>
       </footer>
       <div v-if="result" class="border-t border-line px-4 py-3">
-        <p class="font-mono text-xs" :class="result.newWhea || (result.results ?? []).some((r) => r.errors) ? 'text-bad' : 'text-ok'">
-          <Icon :name="result.newWhea || (result.results ?? []).some((r) => r.errors) ? 'close' : 'check'" class="inline size-3.5!" />
-          {{ (result.results ?? []).filter((r) => r.errors).length }} processors made calculation errors · {{ result.newWhea }} new WHEA errors during the test
+        <p :class="result.newWhea || (result.results ?? []).some((r) => r.errors) ? 'text-bad' : ''">
+          {{ (result.results ?? []).filter((r) => r.errors).length ? `${(result.results ?? []).filter((r) => r.errors).length} cores returned wrong results.` : 'Every core returned correct results.' }}
+          {{ result.newWhea ? `Windows logged ${result.newWhea} hardware errors during the test.` : 'No hardware errors were logged during the test.' }}
         </p>
-        <table class="mt-2 w-full font-mono text-xs">
-          <tr class="text-muted"><td class="py-1">processor</td><td>rounds</td><td>errors</td><td>avg clock</td></tr>
+        <table class="mt-2 w-full text-[13px] tabular-nums">
+          <tr class="text-muted"><th class="py-1 text-left font-medium">Processor</th><th class="text-left font-medium">Rounds</th>
+            <th class="text-left font-medium">Wrong results</th><th class="text-left font-medium">Average clock</th></tr>
           <tr v-for="r in result.results ?? []" :key="r.index" class="border-t border-line/60">
-            <td class="py-1">LP{{ r.index }}</td><td>{{ r.rounds }}</td>
-            <td :class="r.errors ? 'font-bold text-bad' : 'text-ok'">{{ r.skipped || r.errors }}</td>
-            <td>{{ r.mhz ? `${Math.round(r.mhz)} MHz` : '--' }}</td>
+            <td class="py-1">{{ r.index }}</td><td>{{ r.rounds }}</td>
+            <td :class="r.errors ? 'font-semibold text-bad' : ''">{{ r.skipped || r.errors }}</td>
+            <td>{{ r.mhz ? `${Math.round(r.mhz)} MHz` : '–' }}</td>
           </tr>
         </table>
       </div>
     </article>
 
-    <ConfirmDialog :open="confirm" :title="`Stress ${picked.size} processors, ${seconds} s each?`" confirm="run test" danger @yes="test" @no="confirm = false">
-      Each picked processor runs at full load alone, so it boosts as high as it can. That is where a degraded core makes mistakes,
-      and on an unstable PC it can also freeze or blue-screen it. Save your work first. Cancel any time from the status bar.
+    <ConfirmDialog :open="confirm" :title="`Test ${picked.size} cores for ${seconds} seconds each?`" confirm="Run core test" danger @yes="test" @no="confirm = false">
+      Each selected core runs at full load on its own, so it boosts as high as it can, which is where a degraded core makes mistakes.
+      On an unstable PC this can freeze it or cause a blue screen, so save your work first. You can cancel from the status bar.
     </ConfirmDialog>
   </div>
 </template>

@@ -26,19 +26,16 @@ const tab = ref(props.tab ?? 'hardware')
 </script>
 
 <template>
-  <section class="flex flex-col gap-5 p-6">
-    <header class="flex flex-col gap-4">
-      <div>
-        <p class="caption">look closer · test · tune</p>
-        <h1 class="mt-1 text-2xl font-semibold">Tools</h1>
-      </div>
-      <div class="flex flex-wrap border border-line font-mono text-xs self-start">
-        <button v-for="t in tabs" :key="t.id" class="flex items-center gap-2 border-r border-line px-4 py-2 transition last:border-r-0"
-                :class="tab === t.id ? 'bg-accent text-white' : 'text-muted hover:bg-hover hover:text-fg'" @click="tab = t.id">
-          <Icon :name="t.icon" class="size-3.5!" />{{ t.label }}
-        </button>
-      </div>
+  <section class="mx-auto flex max-w-6xl flex-col gap-5 p-6">
+    <header>
+      <h1 class="heading">Tools</h1>
+      <p class="mt-1 text-muted">Look at each part of the PC up close, test it, and tune it.</p>
     </header>
+    <nav class="tabs" aria-label="Tools">
+      <button v-for="t in tabs" :key="t.id" class="tab" :class="tab === t.id && 'tab-on'" :aria-current="tab === t.id" @click="tab = t.id">
+        <Icon :name="t.icon" class="size-4!" />{{ t.label }}
+      </button>
+    </nav>
     <KeepAlive>
       <HardwarePanel v-if="tab === 'hardware'" />
       <SensorsPanel v-else-if="tab === 'sensors'" />
