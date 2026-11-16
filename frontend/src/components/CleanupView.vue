@@ -5,13 +5,16 @@ import DiskCleanup from './DiskCleanup.vue'
 import LeftoversPanel from './LeftoversPanel.vue'
 import ProgramsPanel from './ProgramsPanel.vue'
 import StartupPanel from './StartupPanel.vue'
+import FeaturesPanel from './FeaturesPanel.vue'
 import type { IconName } from '../lib/icons'
 
 const tabs: { id: string; label: string; icon: IconName }[] = [
   { id: 'disk', label: 'Disk space', icon: 'disk' },
   { id: 'leftovers', label: 'Leftovers', icon: 'cleanup' },
+  { id: 'downloads', label: 'Old downloads', icon: 'history' },
   { id: 'programs', label: 'Programs', icon: 'list' },
   { id: 'startup', label: 'Startup apps', icon: 'power' },
+  { id: 'features', label: 'Features', icon: 'settings' },
 ]
 const props = defineProps<{ tab?: string }>()
 const tab = ref(props.tab ?? 'disk')
@@ -19,7 +22,7 @@ const tab = ref(props.tab ?? 'disk')
 
 <template>
   <section class="flex flex-col gap-5 p-6">
-    <header class="flex flex-wrap items-end justify-between gap-4">
+    <header class="flex flex-col gap-4">
       <div>
         <p class="caption">reclaim disk and memory · every change asks first and is logged</p>
         <h1 class="mt-1 text-2xl font-semibold">Cleanup</h1>
@@ -33,9 +36,11 @@ const tab = ref(props.tab ?? 'disk')
     </header>
     <KeepAlive>
       <DiskCleanup v-if="tab === 'disk'" />
-      <LeftoversPanel v-else-if="tab === 'leftovers'" />
+      <LeftoversPanel v-else-if="tab === 'leftovers'" key="leftovers" kind="leftovers" />
+      <LeftoversPanel v-else-if="tab === 'downloads'" key="downloads" kind="downloads" />
       <ProgramsPanel v-else-if="tab === 'programs'" />
-      <StartupPanel v-else />
+      <StartupPanel v-else-if="tab === 'startup'" />
+      <FeaturesPanel v-else />
     </KeepAlive>
   </section>
 </template>

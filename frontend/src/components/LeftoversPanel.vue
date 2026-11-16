@@ -2,9 +2,19 @@
 import { computed, onMounted, ref } from 'vue'
 import Icon from './Icon.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
-import { List, Recycle } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/leftoverservice'
+import * as Leftovers from '../../bindings/github.com/cn8001/reforgepulse/internal/app/leftoverservice'
+import * as OldFiles from '../../bindings/github.com/cn8001/reforgepulse/internal/app/oldfilesservice'
 import type { Leftover } from '../../bindings/github.com/cn8001/reforgepulse/internal/domain/models'
 import { formatBytes, since } from '../lib/format'
+
+// One panel for both: folders uninstalled programs left, and old downloads.
+const props = defineProps<{ kind: 'leftovers' | 'downloads' }>()
+const { List, Recycle } = props.kind === 'downloads' ? OldFiles : Leftovers
+const texts = props.kind === 'downloads'
+  ? { found: 'old downloads', scanning: 'looking through Downloads…', none: 'nothing in Downloads sat untouched for 180 days',
+      note: 'files and folders in Downloads, 1 MB or more, whose newest file is older than 180 days. installers run once and archives already extracted usually are.' }
+  : { found: 'leftovers found', scanning: 'looking for folders no program claims…', none: 'no leftovers found',
+      note: 'folders nothing on this PC points to (no installed program, process, service or startup entry, no matching name) and untouched for 90 days. matched by name, so check each one.' }
 
 const error = ref('')
 const items = ref<Leftover[] | null>(null)
@@ -42,7 +52,7 @@ async function recycle() {
   busy.value = true
   try {
     await Recycle([...picked.value])
-    done.value = `${selected.value.length} folders, ${formatBytes(selectedBytes.value)}, moved to the Recycle Bin`
+    done.value = `${selected.value.length} items, ${formatBytes(selectedBytes.value)}, moved to the Recycle Bin`
   } catch (e) {
     error.value = String(e)
   } finally {
@@ -61,7 +71,7 @@ onMounted(scan)
     <div v-if="done" class="flex items-center gap-3 border border-ok/40 bg-ok/10 px-4 py-3 font-mono text-xs text-ok"><Icon name="check" />{{ done }}</div>
 
     <div class="grid grid-cols-3 border border-line bg-panel font-mono">
-      <div class="border-r border-line px-4 py-3"><p class="caption">leftovers found</p><p class="mt-1 text-2xl text-disk tabular-nums">{{ items ? formatBytes(totalBytes) : '--' }}</p></div>
+      <div class="border-r border-line px-4 py-3"><p class="caption">{{ texts.found }}</p><p class="mt-1 text-2xl text-disk tabular-nums">{{ items ? formatBytes(totalBytes) : '--' }}</p></div>
       <div class="border-r border-line px-4 py-3"><p class="caption">selected</p><p class="mt-1 text-2xl tabular-nums">{{ formatBytes(selectedBytes) }}</p></div>
       <div class="flex items-center justify-end gap-2 px-4 py-3">
         <button class="flex h-9 items-center gap-2 border border-line px-3 font-mono text-xs transition hover:bg-hover disabled:opacity-50"
@@ -72,8 +82,8 @@ onMounted(scan)
     </div>
 
     <div class="border border-line bg-panel">
-      <p v-if="!items" class="px-4 py-6 font-mono text-xs text-muted">// looking for folders no program claims…</p>
-      <p v-else-if="!items.length" class="px-4 py-6 font-mono text-xs text-ok">// no leftovers found</p>
+      <p v-if="!items" class="px-4 py-6 font-mono text-xs text-muted">// {{ texts.scanning }}</p>
+      <p v-else-if="!items.length" class="px-4 py-6 font-mono text-xs text-ok">// {{ texts.none }}</p>
       <label v-for="l in items ?? []" :key="l.path" class="flex cursor-pointer items-center gap-4 border-b border-line px-4 py-2.5 transition last:border-0 hover:bg-hover">
         <input type="checkbox" class="size-4 accent-[var(--accent)]" :checked="picked.has(l.path)" @change="pick(l.path)" />
         <div class="min-w-0 flex-1">
@@ -83,9 +93,9 @@ onMounted(scan)
         <span class="w-24 text-right font-mono tabular-nums text-disk">{{ formatBytes(l.size) }}</span>
       </label>
     </div>
-    <p class="font-mono text-[11px] text-muted">// folders nothing on this PC points to (no installed program, process, service or startup entry, no matching name) and untouched for 90 days. matched by name, so check each one.</p>
+    <p class="font-mono text-[11px] text-muted">// {{ texts.note }}</p>
 
-    <ConfirmDialog :open="confirm" :title="`Move ${selected.length} folders to the Recycle Bin?`" confirm="move to recycle bin" :busy="busy"
+    <ConfirmDialog :open="confirm" :title="`Move ${selected.length} items to the Recycle Bin?`" confirm="move to recycle bin" :busy="busy"
                    @yes="recycle" @no="confirm = false">
       <ul class="mb-3 max-h-40 overflow-y-auto font-mono text-[11px]">
         <li v-for="l in selected" :key="l.path" class="truncate py-0.5">{{ l.path }}</li>
