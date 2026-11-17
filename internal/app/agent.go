@@ -26,6 +26,7 @@ type AgentDeps struct {
 	Journal Recorder
 	Log     McpLogReader
 	Alive   func(pid uint32) bool
+	Procs   ProcessLister // to see servers that keep no log, such as an older copy
 }
 
 // AgentService registers the MCP server with an agent at a click, and says
@@ -104,6 +105,25 @@ func (s *AgentService) Status(ctx context.Context) ([]domain.AgentStatus, error)
 		for pid, last := range latest {
 			if last != "end" && s.d.Alive(pid) {
 				out[i].Live = true
+			}
+		}
+	}
+	// A server the agent started is its child, whatever copy of ReforgePulse
+	// it runs and whether that copy keeps the log.
+	if ps, err := s.d.Procs.List(ctx); err == nil {
+		byPID := make(map[uint32]domain.Process, len(ps))
+		for _, p := range ps {
+			byPID[p.PID] = p
+		}
+		for _, p := range ps {
+			parent, ok := byPID[p.ParentPID]
+			if !ok || !strings.EqualFold(p.Name, "reforgepulse.exe") {
+				continue
+			}
+			for i := range out {
+				if agentOf(parent.Name) == out[i].Agent {
+					out[i].Live = true
+				}
 			}
 		}
 	}

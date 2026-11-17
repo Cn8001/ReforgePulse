@@ -773,7 +773,11 @@ func TestAgentService_LiveOnlyWhileItsServerRuns(t *testing.T) {
 		{PID: 20, Client: "codex-mcp-client", Event: "start"},
 		{PID: 10, Client: "claude-code", Event: "start"},
 	}
-	s := NewAgentService(AgentDeps{Conn: fakeConn{}, Log: log, Alive: func(pid uint32) bool { return pid == 10 || pid == 20 }})
+	procs := fakeLister{ps: []domain.Process{
+		{PID: 90, ParentPID: 1, Name: "opencode.exe"},
+		{PID: 91, ParentPID: 90, Name: "reforgepulse.exe"}, // an older copy that keeps no log
+	}}
+	s := NewAgentService(AgentDeps{Conn: fakeConn{}, Log: log, Procs: procs, Alive: func(pid uint32) bool { return pid == 10 || pid == 20 }})
 
 	// Act
 	got, err := s.Status(context.Background())
@@ -783,7 +787,7 @@ func TestAgentService_LiveOnlyWhileItsServerRuns(t *testing.T) {
 		t.Fatalf("status = %+v, %v", got, err)
 	}
 	claude, codex, opencode := got[0], got[1], got[2]
-	if !claude.Live || len(claude.Events) != 2 || codex.Live || len(codex.Events) != 2 || opencode.Registered || opencode.Live {
+	if !claude.Live || len(claude.Events) != 2 || codex.Live || len(codex.Events) != 2 || opencode.Registered || !opencode.Live {
 		t.Fatalf("claude %+v\ncodex %+v\nopencode %+v", claude, codex, opencode)
 	}
 }

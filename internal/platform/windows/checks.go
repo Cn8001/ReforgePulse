@@ -130,3 +130,13 @@ func (System) ShowInFolder(path string) error {
 	}
 	return nil
 }
+
+// Run starts a console program, such as an agent's CLI, with no window of
+// its own and returns what it printed. Started from the window, a console
+// program would otherwise flash a console up for each call.
+func (System) Run(ctx context.Context, name string, args ...string) (string, error) {
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000} // CREATE_NO_WINDOW
+	out, err := cmd.CombinedOutput()
+	return string(out), err
+}

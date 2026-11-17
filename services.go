@@ -193,8 +193,8 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier, hw h
 		Tasks:   app.NewTaskService(runner),
 		History: app.NewHistoryService(j, map[string]app.Reverter{"startup": startupSvc, "cpu-cap": cpuCap, "feature": feats}),
 		Agent: app.NewAgentService(app.AgentDeps{
-			Exe: exe, Journal: j, Log: mcpLog, Alive: host.Alive,
-			Conn: agents.New(agents.Deps{Exe: exe, Home: home, LookPath: exec.LookPath, Run: runProgram}),
+			Exe: exe, Journal: j, Log: mcpLog, Alive: host.Alive, Procs: procs,
+			Conn: agents.New(agents.Deps{Exe: exe, Home: home, LookPath: exec.LookPath, Run: host.Run}),
 		}),
 		mcpLog:   mcpLog,
 		overview: overview,
@@ -268,12 +268,6 @@ func dataDir() (string, error) {
 		return "", fmt.Errorf("find app data folder: %w", err)
 	}
 	return filepath.Join(base, "ReforgePulse"), nil
-}
-
-// runProgram runs an agent CLI and returns what it printed.
-func runProgram(ctx context.Context, name string, args ...string) (string, error) {
-	out, err := exec.CommandContext(ctx, name, args...).CombinedOutput()
-	return string(out), err
 }
 
 // hwInfo joins the two hardware readers the MCP tool needs.
