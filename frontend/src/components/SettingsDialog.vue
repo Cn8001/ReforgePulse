@@ -4,6 +4,7 @@ import { Browser, Clipboard } from '@wailsio/runtime'
 import logo from '../assets/logo.svg'
 import Icon from './Icon.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
+import Markdown from './Markdown.vue'
 import { theme } from '../lib/theme'
 import { Info } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/aboutservice'
 import type { About } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/models'
@@ -135,7 +136,9 @@ async function restart() {
               <button v-if="release.notes" class="flex items-center gap-1 self-start text-xs text-muted hover:text-fg" :aria-expanded="showNotes" @click="showNotes = !showNotes">
                 <Icon name="chevron" class="size-3! transition-transform" :class="showNotes && 'rotate-90'" />What is new
               </button>
-              <pre v-if="showNotes" class="max-h-48 overflow-y-auto rounded border border-line bg-raised p-3 font-sans text-xs leading-relaxed whitespace-pre-wrap text-muted select-text">{{ release.notes }}</pre>
+              <div v-if="showNotes" class="max-h-48 overflow-y-auto rounded border border-line bg-raised p-3 text-xs text-muted">
+                <Markdown :source="release.notes ?? ''" />
+              </div>
             </template>
           </div>
 
@@ -174,7 +177,9 @@ async function restart() {
               <button class="btn" :aria-expanded="reading === 'license'" @click="read('license')">{{ reading === 'license' ? 'Hide' : 'Read' }} the licence</button>
               <button class="btn" :aria-expanded="reading === 'terms'" @click="read('terms')">{{ reading === 'terms' ? 'Hide' : 'Read' }} the terms</button>
             </div>
-            <pre v-if="reading" class="max-h-64 overflow-y-auto rounded border border-line bg-raised p-3 font-sans text-xs leading-relaxed whitespace-pre-wrap text-muted select-text">{{ reading === 'license' ? about?.license : about?.terms }}</pre>
+            <div v-if="reading" class="max-h-64 overflow-y-auto rounded border border-line bg-raised p-3 text-xs text-muted">
+              <Markdown :source="(reading === 'license' ? about?.license : about?.terms) ?? ''" />
+            </div>
           </div>
         </div>
       </section>

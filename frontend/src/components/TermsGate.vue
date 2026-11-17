@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { Application } from '@wailsio/runtime'
 import logo from '../assets/logo.svg'
+import Markdown from './Markdown.vue'
 import { Accept, Info } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/aboutservice'
 import type { About } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/models'
 
@@ -52,7 +53,9 @@ async function accept() {
             <button role="tab" class="tab" :class="doc === 'terms' && 'tab-on'" :aria-selected="doc === 'terms'" @click="doc = 'terms'">Terms of use</button>
             <button role="tab" class="tab" :class="doc === 'license' && 'tab-on'" :aria-selected="doc === 'license'" @click="doc = 'license'">MIT License</button>
           </nav>
-          <pre class="h-64 overflow-y-auto border-x border-b border-line bg-raised p-4 font-sans text-xs leading-relaxed whitespace-pre-wrap text-muted select-text">{{ doc === 'terms' ? about?.terms : about?.license }}</pre>
+          <div class="h-64 overflow-y-auto border-x border-b border-line bg-raised p-4 text-xs text-muted">
+            <Markdown :source="(doc === 'terms' ? about?.terms : about?.license) ?? ''" />
+          </div>
         </div>
 
         <label class="flex cursor-pointer items-start gap-3">
