@@ -97,10 +97,10 @@ platform implemented so far: OS access sits behind the interfaces in
 `internal/platform`, so the rest of `internal/` builds and tests anywhere and
 another OS is a new package next to `platform/windows`.
 
-Data is in `%LOCALAPPDATA%\ReforgePulse`: `journal.jsonl` (the change
-log), `reports/` (one JSON file per scan), `resolved.json`, `accepted.json`,
-`reforgepulse.log` (errors, panics and crash reports, rotated at 1 MB),
-`webview/` and the debugger's `symbols/` cache. The network is used only when you ask:
+Data is in `%LOCALAPPDATA%\ReforgePulse`: `reforgepulse.db` (SQLite: the
+change log, saved scans, resolved findings and settings, shared with the MCP
+server), `reforgepulse.log` (errors, panics and crash reports, rotated at
+1 MB), `webview/` and the debugger's `symbols/` cache. The network is used only when you ask:
 for that symbol download during a dump analysis, and for Check for updates.
 
 ## Layout
@@ -116,8 +116,10 @@ internal/
   cleanup      safe deletion in known locations
   coretest     the per-core stress test
   recorder     session recording and leak detection
+  store        the SQLite database, its schema and the import of older files
   journal      the change log
   reports      saved scans and resolved findings
+  consent      which wording of the terms was accepted
   tasks        bounded, cancellable background work for the status bar
   agents       registers the MCP server with agent CLIs
   mcp          the MCP server
