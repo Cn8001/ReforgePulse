@@ -2,7 +2,7 @@
 # Go tests run on the host: Windows-only packages drop out by build tag.
 
 .DEFAULT_GOAL := help
-.PHONY: help build run dev test vet fmt tidy clean installer release version
+.PHONY: help build run dev test vet fmt tidy clean installer release publish version
 
 ## help: list the targets
 help:
@@ -55,6 +55,10 @@ release: installer
 	cp bin/reforgepulse.exe dist/reforgepulse-windows-$(ARCH).exe
 	cp bin/reforgepulse-$(ARCH)-installer.exe dist/reforgepulse-windows-$(ARCH)-installer.exe
 	cd dist && sha256sum reforgepulse-* > SHA256SUMS
+
+## publish: tag the version, build dist/, push and create the GitHub release
+publish:
+	@sh scripts/publish.sh
 
 ## version: V=1.2.3 sets the version in build/config.yml, the one place it lives
 version:
