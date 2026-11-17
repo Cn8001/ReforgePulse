@@ -2,7 +2,12 @@
 
 <h1 align="center">ReforgePulse</h1>
 
-<p align="center"><img src="docs/overview.png" alt="The Overview page: live processor, graphics and memory load, drives, system and the change log" width="820"></p>
+<p align="center">
+  <a href="docs/overview.png"><img src="docs/overview.png" alt="Overview: health score, the issues worth a look, live processor, graphics and memory load" width="32%"></a>
+  <a href="docs/issues.png"><img src="docs/issues.png" alt="Issues: findings with their severity, to open, mark resolved or delete" width="32%"></a>
+  <a href="docs/tools.png"><img src="docs/tools.png" alt="Tools: processor, board, graphics, drives and memory in detail" width="32%"></a>
+</p>
+<p align="center"><sub>Screenshots show a made-up PC.</sub></p>
 
 PC diagnostics and cleanup for the desktop, currently on Windows. It reads
 what the system already records (event logs, WHEA, minidumps, counters,
