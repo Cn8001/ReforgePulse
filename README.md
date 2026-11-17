@@ -2,6 +2,8 @@
 
 <h1 align="center">ReforgePulse</h1>
 
+<p align="center"><img src="docs/overview.png" alt="The Overview page: live processor, graphics and memory load, drives, system and the change log" width="820"></p>
+
 PC diagnostics and cleanup for the desktop, currently on Windows. It reads
 what the system already records (event logs, WHEA, minidumps, counters,
 sensors) to find why a PC crashes or slows down, and cleans up what it no
