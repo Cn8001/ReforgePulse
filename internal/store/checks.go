@@ -12,10 +12,6 @@ import (
 // checkID names a run by when it finished, so IDs sort by time.
 const checkID = "20060102-150405.000"
 
-// maxCheckOutput keeps the end of a check's output, where its verdict is;
-// SFC and DISM print a progress line per percent before it.
-const maxCheckOutput = 64 << 10
-
 // Checks keeps the results of Windows' health checks, the newest keep.
 type Checks struct {
 	db   *sql.DB
@@ -26,16 +22,13 @@ func NewChecks(db *sql.DB, keep int) *Checks { return &Checks{db: db, keep: keep
 
 func (s *Checks) Save(ctx context.Context, r domain.CheckResult) (domain.CheckResult, error) {
 	r.ID = r.At.UTC().Format(checkID)
-	if len(r.Output) > maxCheckOutput {
-		r.Output = "…\n" + r.Output[len(r.Output)-maxCheckOutput:]
-	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return r, fmt.Errorf("begin save: %w", err)
 	}
 	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, `INSERT OR REPLACE INTO check_results (id, name, exit_code, output) VALUES (?, ?, ?, ?)`,
-		r.ID, r.Name, r.ExitCode, r.Output); err != nil {
+	if _, err := tx.ExecContext(ctx, `INSERT OR REPLACE INTO check_results (id, name, exit_code, summary, log) VALUES (?, ?, ?, ?, ?)`,
+		r.ID, r.Name, r.ExitCode, r.Summary, r.Log); err != nil {
 		return r, fmt.Errorf("save check result: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM check_results WHERE id NOT IN (SELECT id FROM check_results ORDER BY id DESC LIMIT ?)`, s.keep); err != nil {
@@ -49,7 +42,7 @@ func (s *Checks) Save(ctx context.Context, r domain.CheckResult) (domain.CheckRe
 
 // All returns every kept result, newest first.
 func (s *Checks) All(ctx context.Context) ([]domain.CheckResult, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, name, exit_code, output FROM check_results ORDER BY id DESC`)
+	rows, err := s.db.QueryContext(ctx, `SELECT id, name, exit_code, summary, log FROM check_results ORDER BY id DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("list check results: %w", err)
 	}
@@ -57,7 +50,7 @@ func (s *Checks) All(ctx context.Context) ([]domain.CheckResult, error) {
 	out := []domain.CheckResult{}
 	for rows.Next() {
 		var r domain.CheckResult
-		if err := rows.Scan(&r.ID, &r.Name, &r.ExitCode, &r.Output); err != nil {
+		if err := rows.Scan(&r.ID, &r.Name, &r.ExitCode, &r.Summary, &r.Log); err != nil {
 			return nil, fmt.Errorf("read check result: %w", err)
 		}
 		r.At, _ = time.Parse(checkID, r.ID)

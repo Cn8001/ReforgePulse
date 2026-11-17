@@ -64,7 +64,8 @@ var migrations = []string{
 		id        TEXT PRIMARY KEY,
 		name      TEXT NOT NULL,
 		exit_code INTEGER NOT NULL,
-		output    TEXT NOT NULL
+		summary   TEXT NOT NULL,
+		log       TEXT NOT NULL DEFAULT ''
 	);`,
 }
 

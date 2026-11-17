@@ -10,8 +10,10 @@ import (
 	"os/exec"
 	"strings"
 	"syscall"
+	"time"
 	"unicode/utf16"
 
+	"github.com/cn8001/reforgepulse/internal/domain"
 	"github.com/cn8001/reforgepulse/internal/platform"
 )
 
@@ -81,4 +83,42 @@ func decode(b []byte) string {
 		lines = lines[len(lines)-30:]
 	}
 	return strings.Join(lines, "\n")
+}
+
+// CheckLog is where Windows writes a check's full log; CHKDSK's online scan
+// writes only to the event log, so it has none.
+func (System) CheckLog(name string) string {
+	win := os.Getenv("SystemRoot")
+	switch name {
+	case "sfc":
+		return win + `\Logs\CBS\CBS.log`
+	case "dism":
+		return win + `\Logs\DISM\dism.log`
+	}
+	return ""
+}
+
+// MemoryTests are Windows Memory Diagnostic's verdicts, which it writes to
+// the System log after the restart it tests in.
+func (s System) MemoryTests(ctx context.Context, since time.Time) ([]domain.CheckResult, error) {
+	// 1101 to 1103 on Windows 10 and 11, 1201 and 1202 before.
+	events, err := s.Events(ctx, "System", "Microsoft-Windows-MemoryDiagnostics-Results", []uint32{1101, 1102, 1103, 1201, 1202}, since, 100)
+	if err != nil {
+		return nil, fmt.Errorf("read memory test results: %w", err)
+	}
+	out := make([]domain.CheckResult, 0, len(events))
+	for _, e := range events {
+		r := domain.CheckResult{
+			ID: fmt.Sprintf("memtest-%d", e.Time.UnixNano()), Name: "memtest", At: e.Time, FromWindows: true,
+			Summary: "Windows Memory Diagnostic found no errors.",
+		}
+		switch e.ID {
+		case 1102, 1202:
+			r.ExitCode, r.Summary = 1, "Windows Memory Diagnostic found errors. Test each memory stick on its own to find which one."
+		case 1103:
+			r.ExitCode, r.Summary = 2, "The memory test was cancelled before it finished, so it says nothing about the memory."
+		}
+		out = append(out, r)
+	}
+	return out, nil
 }

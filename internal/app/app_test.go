@@ -591,7 +591,14 @@ func TestRetentionService_OffUntilSetThenDeletesOlderThanTheDays(t *testing.T) {
 type fakeCheck struct{}
 
 func (fakeCheck) RunCheck(context.Context, string) (int, string, error) {
-	return 0, "no integrity violations", nil
+	return 0, "Beginning system scan.\r\nVerification 100% complete.\r\n\r\nWindows Resource Protection did not find any integrity violations.\r\n", nil
+}
+func (fakeCheck) CheckLog(string) string { return `C:\Windows\Logs\CBS\CBS.log` }
+
+type fakeMemory struct{}
+
+func (fakeMemory) MemoryTests(context.Context, time.Time) ([]domain.CheckResult, error) {
+	return []domain.CheckResult{{ID: "memtest-1", Name: "memtest", At: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), FromWindows: true}}, nil
 }
 
 type memChecks struct{ saved []domain.CheckResult }
@@ -608,7 +615,7 @@ func TestCheckService_SavesChecksButNotTheMemoryTestBooking(t *testing.T) {
 	// Arrange
 	ctx := context.Background()
 	store := &memChecks{}
-	s := NewCheckService(CheckDeps{Run: fakeCheck{}, Runner: tasks.New(1, func(tasks.Status) {}), Saved: store, Now: time.Now})
+	s := NewCheckService(CheckDeps{Run: fakeCheck{}, Runner: tasks.New(1, func(tasks.Status) {}), Saved: store, Memory: fakeMemory{}, Now: time.Now})
 
 	// Act
 	sfc, err := s.Run(ctx, "sfc")
@@ -617,5 +624,13 @@ func TestCheckService_SavesChecksButNotTheMemoryTestBooking(t *testing.T) {
 	// Assert
 	if err != nil || memErr != nil || sfc.ID != "id" || len(store.saved) != 1 || store.saved[0].Name != "sfc" {
 		t.Fatalf("sfc %+v %v, memtest %v, saved %+v", sfc, err, memErr, store.saved)
+	}
+	if store.saved[0].Summary != "Beginning system scan.\nWindows Resource Protection did not find any integrity violations." || store.saved[0].Log == "" {
+		t.Fatalf("summary %q, log %q", store.saved[0].Summary, store.saved[0].Log)
+	}
+	all, _ := s.Results(ctx)
+	delErr := s.DeleteResult(ctx, "memtest-1")
+	if len(all) != 2 || all[1].Name != "memtest" || delErr == nil {
+		t.Fatalf("results %+v, deleting a memory test: %v", all, delErr)
 	}
 }

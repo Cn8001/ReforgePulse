@@ -76,9 +76,10 @@ func memorySuspect(in Input, codes map[string]int) domain.Suspect {
 	}
 	var bad, good int
 	for _, t := range in.Crashes.MemoryTests {
-		if t.Detail == "errors found" {
+		switch t.Detail {
+		case "errors found":
 			bad++
-		} else {
+		case "no errors":
 			good++
 		}
 	}

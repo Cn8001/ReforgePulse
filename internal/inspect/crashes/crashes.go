@@ -64,9 +64,14 @@ func (in *Inspector) Collect(ctx context.Context) (domain.CrashEvidence, error) 
 	ev.Updates = read("Microsoft-Windows-WindowsUpdateClient", []uint32{19}, func(e platform.Event) string {
 		return field(e, "updateTitle", "param1")
 	})
-	ev.MemoryTests = read("Microsoft-Windows-MemoryDiagnostics-Results", []uint32{1201, 1202}, func(e platform.Event) string {
-		if e.ID == 1202 {
+	// Windows 10 and 11 log 1101 to 1103, older ones 1201 and 1202. A test
+	// cancelled halfway (1103) proves nothing either way.
+	ev.MemoryTests = read("Microsoft-Windows-MemoryDiagnostics-Results", []uint32{1101, 1102, 1103, 1201, 1202}, func(e platform.Event) string {
+		switch e.ID {
+		case 1102, 1202:
 			return "errors found"
+		case 1103:
+			return "cancelled"
 		}
 		return "no errors"
 	})

@@ -114,3 +114,23 @@ func TestSuspects_CoolSensorsRuleHeatOut(t *testing.T) {
 		t.Fatalf("heat = %+v", s)
 	}
 }
+
+func TestSuspects_CancelledMemoryTestIsNotAPass(t *testing.T) {
+	// Arrange
+	in := Input{Overview: domain.Overview{Elevated: true}, Crashes: domain.CrashEvidence{
+		Bugchecks:   []domain.CrashEvent{{Detail: "0x1A"}},
+		MemoryTests: []domain.CrashEvent{{Detail: "cancelled"}},
+	}}
+
+	// Act
+	got := Suspects(in)
+
+	// Assert
+	for _, s := range got {
+		for _, a := range s.Against {
+			if strings.Contains(a, "Memory Diagnostic passed") {
+				t.Fatalf("a cancelled test counted as a pass: %+v", s)
+			}
+		}
+	}
+}

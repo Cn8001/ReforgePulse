@@ -152,7 +152,7 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier, hw h
 		Feats:   feats,
 		Sens:    app.NewSensorService(hw.Sensors),
 		Events:  app.NewEventService(events.New(host), runner),
-		Checks:  app.NewCheckService(app.CheckDeps{Run: host, Runner: runner, Saved: checks, Now: time.Now}),
+		Checks:  app.NewCheckService(app.CheckDeps{Run: host, Runner: runner, Saved: checks, Memory: host, Now: time.Now}),
 		Drivers: app.NewDriverService(host, runner),
 		Rec:     app.NewRecorderService(recorder.New(overview, procs), runner, recordings),
 		Keep: app.NewRetentionService(app.RetentionDeps{
