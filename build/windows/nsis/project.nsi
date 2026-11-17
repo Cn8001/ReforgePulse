@@ -87,8 +87,36 @@ OutFile "..\..\..\bin\${INFO_PROJECTNAME}-${ARCH}-installer.exe" # Name of the i
 !endif
 ShowInstDetails show # This will always show the installation details.
 
+!include "LogicLib.nsh"
+
+# A running copy keeps its exe locked, and NSIS then fails with "Error
+# opening file for writing". It is often not the window but an AI agent's
+# `reforgepulse.exe mcp`, which the agent restarts on its own, so Setup offers
+# to close every copy instead of failing halfway.
+!macro closeRunning UN
+Function ${UN}closeRunning
+    nsExec::Exec 'cmd /c tasklist /FI "IMAGENAME eq ${PRODUCT_EXECUTABLE}" /NH | find /I "${PRODUCT_EXECUTABLE}"'
+    Pop $0
+    ${If} $0 == 0
+        MessageBox MB_OKCANCEL|MB_ICONEXCLAMATION "${INFO_PRODUCTNAME} is running: its window, or an AI agent connected to it.$\r$\n$\r$\nSetup needs to close it to continue. Agents reconnect by themselves the next time they use it.$\r$\n$\r$\nClose ${INFO_PRODUCTNAME} and continue?" IDOK close
+        Quit
+        close:
+        nsExec::Exec 'taskkill /F /T /IM ${PRODUCT_EXECUTABLE}'
+        Pop $0
+        Sleep 1000 # Windows releases the file a moment after the process ends
+    ${EndIf}
+FunctionEnd
+!macroend
+!insertmacro closeRunning ""
+!insertmacro closeRunning "un."
+
 Function .onInit
    !insertmacro wails.checkArchitecture
+   Call closeRunning
+FunctionEnd
+
+Function un.onInit
+   Call un.closeRunning
 FunctionEnd
 
 Section "${INFO_PRODUCTNAME}" SecApp
