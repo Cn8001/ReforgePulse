@@ -25,15 +25,26 @@ func (n noUpdates) Check(context.Context) (*domain.Release, error) { return nil,
 func (n noUpdates) Download(context.Context) error                 { return n.why }
 func (n noUpdates) Restart(context.Context) error                  { return n.why }
 
-type UpdateDeps struct {
-	Source  UpdateSource
-	Runner  TaskRunner
-	Journal Recorder
-	Version string
+// SettingStore keeps the user's choices as text.
+type SettingStore interface {
+	Get(ctx context.Context, key, def string) (string, error)
+	Set(ctx context.Context, key, value string) error
 }
 
-// UpdateService updates ReforgePulse itself, only when the user asks from
-// Settings. The download is logged like any other change.
+type UpdateDeps struct {
+	Source   UpdateSource
+	Runner   TaskRunner
+	Journal  Recorder
+	Settings SettingStore
+	Version  string
+}
+
+const checkOnStartKey = "updates.check_on_start"
+
+// UpdateService updates ReforgePulse itself. It looks for a new version
+// when the app starts, unless the user turned that off, and when asked from
+// Settings; it downloads and restarts only when the user says so. The
+// download is logged like any other change.
 type UpdateService struct {
 	d UpdateDeps
 }
@@ -52,6 +63,41 @@ func (s *UpdateService) Check(ctx context.Context) (*domain.Release, error) {
 		return nil, fmt.Errorf("check for updates: %w", err)
 	}
 	return rel, nil
+}
+
+// OnStart is the quiet check when the window opens: no task in the status
+// bar, and nil when the user turned it off or nothing is newer.
+func (s *UpdateService) OnStart(ctx context.Context) (*domain.Release, error) {
+	on, err := s.CheckOnStart(ctx)
+	if err != nil || !on {
+		return nil, err
+	}
+	rel, err := s.d.Source.Check(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("check for updates: %w", err)
+	}
+	return rel, nil
+}
+
+// CheckOnStart reports whether OnStart looks for updates; it does unless
+// turned off.
+func (s *UpdateService) CheckOnStart(ctx context.Context) (bool, error) {
+	v, err := s.d.Settings.Get(ctx, checkOnStartKey, "on")
+	if err != nil {
+		return false, fmt.Errorf("read update setting: %w", err)
+	}
+	return v != "off", nil
+}
+
+func (s *UpdateService) SetCheckOnStart(ctx context.Context, on bool) error {
+	v := "off"
+	if on {
+		v = "on"
+	}
+	if err := s.d.Settings.Set(ctx, checkOnStartKey, v); err != nil {
+		return fmt.Errorf("save update setting: %w", err)
+	}
+	return nil
 }
 
 // Download fetches the release Check found and verifies its checksum. It

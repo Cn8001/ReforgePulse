@@ -80,3 +80,24 @@ func mustWrite(t *testing.T, path, body string) {
 		t.Fatal(err)
 	}
 }
+
+func TestSettings_DefaultUntilSet(t *testing.T) {
+	// Arrange
+	ctx := context.Background()
+	db, err := Open(ctx, filepath.Join(t.TempDir(), "app.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	s := NewSettings(db)
+
+	// Act
+	before, _ := s.Get(ctx, "updates.on_start", "on")
+	setErr := s.Set(ctx, "updates.on_start", "off")
+	after, _ := s.Get(ctx, "updates.on_start", "on")
+
+	// Assert
+	if before != "on" || setErr != nil || after != "off" {
+		t.Fatalf("before %q, set %v, after %q", before, setErr, after)
+	}
+}

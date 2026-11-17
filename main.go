@@ -21,6 +21,7 @@ import (
 	"github.com/cn8001/reforgepulse/internal/platform"
 	"github.com/cn8001/reforgepulse/internal/platform/windows"
 	"github.com/cn8001/reforgepulse/internal/probe"
+	"github.com/cn8001/reforgepulse/internal/store"
 	"github.com/cn8001/reforgepulse/internal/tasks"
 	"github.com/cn8001/reforgepulse/internal/updates"
 )
@@ -158,7 +159,8 @@ func runWindow(b *backend, dir string, logger *slog.Logger, emit *func(tasks.Sta
 	a.RegisterService(application.NewService(app.NewThemeService(a.Env)))
 	a.RegisterService(application.NewService(app.NewLogService(logger)))
 	a.RegisterService(application.NewService(app.NewUpdateService(app.UpdateDeps{
-		Source: updateSource(a.Updater), Runner: b.runner, Journal: b.journal, Version: app.VersionFrom(buildConfig),
+		Source: updateSource(a.Updater), Runner: b.runner, Journal: b.journal, Settings: store.NewSettings(b.db),
+		Version: app.VersionFrom(buildConfig),
 	})))
 
 	// Mica gives the window the Windows 11 material. It starts dark, the

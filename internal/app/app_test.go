@@ -489,6 +489,36 @@ func (f *fakeUpdates) Check(context.Context) (*domain.Release, error) { return f
 func (f *fakeUpdates) Download(context.Context) error                 { f.downloaded = true; return nil }
 func (f *fakeUpdates) Restart(context.Context) error                  { return nil }
 
+type memSettings map[string]string
+
+func (m memSettings) Get(_ context.Context, key, def string) (string, error) {
+	if v, ok := m[key]; ok {
+		return v, nil
+	}
+	return def, nil
+}
+func (m memSettings) Set(_ context.Context, key, value string) error { m[key] = value; return nil }
+
+func TestUpdateService_OnStartChecksUntilTurnedOff(t *testing.T) {
+	// Arrange
+	ctx := context.Background()
+	src := &fakeUpdates{rel: &domain.Release{Version: "0.2.0"}}
+	s := NewUpdateService(UpdateDeps{Source: src, Settings: memSettings{}, Version: "0.1.0"})
+
+	// Act
+	first, err := s.OnStart(ctx)
+	setErr := s.SetCheckOnStart(ctx, false)
+	second, err2 := s.OnStart(ctx)
+
+	// Assert
+	if err != nil || first == nil || first.Version != "0.2.0" {
+		t.Fatalf("first = %+v, %v", first, err)
+	}
+	if setErr != nil || err2 != nil || second != nil {
+		t.Fatalf("after turning off: %+v, %v %v", second, setErr, err2)
+	}
+}
+
 func TestUpdateService_DownloadIsLoggedAndDevBuildsSayWhy(t *testing.T) {
 	// Arrange
 	ctx := context.Background()
