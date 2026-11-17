@@ -61,6 +61,10 @@ ManifestDPIAware true
 !insertmacro MUI_PAGE_LICENSE "license.txt" # TERMS.md, written by make installer
 !insertmacro MUI_PAGE_DIRECTORY # In which folder install page.
 !insertmacro MUI_PAGE_INSTFILES # Installing page.
+# Offer to start the app when the install is done, ticked by default. The
+# installer runs elevated, so the app it starts does too, with no second prompt.
+!define MUI_FINISHPAGE_RUN "$INSTDIR\${PRODUCT_EXECUTABLE}"
+!define MUI_FINISHPAGE_RUN_TEXT "Start ${INFO_PRODUCTNAME}"
 !insertmacro MUI_PAGE_FINISH # Finished installation page.
 
 !insertmacro MUI_UNPAGE_INSTFILES # Uninstalling page
