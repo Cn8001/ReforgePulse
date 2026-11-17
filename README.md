@@ -72,7 +72,10 @@ first start shows the terms and the licence to accept before anything else.
   OpenCode. Agents can scan and read; changes stay in the window.
 
 Long work (scans, cleanup, checks, the core test) runs as tasks in the
-status bar, at most four at a time, each cancellable.
+status bar, at most four at a time, each cancellable. Reads that touch the
+hardware directly (CPUID pinned to each processor, per-core counters, GPU
+sensors, the core test) run in a `reforgepulse.exe probe` child process: if
+one of them crashes, the child is restarted and the window stays open.
 
 ## Use
 
@@ -118,6 +121,7 @@ internal/
   tasks        bounded, cancellable background work for the status bar
   agents       registers the MCP server with agent CLIs
   mcp          the MCP server
+  probe        the child process for hardware reads, and its client
   app          services the window and MCP call
 frontend/src   Vue shell, Tailwind, one component per page and tab
 ```

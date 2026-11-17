@@ -20,6 +20,7 @@ import (
 	"github.com/cn8001/reforgepulse/internal/mcp"
 	"github.com/cn8001/reforgepulse/internal/platform"
 	"github.com/cn8001/reforgepulse/internal/platform/windows"
+	"github.com/cn8001/reforgepulse/internal/probe"
 	"github.com/cn8001/reforgepulse/internal/tasks"
 	"github.com/cn8001/reforgepulse/internal/updates"
 )
@@ -46,7 +47,14 @@ func run() error {
 	// in; it must not ask for UAC or open the data folder first.
 	updater.HandleHelperMode()
 	host := windows.System{}
-	mcpMode := len(os.Args) > 1 && os.Args[1] == "mcp"
+	mode := ""
+	if len(os.Args) > 1 {
+		mode = os.Args[1]
+	}
+	if mode == "probe" {
+		return runProbe(host) // started by the window, already elevated
+	}
+	mcpMode := mode == "mcp"
 	if !mcpMode && elevate(host) {
 		return nil
 	}
@@ -55,13 +63,21 @@ func run() error {
 		return err
 	}
 	var logger *slog.Logger
-	if !mcpMode {
+	var hw hardwareReads
+	if mcpMode {
+		hw = localHardware(host)
+	} else {
 		f, err := openLog(dir)
 		if err != nil {
 			return err
 		}
 		defer f.Close()
 		logger = slog.New(slog.NewTextHandler(f, nil))
+		exe, err := os.Executable()
+		if err != nil {
+			return fmt.Errorf("find executable: %w", err)
+		}
+		hw = probeHardware(exe, f, logger)
 	}
 	// The window exists only after the backend, so task updates go through
 	// emit, which runWindow points at the window's event bus.
@@ -70,7 +86,7 @@ func run() error {
 		if emit != nil {
 			emit(s)
 		}
-	})
+	}, hw)
 	if err != nil {
 		return err
 	}
@@ -83,6 +99,16 @@ func run() error {
 		return mcp.Serve(ctx, os.Stdin, os.Stdout, app.VersionFrom(buildConfig), b.tools())
 	}
 	return runWindow(b, dir, logger, &emit)
+}
+
+// runProbe serves the hardware reads to the window over stdin and stdout,
+// until the window closes them.
+func runProbe(host windows.System) error {
+	hw := localHardware(host)
+	defer hw.Close()
+	return probe.Serve(context.Background(), os.Stdin, os.Stdout, probe.Handlers(probe.Local{
+		Cores: hw.Cores, Loads: hw.Loads, Sensors: hw.Sensors, Tester: hw.Tester,
+	}))
 }
 
 // maxLog is where the log rotates; two files of this size at most.

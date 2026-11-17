@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -30,6 +32,7 @@ import (
 	"github.com/cn8001/reforgepulse/internal/journal"
 	"github.com/cn8001/reforgepulse/internal/mcp"
 	"github.com/cn8001/reforgepulse/internal/platform/windows"
+	"github.com/cn8001/reforgepulse/internal/probe"
 	"github.com/cn8001/reforgepulse/internal/recorder"
 	"github.com/cn8001/reforgepulse/internal/reports"
 	"github.com/cn8001/reforgepulse/internal/tasks"
@@ -65,10 +68,8 @@ type backend struct {
 	journal  *journal.Journal
 	runner   *tasks.Runner
 	sampler  *windows.Sampler
-	cpus     *windows.CPUs
-	sensors  *windows.SensorReader
+	hw       hardwareReads
 	host     windows.System
-	cores    *cores.Inspector
 	procs    *processes.Inspector
 	startup  *startup.Inspector
 	programs *programs.Inspector
@@ -87,7 +88,7 @@ const keepChanges = 500
 // PC it is diagnosing.
 const maxTasks = 4
 
-func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*backend, error) {
+func newBackend(host windows.System, dataDir string, notify tasks.Notifier, hw hardwareReads) (*backend, error) {
 	about := app.About{
 		Version: app.VersionFrom(buildConfig), DataDir: dataDir, Terms: terms, License: license,
 		Source: "https://github.com/" + updates.Repository, Wording: consent.Version(terms, license),
@@ -120,9 +121,6 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 		return nil, fmt.Errorf("find home folder: %w", err)
 	}
 	sampler := windows.NewSampler()
-	cpus := windows.NewCPUs()
-	sensors := windows.NewSensorReader()
-	coreMap := cores.New(cpus, host)
 	overview := system.New(host, host, sampler)
 	runner := tasks.New(maxTasks, notify)
 	procs := processes.New(processes.Deps{Processes: host, GPU: sampler, CPUs: runtime.NumCPU()})
@@ -133,7 +131,7 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 	progs := programs.New(host)
 	left := leftovers.New(leftovers.Deps{Machine: host, Startup: host, Processes: procs, Files: host})
 	scan := app.NewScanService(app.ScanDeps{
-		Hardware: host, Sensors: sensors, Devices: host, Overview: overview, Live: overview, Crashes: crashes.New(host), Startup: startupApps, Processes: procs, Runner: runner,
+		Hardware: host, Sensors: hw.Sensors, Devices: host, Overview: overview, Live: overview, Crashes: crashes.New(host), Startup: startupApps, Processes: procs, Runner: runner,
 		Reports: reportStore, Resolved: resolved,
 	})
 	return &backend{
@@ -141,7 +139,7 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 		Scan:    scan,
 		CPUCap:  cpuCap,
 		Feats:   feats,
-		Sens:    app.NewSensorService(sensors),
+		Sens:    app.NewSensorService(hw.Sensors),
 		Events:  app.NewEventService(events.New(host), runner),
 		Checks:  app.NewCheckService(host, runner),
 		Drivers: app.NewDriverService(host, runner),
@@ -150,8 +148,7 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 			Dir: host.DumpDir(), Symbols: filepath.Join(dataDir, "symbols"), Debugger: host, Names: diagnosis.BugcheckNames,
 		}), runner),
 		HW: app.NewHardwareService(app.HardwareDeps{
-			Facts: host, Cores: coreMap, Loads: cpus, Runner: runner,
-			Tester: coretest.New(coretest.Deps{CPUs: cpus, WHEA: coreMap.WHEAByAPIC}),
+			Facts: host, Cores: hw.Cores, Loads: hw.Loads, Tester: hw.Tester, Runner: runner,
 		}),
 		Old: app.NewOldFilesService(app.LeftoverDeps{
 			What:   "old downloads",
@@ -179,10 +176,8 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 		journal:  j,
 		runner:   runner,
 		sampler:  sampler,
-		cpus:     cpus,
-		sensors:  sensors,
+		hw:       hw,
 		host:     host,
-		cores:    coreMap,
 		procs:    procs,
 		startup:  startupApps,
 		programs: progs,
@@ -221,14 +216,13 @@ func (b *backend) services() []application.Service {
 func (b *backend) tools() []mcp.Tool {
 	return mcp.Tools(mcp.Deps{System: b.overview, Live: b.overview, Processes: b.procs, Startup: b.startup,
 		Programs: b.programs, Leftovers: b.left, Scanner: b.Scan, Power: b.CPUCap,
-		Hardware: hwInfo{b.host, b.cores}, Devices: b.host, History: b.journal})
+		Hardware: hwInfo{b.host, b.hw.Cores}, Devices: b.host, History: b.journal})
 }
 
 // Close releases what the backend holds open.
 func (b *backend) Close() {
 	b.sampler.Close()
-	b.cpus.Close()
-	b.sensors.Close()
+	b.hw.Close()
 }
 
 // dataDir is the one folder ReforgePulse keeps everything in, as bmeditor
@@ -251,5 +245,38 @@ func runProgram(ctx context.Context, name string, args ...string) (string, error
 // hwInfo joins the two hardware readers the MCP tool needs.
 type hwInfo struct {
 	windows.System
-	*cores.Inspector
+	app.CoreLister
+}
+
+// hardwareReads are the reads that touch the hardware directly. The window
+// gets them from the probe child, so a crash there cannot close it; the MCP
+// server, already a process of its own, reads in process.
+type hardwareReads struct {
+	Cores   app.CoreLister
+	Loads   app.CoreLoads
+	Sensors app.SensorReader
+	Tester  app.CoreTester
+	Close   func()
+}
+
+// localHardware reads in this process. The probe child serves these.
+func localHardware(host windows.System) hardwareReads {
+	cpus := windows.NewCPUs()
+	sensors := windows.NewSensorReader()
+	coreMap := cores.New(cpus, host)
+	return hardwareReads{
+		Cores: coreMap, Loads: cpus, Sensors: sensors,
+		Tester: coretest.New(coretest.Deps{CPUs: cpus, WHEA: coreMap.WHEAByAPIC}),
+		Close:  func() { cpus.Close(); sensors.Close() },
+	}
+}
+
+// probeHardware reads through a `reforgepulse.exe probe` child, started on
+// first use and again after it dies. Its crash reports go to the log.
+func probeHardware(exe string, logw io.Writer, logger *slog.Logger) hardwareReads {
+	c := probe.NewClient(probe.Command(exe, logw, "probe"), func(err error) {
+		logger.Warn("hardware probe ended", "error", err)
+	})
+	r := probe.NewRemote(c)
+	return hardwareReads{Cores: r, Loads: r, Sensors: r, Tester: r, Close: c.Close}
 }
