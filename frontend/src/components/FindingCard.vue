@@ -32,7 +32,7 @@ const sureness: Record<string, string> = { confirmed: 'Confirmed', likely: 'Like
       <span class="mt-1.5 size-2.5 shrink-0 rounded-full"
             :style="{ background: f.status === 'resolved' ? 'var(--muted)' : severityTone[f.severity] }" />
       <div class="min-w-0 flex-1">
-        <h3 class="text-[14px] font-semibold">{{ f.title }}</h3>
+        <h3 class="text-[15px] font-semibold">{{ f.title }}</h3>
         <p class="mt-1 text-muted">{{ f.summary }}</p>
         <p class="mt-2 flex flex-wrap items-center gap-2 text-xs">
           <span class="chip capitalize" :style="{ color: severityTone[f.severity], borderColor: severityTone[f.severity] }">{{ f.severity }} severity</span>

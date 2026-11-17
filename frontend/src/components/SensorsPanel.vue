@@ -42,8 +42,8 @@ const order = ['temp', 'volt', 'power', 'clock', 'fan', 'load']
 
     <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
       <article v-for="[name, list] in groups" :key="name" class="panel">
-        <header class="border-b border-line px-4 py-2.5"><h2 class="text-[13px] font-semibold">{{ name }}</h2></header>
-        <table class="w-full text-[13px] tabular-nums">
+        <header class="border-b border-line px-4 py-2.5"><h2 class="text-[14px] font-semibold">{{ name }}</h2></header>
+        <table class="w-full text-[14px] tabular-nums">
           <tr v-for="(s, i) in [...list].sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind))" :key="i" class="border-t border-line/60 first:border-0">
             <td class="px-4 py-1.5 text-muted">{{ s.name }}</td>
             <td class="py-1.5 text-right" :class="tone(s.kind, s.value)">{{ s.value.toFixed(s.kind === 'volt' ? 3 : 0) }} {{ s.unit }}</td>

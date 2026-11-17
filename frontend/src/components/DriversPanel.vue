@@ -65,13 +65,13 @@ const makers = computed(() => {
 
     <article class="panel">
       <header class="flex items-center justify-between border-b border-line px-4 py-3">
-        <h2 class="text-[13px] font-semibold">Devices with problems</h2>
+        <h2 class="text-[14px] font-semibold">Devices with problems</h2>
         <button class="btn h-7" @click="Open('device-manager')">Open Device Manager</button>
       </header>
       <p v-if="!problems" class="px-4 py-4 text-muted">Reading devices…</p>
       <p v-else-if="!problems.length" class="px-4 py-4 text-muted">Every device has a working driver.</p>
       <div v-for="d in problems ?? []" :key="d.deviceId" class="border-b border-line px-4 py-2.5 last:border-0">
-        <p>{{ d.name || 'Unknown device' }} <span class="text-[13px]" :class="d.errorCode === 28 ? 'text-bad' : 'text-warn'">{{ meaning[d.errorCode] ?? 'Has a problem' }} (code {{ d.errorCode }})</span></p>
+        <p>{{ d.name || 'Unknown device' }} <span class="text-[14px]" :class="d.errorCode === 28 ? 'text-bad' : 'text-warn'">{{ meaning[d.errorCode] ?? 'Has a problem' }} (code {{ d.errorCode }})</span></p>
         <p class="truncate text-xs text-muted" :title="d.hardwareId">{{ d.class || 'No device class' }}, <span class="font-mono select-text">{{ d.hardwareId }}</span></p>
       </div>
     </article>
@@ -79,7 +79,7 @@ const makers = computed(() => {
     <article class="panel">
       <header class="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
         <div>
-          <h2 class="text-[13px] font-semibold">Drivers Windows Update offers</h2>
+          <h2 class="text-[14px] font-semibold">Drivers Windows Update offers</h2>
           <p class="text-xs text-muted">Microsoft's own signed catalog. Asking takes up to a minute.</p>
         </div>
         <div class="flex gap-2">
@@ -88,7 +88,7 @@ const makers = computed(() => {
         </div>
       </header>
       <p v-if="offers && !offers.length" class="px-4 py-4 text-muted">Windows Update has no drivers this PC is missing.</p>
-      <table v-else-if="offers" class="w-full text-[13px]">
+      <table v-else-if="offers" class="w-full text-[14px]">
         <tr class="text-muted"><th class="px-4 py-2 text-left font-medium">Driver</th><th class="text-left font-medium">Type</th>
           <th class="text-left font-medium">Date</th><th class="pr-4 text-right font-medium">Size</th></tr>
         <tr v-for="u in offers" :key="u.id" class="border-t border-line/60">
@@ -101,7 +101,7 @@ const makers = computed(() => {
 
     <article class="panel">
       <header class="border-b border-line px-4 py-3">
-        <h2 class="text-[13px] font-semibold">Makers' driver pages</h2>
+        <h2 class="text-[14px] font-semibold">Makers' driver pages</h2>
         <p class="text-xs text-muted">New graphics and chipset drivers usually appear here before Windows Update has them.</p>
       </header>
       <div v-for="m in makers" :key="m.name" class="flex items-center gap-4 border-b border-line px-4 py-2.5 last:border-0">

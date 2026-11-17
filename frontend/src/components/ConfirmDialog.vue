@@ -12,7 +12,7 @@ const emit = defineEmits<{ yes: []; no: [] }>()
     <div v-if="open" class="fixed inset-0 z-50 grid place-items-center bg-black/55 p-6" @click.self="!busy && emit('no')">
       <section role="dialog" aria-modal="true" class="panel w-[480px] max-w-full shadow-2xl">
         <header class="border-b border-line px-5 py-4">
-          <h2 class="text-[15px] font-semibold">{{ title }}</h2>
+          <h2 class="text-[16px] font-semibold">{{ title }}</h2>
         </header>
         <div class="flex flex-col gap-3 px-5 py-4 text-muted">
           <p v-if="warning" class="notice font-semibold"

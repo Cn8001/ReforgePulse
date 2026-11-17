@@ -76,7 +76,7 @@ const finishedText = computed(() => {
     <div v-if="open" role="dialog" aria-label="Tasks"
          class="panel fixed bottom-8 left-2 z-40 flex max-h-[60vh] w-[440px] max-w-[calc(100vw-1rem)] flex-col overflow-hidden shadow-2xl">
       <div class="flex items-center justify-between border-b border-line px-4 py-2.5">
-        <h2 class="text-[13px] font-semibold">Tasks</h2>
+        <h2 class="text-[14px] font-semibold">Tasks</h2>
         <button class="rounded p-1 text-muted hover:bg-hover hover:text-fg" aria-label="Close" @click="open = false">
           <Icon name="close" class="size-3.5!" />
         </button>
@@ -108,7 +108,7 @@ const finishedText = computed(() => {
       </div>
     </div>
   </Transition>
-  <footer class="flex h-7 shrink-0 items-center gap-4 border-t border-line bg-panel px-3 text-[12px] text-muted">
+  <footer class="flex h-7 shrink-0 items-center gap-4 border-t border-line bg-panel px-3 text-[13px] text-muted">
     <button class="flex min-w-0 items-center self-stretch rounded px-1 -mx-1 hover:bg-hover" :aria-expanded="open"
             title="Show tasks" @click="open = !open">
     <Transition name="page" mode="out-in">

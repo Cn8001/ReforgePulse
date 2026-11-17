@@ -64,7 +64,7 @@ const key = (g: EventGroup) => `${g.channel}|${g.provider}|${g.id}`
         </button>
         <div v-if="open === key(g)" class="border-t border-line bg-raised px-4 py-3 text-xs">
           <p class="text-muted">First {{ new Date(g.first).toLocaleString() }}, last {{ new Date(g.last).toLocaleString() }}</p>
-          <pre class="mt-2 font-sans text-[13px] whitespace-pre-wrap select-text">{{ g.message || 'Windows has no text for this event.' }}</pre>
+          <pre class="mt-2 font-sans text-[14px] whitespace-pre-wrap select-text">{{ g.message || 'Windows has no text for this event.' }}</pre>
         </div>
       </div>
       <p v-if="groups && !rows.length" class="px-4 py-6 text-muted">No events at this level.</p>

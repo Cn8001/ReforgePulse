@@ -171,7 +171,7 @@ async function endTask() {
         <label class="flex h-8 w-72 items-center gap-2 rounded border border-line bg-raised px-2.5 focus-within:border-accent">
           <Icon name="search" class="size-4! text-muted" />
           <input v-model="query" aria-label="Filter processes" placeholder="Name, PID, path or :port" spellcheck="false"
-                 class="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted" />
+                 class="min-w-0 flex-1 bg-transparent text-[14px] outline-none placeholder:text-muted" />
         </label>
       </div>
     </header>
@@ -179,7 +179,7 @@ async function endTask() {
     <p v-if="error" class="notice border-bad/40 bg-bad/10 text-bad">{{ error }}</p>
 
     <div class="panel min-h-0 flex-1 overflow-auto">
-      <table class="w-full table-fixed text-[13px] tabular-nums">
+      <table class="w-full table-fixed text-[14px] tabular-nums">
         <thead class="sticky top-0 z-10 bg-panel">
           <tr>
             <th v-for="c in columns" :key="c.key" :class="c.cls" :aria-sort="sortKey === c.key ? (desc ? 'descending' : 'ascending') : 'none'"
@@ -226,7 +226,7 @@ async function endTask() {
                   </dl>
                   <button class="btn border-bad/50 text-bad hover:bg-bad hover:text-white" @click.stop="ending = p">End task</button>
                 </div>
-                <table v-if="p.ports?.length" class="mt-4 w-full max-w-2xl text-[13px]">
+                <table v-if="p.ports?.length" class="mt-4 w-full max-w-2xl text-[14px]">
                   <tr class="text-muted"><th class="w-16 pb-1 text-left font-medium">Protocol</th><th class="pb-1 text-left font-medium">Local</th>
                     <th class="pb-1 text-left font-medium">Remote</th><th class="pb-1 text-left font-medium">State</th></tr>
                   <tr v-for="(x, i) in p.ports" :key="i" class="border-t border-line/60">

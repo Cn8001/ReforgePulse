@@ -75,7 +75,7 @@ function act(kind: string, arg?: string) {
     </div>
 
     <div v-if="!shown && !scanning" class="panel px-5 py-10 text-center">
-      <p class="text-[15px] font-semibold">Not scanned yet</p>
+      <p class="text-[16px] font-semibold">Not scanned yet</p>
       <p class="mx-auto mt-1 max-w-lg text-muted">
         The scan reads blue screens, unexpected restarts, hardware errors, crashing apps and services, drives and memory. It changes nothing.
       </p>
@@ -100,7 +100,7 @@ function act(kind: string, arg?: string) {
 
     <div v-if="reports.length" class="panel">
       <div class="flex items-baseline justify-between border-b border-line px-5 py-3">
-        <h2 class="text-[14px] font-semibold">Recent scans</h2>
+        <h2 class="text-[15px] font-semibold">Recent scans</h2>
         <span class="label">The last {{ reports.length }} are kept</span>
       </div>
       <ul>

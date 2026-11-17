@@ -34,13 +34,13 @@ async function run(id: string) {
       <div class="flex items-center gap-4 px-4 py-3">
         <div class="min-w-0 flex-1">
           <p class="font-semibold">{{ c.title }} <span class="text-xs font-normal text-muted">takes {{ c.time }}</span></p>
-          <p class="text-[13px] text-muted">{{ c.what }}</p>
+          <p class="text-[14px] text-muted">{{ c.what }}</p>
         </div>
         <button class="btn-primary" :disabled="!!busy" @click="run(c.id)">{{ busy === c.id ? 'Running…' : 'Run' }}</button>
       </div>
       <div v-if="results[c.id]" class="border-t border-line bg-raised px-4 py-3">
         <p class="text-xs" :class="results[c.id].exitCode === 0 ? 'text-muted' : 'text-warn'">Finished with exit code {{ results[c.id].exitCode }}</p>
-        <pre class="mt-1 max-h-60 overflow-y-auto font-mono text-[11px] whitespace-pre-wrap select-text">{{ results[c.id].output }}</pre>
+        <pre class="mt-1 max-h-60 overflow-y-auto font-mono text-[12px] whitespace-pre-wrap select-text">{{ results[c.id].output }}</pre>
       </div>
     </article>
   </div>

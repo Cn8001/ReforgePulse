@@ -44,7 +44,7 @@ onMounted(load)
 <template>
   <article class="panel">
     <header class="border-b border-line px-5 py-4">
-      <h2 class="text-[14px] font-semibold">CPU frequency cap</h2>
+      <h2 class="text-[15px] font-semibold">CPU frequency cap</h2>
       <p class="mt-1 max-w-3xl text-muted">
         Limits the highest clock on every power plan, so switching plans cannot undo it. Use it to test whether lower clocks stop the crashes,
         whatever the cause turns out to be. Enter your own limit in MHz; 0 means no cap.
@@ -60,7 +60,7 @@ onMounted(load)
       <span v-if="done" class="text-ok">{{ done }}</span>
       <span v-if="error" class="text-bad">{{ error }}</span>
     </div>
-    <table class="w-full border-t border-line text-[13px] tabular-nums">
+    <table class="w-full border-t border-line text-[14px] tabular-nums">
       <tr class="text-muted"><th class="px-5 py-2 text-left font-medium">Power plan</th><th class="text-left font-medium">P-cores, plugged in</th>
         <th class="text-left font-medium">P-cores, battery</th><th class="text-left font-medium">E-cores, plugged in</th><th class="text-left font-medium">E-cores, battery</th></tr>
       <tr v-for="p in plans" :key="p.guid" class="border-t border-line/60">

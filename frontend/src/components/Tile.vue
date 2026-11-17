@@ -10,7 +10,7 @@ defineProps<{ title: string; icon: IconName; value?: string; unit?: string; sub?
   <article class="panel flex min-w-0 flex-col gap-3 p-4 transition-colors hover:bg-raised">
     <header class="flex items-center gap-2 text-muted">
       <Icon :name="icon" class="size-4!" />
-      <span class="text-[13px] font-medium text-fg">{{ title }}</span>
+      <span class="text-[14px] font-medium text-fg">{{ title }}</span>
       <slot name="badge" />
     </header>
     <p v-if="value !== undefined" class="readout">

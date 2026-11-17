@@ -14,7 +14,7 @@ const count = (n: number, word: string) => (n ? `${n} ${word}` : '')
 <template>
   <article class="panel">
     <header class="border-b border-line px-5 py-3">
-      <h2 class="text-[14px] font-semibold">Where the instability points</h2>
+      <h2 class="text-[15px] font-semibold">Where the instability points</h2>
       <p class="mt-0.5 text-xs text-muted">Every possible cause, weighed against what Windows recorded. More than one can be true.</p>
     </header>
     <ul class="divide-y divide-line">
@@ -22,11 +22,11 @@ const count = (n: number, word: string) => (n ? `${n} ${word}` : '')
         <button class="flex w-full items-center gap-3 px-5 py-2.5 text-left transition hover:bg-hover" :aria-expanded="open === s.area"
                 @click="open = open === s.area ? null : s.area">
           <span class="w-44 shrink-0 font-medium">{{ s.title }}</span>
-          <span class="flex-1 text-[13px]">{{ count(s.for?.length ?? 0, 'pointing here') }}</span>
+          <span class="flex-1 text-[14px]">{{ count(s.for?.length ?? 0, 'pointing here') }}</span>
           <span class="text-xs text-muted">{{ count(s.against?.length ?? 0, 'pointing away') }}</span>
           <Icon name="chevron" class="size-3.5! text-muted transition-transform" :class="open === s.area && 'rotate-90'" />
         </button>
-        <div v-if="open === s.area" class="grid gap-4 bg-raised px-5 py-4 text-[13px] md:grid-cols-3">
+        <div v-if="open === s.area" class="grid gap-4 bg-raised px-5 py-4 text-[14px] md:grid-cols-3">
           <div>
             <h3 class="label mb-1.5">Points here</h3>
             <p v-for="(x, i) in s.for ?? []" :key="i" class="mb-1 select-text">{{ x }}</p>

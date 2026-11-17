@@ -200,7 +200,7 @@ const headline = computed(() => {
       </Tile>
 
       <Tile title="Drives" icon="disk" class="cursor-pointer md:col-span-2" @click="emit('open', 'cleanup')">
-        <table class="w-full text-[13px] tabular-nums">
+        <table class="w-full text-[14px] tabular-nums">
           <tr v-for="d in drives" :key="d.root">
             <td class="w-12 py-1.5 font-mono">{{ d.root.replace('\\', '') }}</td>
             <td class="py-1.5"><Bar :ratio="d.ratio" /></td>
@@ -211,7 +211,7 @@ const headline = computed(() => {
         <p v-if="!drives.length" class="text-muted">No fixed drives found.</p>
       </Tile>
       <Tile title="System" icon="system" :sub="overview?.os || ''">
-        <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[13px]">
+        <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[14px]">
           <dt class="text-muted">Running for</dt><dd class="tabular-nums">{{ overview ? show(overview.uptime, formatDuration) : '–' }}</dd>
           <dt class="text-muted">Rights</dt>
           <dd :class="overview && !overview.elevated ? 'text-warn' : ''">{{ overview ? (overview.elevated ? 'Administrator' : 'Limited') : '–' }}</dd>
@@ -222,13 +222,13 @@ const headline = computed(() => {
 
     <article class="panel">
       <header class="flex items-baseline justify-between border-b border-line px-4 py-3">
-        <h2 class="text-[13px] font-semibold">Recent changes</h2>
+        <h2 class="text-[14px] font-semibold">Recent changes</h2>
         <button v-if="changes.length" class="text-xs text-muted hover:text-fg hover:underline" @click="emit('open', 'history', 'changes')">
           {{ changes.length > 5 ? `Show all ${changes.length}` : 'Open history' }}
         </button>
       </header>
       <p v-if="!changes.length" class="px-4 py-4 text-muted">Nothing has been changed yet. Every change ReforgePulse makes is recorded here before it happens.</p>
-      <table v-else class="w-full text-[13px]">
+      <table v-else class="w-full text-[14px]">
         <tr v-for="c in changes.slice(0, 5)" :key="c.id" class="border-b border-line last:border-0 hover:bg-hover">
           <td class="w-24 px-4 py-2 font-mono text-xs text-muted">{{ c.id }}</td>
           <td class="truncate py-2" :title="c.before && c.after ? `${c.before} → ${c.after}` : ''">{{ c.summary }}</td>

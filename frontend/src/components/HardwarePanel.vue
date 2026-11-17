@@ -77,7 +77,7 @@ const loadTone = (l?: CoreLoad) => (!l ? 'var(--hover)' : l.load > 85 ? 'var(--b
       <article class="panel p-4">
         <h2 class="label">Processor</h2>
         <p class="mt-1 font-semibold">{{ facts?.CPU.Name ?? 'Reading…' }}</p>
-        <dl class="mt-3 grid grid-cols-[7rem_1fr] gap-y-1.5 text-[13px] tabular-nums">
+        <dl class="mt-3 grid grid-cols-[7rem_1fr] gap-y-1.5 text-[14px] tabular-nums">
           <dt class="text-muted">Cores</dt><dd>{{ facts?.CPU.Cores ?? '–' }}<span v-if="pCount" class="text-muted">, {{ pCount }} performance and {{ eCount }} efficiency</span></dd>
           <dt class="text-muted">Threads</dt><dd>{{ facts?.CPU.Threads ?? '–' }}</dd>
           <dt class="text-muted">Base clock</dt><dd>{{ facts ? `${facts.CPU.MaxMHz} MHz` : '–' }}</dd>
@@ -88,16 +88,16 @@ const loadTone = (l?: CoreLoad) => (!l ? 'var(--hover)' : l.load > 85 ? 'var(--b
       <article class="panel p-4">
         <h2 class="label">Motherboard</h2>
         <p class="mt-1 font-semibold">{{ facts?.Board ?? 'Reading…' }}</p>
-        <dl class="mt-3 grid grid-cols-[7rem_1fr] gap-y-1.5 text-[13px]">
+        <dl class="mt-3 grid grid-cols-[7rem_1fr] gap-y-1.5 text-[14px]">
           <dt class="text-muted">BIOS</dt><dd>{{ facts ? `${facts.BIOS}, ${facts.BIOSDate}` : '–' }}</dd>
           <dt class="text-muted">Hypervisor</dt><dd>{{ facts ? (facts.Hypervisor ? 'On (Hyper-V, WSL 2 or VBS)' : 'Off') : '–' }}</dd>
         </dl>
         <h2 class="label mt-4">Graphics</h2>
-        <p v-for="g in facts?.GPUs ?? []" :key="g.Name" class="mt-1 text-[13px]">{{ g.Name }}<br /><span class="text-xs text-muted">Driver {{ g.DriverVersion }}, {{ g.DriverDate }}</span></p>
+        <p v-for="g in facts?.GPUs ?? []" :key="g.Name" class="mt-1 text-[14px]">{{ g.Name }}<br /><span class="text-xs text-muted">Driver {{ g.DriverVersion }}, {{ g.DriverDate }}</span></p>
       </article>
       <article class="panel p-4">
         <h2 class="label">Drives</h2>
-        <div v-for="d in facts?.Disks ?? []" :key="d.Name" class="mt-2 text-[13px]">
+        <div v-for="d in facts?.Disks ?? []" :key="d.Name" class="mt-2 text-[14px]">
           <p>{{ d.Name }}</p>
           <p class="text-xs text-muted">{{ d.Media }}, <span :class="d.Health !== 'Healthy' && 'text-bad'">{{ d.Health.toLowerCase() }}</span>
             <template v-if="d.TempC >= 0">, {{ d.TempC }} °C</template><template v-if="d.Wear >= 0">, {{ d.Wear }}% worn</template></p>
@@ -107,10 +107,10 @@ const loadTone = (l?: CoreLoad) => (!l ? 'var(--hover)' : l.load > 85 ? 'var(--b
 
     <article class="panel">
       <header class="border-b border-line px-4 py-3">
-        <h2 class="text-[13px] font-semibold">Memory</h2>
+        <h2 class="text-[14px] font-semibold">Memory</h2>
         <p class="text-xs text-muted">{{ facts?.Memory?.length ?? 0 }} modules, {{ formatBytes((facts?.Memory ?? []).reduce((n, m) => n + m.CapacityBytes, 0)) }} in total</p>
       </header>
-      <table class="w-full text-[13px] tabular-nums">
+      <table class="w-full text-[14px] tabular-nums">
         <tr class="text-muted"><th class="px-4 py-2 text-left font-medium">Slot</th><th class="text-left font-medium">Maker</th><th class="text-left font-medium">Part number</th>
           <th class="text-left font-medium">Size</th><th class="text-left font-medium">Rated</th><th class="text-left font-medium">Running at</th></tr>
         <tr v-for="m in facts?.Memory ?? []" :key="m.Slot" class="border-t border-line/60">
@@ -123,7 +123,7 @@ const loadTone = (l?: CoreLoad) => (!l ? 'var(--hover)' : l.load > 85 ? 'var(--b
     <article class="panel">
       <header class="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
         <div>
-          <h2 class="text-[13px] font-semibold">Cores</h2>
+          <h2 class="text-[14px] font-semibold">Cores</h2>
           <p class="text-xs text-muted">Live load and clock of each logical processor. A red count is the hardware errors Windows logged for it in 30 days. Select cores to test them.</p>
         </div>
         <div class="flex flex-wrap gap-1">
@@ -139,14 +139,14 @@ const loadTone = (l?: CoreLoad) => (!l ? 'var(--hover)' : l.load > 85 ? 'var(--b
                 class="flex flex-col gap-1.5 rounded border p-2 text-left text-xs tabular-nums transition"
                 :class="picked.has(c.index) ? 'border-accent bg-accent/10' : 'border-line hover:bg-hover'" @click="pick(c.index)">
           <span class="flex items-center justify-between">
-            <span><b class="text-[13px]">{{ c.index }}</b> <span class="text-muted">{{ c.kind === 'P' ? 'P-core' : c.kind === 'E' ? 'E-core' : 'Core' }} {{ c.core }}</span></span>
-            <span v-if="c.whea" class="rounded-full bg-bad px-1.5 text-[11px] font-semibold text-white" :title="`${c.whea} hardware errors named this processor in 30 days`">{{ c.whea }}</span>
+            <span><b class="text-[14px]">{{ c.index }}</b> <span class="text-muted">{{ c.kind === 'P' ? 'P-core' : c.kind === 'E' ? 'E-core' : 'Core' }} {{ c.core }}</span></span>
+            <span v-if="c.whea" class="rounded-full bg-bad px-1.5 text-[12px] font-semibold text-white" :title="`${c.whea} hardware errors named this processor in 30 days`">{{ c.whea }}</span>
           </span>
           <span class="h-1 overflow-hidden rounded-full bg-hover"><span class="block h-full rounded-full transition-[width] duration-500"
                 :style="{ width: `${loads[c.index]?.load ?? 0}%`, background: loadTone(loads[c.index]) }" /></span>
           <span class="flex justify-between"><span class="text-muted">{{ Math.round(loads[c.index]?.load ?? 0) }}%</span>
             <span>{{ loads[c.index] ? `${Math.round(loads[c.index].mhz)} MHz` : '–' }}</span></span>
-          <span class="font-mono text-[11px] text-muted">APIC {{ c.apic }}<template v-if="c.sibling >= 0">, pairs with {{ c.sibling }}</template></span>
+          <span class="font-mono text-[12px] text-muted">APIC {{ c.apic }}<template v-if="c.sibling >= 0">, pairs with {{ c.sibling }}</template></span>
         </button>
       </div>
       <footer class="flex flex-wrap items-center gap-3 border-t border-line px-4 py-3">
@@ -161,7 +161,7 @@ const loadTone = (l?: CoreLoad) => (!l ? 'var(--hover)' : l.load > 85 ? 'var(--b
           {{ (result.results ?? []).filter((r) => r.errors).length ? `${(result.results ?? []).filter((r) => r.errors).length} cores returned wrong results.` : 'Every core returned correct results.' }}
           {{ result.newWhea ? `Windows logged ${result.newWhea} hardware errors during the test.` : 'No hardware errors were logged during the test.' }}
         </p>
-        <table class="mt-2 w-full text-[13px] tabular-nums">
+        <table class="mt-2 w-full text-[14px] tabular-nums">
           <tr class="text-muted"><th class="py-1 text-left font-medium">Processor</th><th class="text-left font-medium">Rounds</th>
             <th class="text-left font-medium">Wrong results</th><th class="text-left font-medium">Average clock</th></tr>
           <tr v-for="r in result.results ?? []" :key="r.index" class="border-t border-line/60">

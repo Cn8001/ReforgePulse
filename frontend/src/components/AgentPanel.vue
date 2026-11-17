@@ -59,7 +59,7 @@ async function copy(id: string) {
            class="fixed inset-y-0 right-0 z-50 flex w-[440px] max-w-full flex-col gap-5 border-l border-line bg-panel p-6 shadow-2xl">
       <header class="flex items-start justify-between gap-4">
         <div>
-          <h2 id="agents-title" class="text-[17px] font-semibold">Connect an AI agent</h2>
+          <h2 id="agents-title" class="text-[18px] font-semibold">Connect an AI agent</h2>
           <p class="mt-1 text-muted">The agent can run the scan and read what ReforgePulse sees. It cannot change anything; changes are made here, by you.</p>
         </div>
         <button class="grid size-7 place-items-center rounded text-muted transition hover:bg-hover hover:text-fg" aria-label="Close" @click="$emit('close')"><Icon name="close" /></button>
@@ -88,9 +88,9 @@ async function copy(id: string) {
           <p v-if="state[a.id]?.error" class="text-xs text-bad">
             {{ state[a.id]!.error!.includes('not found') ? `${a.name} is not installed on Windows. Run the command below where it is installed.` : state[a.id]!.error }}
           </p>
-          <p v-else-if="state[a.id]?.ok" class="truncate font-mono text-[11px] text-muted">{{ state[a.id]!.ok }}</p>
+          <p v-else-if="state[a.id]?.ok" class="truncate font-mono text-[12px] text-muted">{{ state[a.id]!.ok }}</p>
           <div class="relative rounded border border-line bg-raised">
-            <pre class="max-h-32 overflow-auto p-2.5 pr-9 font-mono text-[11px] whitespace-pre-wrap break-all select-text">{{ commands[a.id] }}</pre>
+            <pre class="max-h-32 overflow-auto p-2.5 pr-9 font-mono text-[12px] whitespace-pre-wrap break-all select-text">{{ commands[a.id] }}</pre>
             <button class="absolute top-1.5 right-1.5 rounded p-1 text-muted transition hover:bg-hover hover:text-fg"
                     :aria-label="copied === a.id ? 'Copied' : `Copy the ${a.name} command`" @click="copy(a.id)">
               <Icon :name="copied === a.id ? 'check' : 'copy'" class="size-3.5!" />

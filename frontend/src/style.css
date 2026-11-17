@@ -56,6 +56,8 @@
   --color-disk: var(--accent);
 }
 
+/* The root keeps the browser's 16px, so Tailwind's rem sizes mean what
+   they say; body text is 14px, the size Windows' own apps use. */
 html,
 body,
 #app {
@@ -63,8 +65,10 @@ body,
   margin: 0;
   background: var(--bg);
   color: var(--fg);
-  font-size: 13px;
   user-select: none;
+}
+body {
+  font-size: 14px;
 }
 
 :focus-visible {
@@ -82,35 +86,35 @@ body,
     @apply text-xs text-muted;
   }
   .heading {
-    @apply font-display text-[22px] leading-tight font-semibold;
+    @apply font-display text-[24px] leading-tight font-semibold;
   }
   .readout {
     @apply font-display text-[34px] leading-none font-semibold tabular-nums;
   }
   .btn {
-    @apply inline-flex h-8 items-center justify-center gap-1.5 rounded border border-line px-3 text-[13px] whitespace-nowrap transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex h-8 items-center justify-center gap-1.5 rounded border border-line px-3 text-[14px] whitespace-nowrap transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary {
-    @apply inline-flex h-8 items-center justify-center gap-1.5 rounded bg-accent px-3.5 text-[13px] font-semibold whitespace-nowrap text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex h-8 items-center justify-center gap-1.5 rounded bg-accent px-3.5 text-[14px] font-semibold whitespace-nowrap text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-danger {
-    @apply inline-flex h-8 items-center justify-center gap-1.5 rounded bg-bad px-3.5 text-[13px] font-semibold whitespace-nowrap text-white transition hover:brightness-110 disabled:opacity-50;
+    @apply inline-flex h-8 items-center justify-center gap-1.5 rounded bg-bad px-3.5 text-[14px] font-semibold whitespace-nowrap text-white transition hover:brightness-110 disabled:opacity-50;
   }
   .chip {
-    @apply inline-flex items-center rounded-full border px-2 text-[11px] leading-[18px] whitespace-nowrap;
+    @apply inline-flex items-center rounded-full border px-2 text-[12px] leading-[18px] whitespace-nowrap;
   }
   .field {
-    @apply h-8 rounded border border-line bg-raised px-2 text-[13px] outline-none focus:border-accent;
+    @apply h-8 rounded border border-line bg-raised px-2 text-[14px] outline-none focus:border-accent;
   }
   .notice {
-    @apply rounded-md border px-4 py-3 text-[13px];
+    @apply rounded-md border px-4 py-3 text-[14px];
   }
   /* Tabs that switch a page's sections. */
   .tabs {
     @apply flex flex-wrap gap-1 border-b border-line;
   }
   .tab {
-    @apply -mb-px flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-[13px] text-muted transition-colors hover:text-fg;
+    @apply -mb-px flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-[14px] text-muted transition-colors hover:text-fg;
   }
   .tab-on {
     @apply border-accent font-semibold text-fg;

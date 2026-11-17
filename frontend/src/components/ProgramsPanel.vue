@@ -61,7 +61,7 @@ onMounted(load)
           <button class="btn" :class="onlyForgotten && 'border-accent text-accent'" :aria-pressed="onlyForgotten" @click="onlyForgotten = !onlyForgotten">Unused only</button>
           <label class="flex h-8 w-44 items-center gap-2 rounded border border-line bg-raised px-2 focus-within:border-accent">
             <Icon name="search" class="size-4! text-muted" />
-            <input v-model="query" aria-label="Filter programs" placeholder="Filter" spellcheck="false" class="min-w-0 flex-1 bg-transparent text-[13px] outline-none" />
+            <input v-model="query" aria-label="Filter programs" placeholder="Filter" spellcheck="false" class="min-w-0 flex-1 bg-transparent text-[14px] outline-none" />
           </label>
         </div>
       </header>

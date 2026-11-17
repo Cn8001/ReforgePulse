@@ -192,7 +192,7 @@ const statusText: Record<string, [string, string]> = {
 
     <article v-if="tab === 'changes'" class="panel">
       <p v-if="!changes.length" class="px-4 py-6 text-center text-muted">Nothing in the change log.</p>
-      <table v-else class="w-full table-fixed text-[13px]">
+      <table v-else class="w-full table-fixed text-[14px]">
         <tr v-for="c in changes" :key="c.id" class="border-b border-line last:border-0 hover:bg-hover">
           <td class="w-24 px-4 py-2 font-mono text-xs text-muted">{{ c.id }}</td>
           <td class="truncate py-2" :title="c.before && c.after ? `${c.before} → ${c.after}` : c.summary">

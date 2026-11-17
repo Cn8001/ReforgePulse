@@ -40,10 +40,10 @@ const avg = (v?: number[] | null) => (v?.length ? Math.round(v.reduce((a, b) => 
       </div>
       <article class="panel">
         <header class="border-b border-line px-4 py-3">
-          <h2 class="text-[13px] font-semibold">Processes over {{ Math.round(rec.seconds / 60) || 1 }} min</h2>
+          <h2 class="text-[14px] font-semibold">Processes over {{ Math.round(rec.seconds / 60) || 1 }} min</h2>
           <p class="text-xs text-muted">By highest memory. A likely leak is memory that kept growing steadily, not a single jump.</p>
         </header>
-        <table class="w-full text-[13px] tabular-nums">
+        <table class="w-full text-[14px] tabular-nums">
           <tr class="text-muted"><th class="px-4 py-2 text-left font-medium">Process</th><th class="text-right font-medium">Start</th><th class="text-right font-medium">End</th>
             <th class="text-right font-medium">Highest</th><th class="text-right font-medium">Growth</th><th class="text-right font-medium">CPU</th><th class="px-4"></th></tr>
           <tr v-for="p in rec.top ?? []" :key="p.pid" class="border-t border-line/60">

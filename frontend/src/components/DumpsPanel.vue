@@ -55,8 +55,8 @@ async function analyze() {
           <span class="text-xs text-muted">{{ new Date(d.time).toLocaleString() }}, {{ formatBytes(d.size) }}</span>
           <button class="btn ml-auto h-7" :disabled="!debuggerOk || !!busy" @click="pending = d">{{ busy === d.name ? 'Analysing…' : 'Analyse' }}</button>
         </div>
-        <p class="mt-1 font-mono text-[11px] text-muted">{{ d.name }}, parameters {{ d.params?.join(' ') }}</p>
-        <dl v-if="results[d.name]" class="mt-3 grid grid-cols-[8rem_1fr] gap-y-1 rounded border border-line bg-raised px-3 py-2 text-[13px]">
+        <p class="mt-1 font-mono text-[12px] text-muted">{{ d.name }}, parameters {{ d.params?.join(' ') }}</p>
+        <dl v-if="results[d.name]" class="mt-3 grid grid-cols-[8rem_1fr] gap-y-1 rounded border border-line bg-raised px-3 py-2 text-[14px]">
           <dt class="text-muted">Blames</dt><dd class="font-semibold text-warn">{{ results[d.name].image || results[d.name].module || 'Not named' }}</dd>
           <dt class="text-muted">Stopped in</dt><dd class="font-mono text-xs select-text">{{ results[d.name].symbol || '–' }}</dd>
           <dt class="text-muted">Process</dt><dd>{{ results[d.name].process || '–' }}</dd>
@@ -74,9 +74,9 @@ async function analyze() {
     <div v-if="raw !== null" role="dialog" aria-modal="true" class="fixed inset-0 z-50 grid place-items-center bg-black/55 p-6" @click.self="raw = null">
       <div class="panel flex max-h-[80vh] w-[900px] max-w-full flex-col">
         <header class="flex items-center justify-between border-b border-line px-4 py-2.5">
-          <h2 class="text-[13px] font-semibold">Debugger output</h2><button class="btn h-7" @click="raw = null">Close</button>
+          <h2 class="text-[14px] font-semibold">Debugger output</h2><button class="btn h-7" @click="raw = null">Close</button>
         </header>
-        <pre class="overflow-auto p-4 font-mono text-[11px] whitespace-pre-wrap select-text">{{ raw }}</pre>
+        <pre class="overflow-auto p-4 font-mono text-[12px] whitespace-pre-wrap select-text">{{ raw }}</pre>
       </div>
     </div>
   </div>
