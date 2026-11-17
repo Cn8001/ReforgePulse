@@ -52,8 +52,9 @@ func (e *Engine) Analyze(ctx context.Context) ([]domain.CleanupArea, error) {
 }
 
 // Clean deletes the eligible files of the chosen locations and reports what
-// was really freed. Files in use are skipped, not forced.
-func (e *Engine) Clean(ctx context.Context, ids []string) (domain.CleanupResult, error) {
+// was really freed. Files in use are skipped, not forced. report hears how
+// far it is, by files; cancelling ctx stops it between two files.
+func (e *Engine) Clean(ctx context.Context, ids []string, report func(float64, string)) (domain.CleanupResult, error) {
 	chosen := map[string]bool{}
 	for _, id := range ids {
 		chosen[id] = true
@@ -93,16 +94,22 @@ func (e *Engine) Clean(ctx context.Context, ids []string) (domain.CleanupResult,
 	}
 
 	r := domain.CleanupResult{ChangeID: id}
+	last := time.Now()
 	for _, l := range locs {
 		var dirs []string
+		report(progress(r, files), l.Name)
 		err = e.walk(ctx, l, func(path string, size int64) {
 			if os.Remove(path) != nil {
 				r.Skipped++
-				return
+			} else {
+				r.Deleted++
+				r.Freed += uint64(size)
+				dirs = append(dirs, filepath.Dir(path))
 			}
-			r.Deleted++
-			r.Freed += uint64(size)
-			dirs = append(dirs, filepath.Dir(path))
+			if time.Since(last) > 200*time.Millisecond {
+				last = time.Now()
+				report(progress(r, files), fmt.Sprintf("%s, %d of %d files", l.Name, r.Deleted+r.Skipped, files))
+			}
 		})
 		if err != nil {
 			break
@@ -110,10 +117,22 @@ func (e *Engine) Clean(ctx context.Context, ids []string) (domain.CleanupResult,
 		removeEmpty(dirs, l.Paths)
 	}
 	after := fmt.Sprintf("deleted %d files, freed %d bytes, skipped %d", r.Deleted, r.Freed, r.Skipped)
+	if errors.Is(err, context.Canceled) {
+		after = "stopped by the user: " + after
+	}
 	if ferr := e.journal.Finish(ctx, id, after, err); ferr != nil && err == nil {
 		err = fmt.Errorf("log cleanup result: %w", ferr)
 	}
 	return r, err
+}
+
+// progress is the share of planned files handled so far; files that came
+// into being after the analysis may push it past one.
+func progress(r domain.CleanupResult, planned int) float64 {
+	if planned == 0 {
+		return -1
+	}
+	return min(1, float64(r.Deleted+r.Skipped)/float64(planned))
 }
 
 // walk calls fn for every regular file old enough to delete. Folders that

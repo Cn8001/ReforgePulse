@@ -220,3 +220,23 @@ func TestJournal_DeleteBeforeAndPrune(t *testing.T) {
 		t.Fatalf("status lost in the rewrite: %+v", log[0])
 	}
 }
+
+func TestJournal_FinishIsRecordedAfterCancel(t *testing.T) {
+	// Arrange
+	j := newTest(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	id, err := j.Begin(ctx, domain.Change{Summary: "Clean up"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cancel()
+
+	// Act
+	err = j.Finish(ctx, id, "stopped by the user: deleted 10 files", context.Canceled)
+
+	// Assert
+	log, _ := j.Log(context.Background())
+	if err != nil || log[0].Status != domain.Failed || log[0].After != "stopped by the user: deleted 10 files" {
+		t.Fatalf("err %v, change %+v", err, log[0])
+	}
+}

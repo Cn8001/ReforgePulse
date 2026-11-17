@@ -10,7 +10,7 @@ import (
 
 type Cleaner interface {
 	Analyze(ctx context.Context) ([]domain.CleanupArea, error)
-	Clean(ctx context.Context, ids []string) (domain.CleanupResult, error)
+	Clean(ctx context.Context, ids []string, report func(float64, string)) (domain.CleanupResult, error)
 }
 
 // CleanupService runs disk cleanup as tasks, so the status bar shows it and
@@ -40,9 +40,9 @@ func (s *CleanupService) Analyze(ctx context.Context) ([]domain.CleanupArea, err
 // Clean deletes what the user approved in the preview.
 func (s *CleanupService) Clean(ctx context.Context, ids []string) (domain.CleanupResult, error) {
 	var r domain.CleanupResult
-	err := s.runner.Do(ctx, "Cleaning up", func(ctx context.Context, _ tasks.Report) error {
+	err := s.runner.Do(ctx, "Cleaning up", func(ctx context.Context, report tasks.Report) error {
 		var err error
-		r, err = s.cleaner.Clean(ctx, ids)
+		r, err = s.cleaner.Clean(ctx, ids, report)
 		return err
 	})
 	if err != nil {

@@ -40,8 +40,11 @@ func (j *Journal) Begin(ctx context.Context, c domain.Change) (string, error) {
 }
 
 // Finish records how the change went: applied when err is nil, else failed.
-// after says what the change actually did, such as the bytes it freed.
+// after says what the change actually did, such as the bytes it freed. It is
+// written even when ctx was cancelled: a stopped change still happened in
+// part, and the log has to say how far it got.
 func (j *Journal) Finish(ctx context.Context, id, after string, err error) error {
+	ctx = context.WithoutCancel(ctx)
 	status, msg := domain.Applied, ""
 	if err != nil {
 		status, msg = domain.Failed, err.Error()

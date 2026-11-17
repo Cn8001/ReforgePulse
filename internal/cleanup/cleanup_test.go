@@ -70,7 +70,7 @@ func TestEngine_CleanDeletesLogsAndKeepsRoot(t *testing.T) {
 	e := New([]platform.Location{{ID: "temp", Name: "Temp", Paths: []string{root}, MinAge: 24 * time.Hour}}, j)
 
 	// Act
-	r, err := e.Clean(context.Background(), []string{"temp"})
+	r, err := e.Clean(context.Background(), []string{"temp"}, func(float64, string) {})
 
 	// Assert
 	if err != nil {
@@ -100,7 +100,7 @@ func TestEngine_DoesNotFollowLinks(t *testing.T) {
 	e := New([]platform.Location{{ID: "temp", Paths: []string{root}, MinAge: time.Hour}}, &fakeJournal{})
 
 	// Act
-	_, err := e.Clean(context.Background(), []string{"temp"})
+	_, err := e.Clean(context.Background(), []string{"temp"}, func(float64, string) {})
 
 	// Assert
 	if err != nil {
@@ -116,7 +116,7 @@ func TestEngine_CleanNothingSelected(t *testing.T) {
 	e := New([]platform.Location{{ID: "temp", Paths: []string{t.TempDir()}}}, &fakeJournal{})
 
 	// Act
-	_, err := e.Clean(context.Background(), nil)
+	_, err := e.Clean(context.Background(), nil, func(float64, string) {})
 
 	// Assert
 	if err == nil {
@@ -146,7 +146,7 @@ func TestEngine_GlobPathsCleanEachMatch(t *testing.T) {
 	e := New([]platform.Location{{ID: "browser", Paths: []string{filepath.Join(base, "*", "Cache")}}}, &fakeJournal{})
 
 	// Act
-	r, err := e.Clean(context.Background(), []string{"browser"})
+	r, err := e.Clean(context.Background(), []string{"browser"}, func(float64, string) {})
 
 	// Assert
 	if err != nil || r.Deleted != 2 || r.Freed != 30 {

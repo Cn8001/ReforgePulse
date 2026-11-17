@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -82,7 +83,7 @@ func (s *LeftoverService) Recycle(ctx context.Context, paths []string) error {
 	if len(paths) == 0 {
 		return fmt.Errorf("nothing selected")
 	}
-	return s.runner.Do(ctx, "Moving "+s.what+" to the Recycle Bin", func(ctx context.Context, _ tasks.Report) error {
+	return s.runner.Do(ctx, "Moving "+s.what+" to the Recycle Bin", func(ctx context.Context, report tasks.Report) error {
 		id, err := s.journal.Begin(ctx, domain.Change{
 			Action: "recycle", Summary: fmt.Sprintf("Move %d %s to the Recycle Bin", len(paths), s.what),
 			Target: strings.Join(paths, "; "), Before: fmt.Sprintf("%d bytes", total),
@@ -90,17 +91,28 @@ func (s *LeftoverService) Recycle(ctx context.Context, paths []string) error {
 		if err != nil {
 			return fmt.Errorf("log recycle: %w", err)
 		}
-		err = s.bin.Recycle(ctx, paths)
-		if ferr := s.journal.Finish(ctx, id, "in the Recycle Bin; restore from there", err); ferr != nil && err == nil {
+		// One item at a time: Windows moves a whole list in one call that
+		// can neither report nor stop, and a big folder takes a while.
+		var moved []string
+		for i, p := range paths {
+			if err = ctx.Err(); err != nil {
+				break
+			}
+			report(float64(i)/float64(len(paths)), filepath.Base(p))
+			if err = s.bin.Recycle(ctx, []string{p}); err != nil {
+				break
+			}
+			moved = append(moved, p)
+		}
+		after := fmt.Sprintf("%d of %d in the Recycle Bin; restore from there", len(moved), len(paths))
+		if ferr := s.journal.Finish(ctx, id, after, err); ferr != nil && err == nil {
 			err = ferr
 		}
-		if err == nil {
-			s.mu.Lock()
-			for _, p := range paths {
-				delete(s.found, p)
-			}
-			s.mu.Unlock()
+		s.mu.Lock()
+		for _, p := range moved {
+			delete(s.found, p)
 		}
+		s.mu.Unlock()
 		return err
 	})
 }
