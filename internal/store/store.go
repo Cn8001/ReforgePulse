@@ -67,6 +67,16 @@ var migrations = []string{
 		summary   TEXT NOT NULL,
 		log       TEXT NOT NULL DEFAULT ''
 	);`,
+	`CREATE TABLE mcp_log (
+		seq    INTEGER PRIMARY KEY AUTOINCREMENT,
+		at     TEXT NOT NULL,
+		pid    INTEGER NOT NULL,
+		client TEXT NOT NULL,
+		event  TEXT NOT NULL,
+		tool   TEXT NOT NULL DEFAULT '',
+		millis INTEGER NOT NULL DEFAULT 0,
+		error  TEXT NOT NULL DEFAULT ''
+	);`,
 }
 
 // Open opens path, creating it and its folder when needed, and brings the

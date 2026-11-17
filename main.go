@@ -20,6 +20,7 @@ import (
 	"github.com/cn8001/reforgepulse/internal/applog"
 	"github.com/cn8001/reforgepulse/internal/lifetime"
 	"github.com/cn8001/reforgepulse/internal/mcp"
+	"github.com/cn8001/reforgepulse/internal/mcplog"
 	"github.com/cn8001/reforgepulse/internal/platform"
 	"github.com/cn8001/reforgepulse/internal/platform/windows"
 	"github.com/cn8001/reforgepulse/internal/probe"
@@ -106,7 +107,7 @@ func run() error {
 			log.Print("the ReforgePulse window closed; ending the MCP server")
 			os.Exit(0)
 		})
-		return mcp.Serve(ctx, os.Stdin, os.Stdout, app.VersionFrom(buildConfig), b.tools())
+		return mcp.Serve(ctx, os.Stdin, os.Stdout, app.VersionFrom(buildConfig), b.tools(), mcplog.New(b.mcpLog, uint32(os.Getpid())))
 	}
 	return runWindow(b, dir, logger, &emit)
 }

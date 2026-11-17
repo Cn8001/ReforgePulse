@@ -5,15 +5,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 )
 
 // serve runs the server over the given request lines and decodes each answer.
 func serve(t *testing.T, tools []Tool, lines ...string) []map[string]any {
 	t.Helper()
 	var out bytes.Buffer
-	if err := Serve(context.Background(), strings.NewReader(strings.Join(lines, "\n")+"\n"), &out, "0.0.1", tools); err != nil {
+	if err := Serve(context.Background(), strings.NewReader(strings.Join(lines, "\n")+"\n"), &out, "0.0.1", tools, nil); err != nil {
 		t.Fatal(err)
 	}
 	var answers []map[string]any
@@ -100,5 +102,33 @@ func TestServe_ParseError(t *testing.T) {
 	// Assert
 	if code := got[0]["error"].(map[string]any)["code"]; code != float64(-32700) {
 		t.Fatalf("code = %v, want -32700", code)
+	}
+}
+
+type seen struct{ events []string }
+
+func (s *seen) Started(client string) { s.events = append(s.events, "start "+client) }
+func (s *seen) Called(tool string, _ time.Duration, err error) {
+	s.events = append(s.events, fmt.Sprintf("call %s %v", tool, err != nil))
+}
+func (s *seen) Ended(error) { s.events = append(s.events, "end") }
+
+func TestServe_TellsTheObserverWhoCameAndWhatTheyCalled(t *testing.T) {
+	// Arrange
+	obs := &seen{}
+	tools := []Tool{{Name: "ok", Call: func(context.Context, json.RawMessage) (any, error) { return 1, nil }}}
+	in := strings.Join([]string{
+		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"claude-code","version":"2"}}}`,
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"ok"}}`,
+	}, "\n") + "\n"
+	var out bytes.Buffer
+
+	// Act
+	err := Serve(context.Background(), strings.NewReader(in), &out, "0.0.1", tools, obs)
+
+	// Assert
+	want := "start claude-code|call ok false|end"
+	if got := strings.Join(obs.events, "|"); err != nil || got != want {
+		t.Fatalf("events %q, want %q (%v)", got, want, err)
 	}
 }

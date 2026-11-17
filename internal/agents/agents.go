@@ -10,6 +10,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+
+	"github.com/cn8001/reforgepulse/internal/domain"
 )
 
 // ErrNotFound means the agent is not installed where Windows can find it.
@@ -88,4 +91,64 @@ func (c *Connector) openCode() (string, error) {
 		return "", fmt.Errorf("write %s: %w", path, err)
 	}
 	return "added to " + path, nil
+}
+
+// Registered asks the agent's config whether it starts this copy of the
+// server, filling Installed, Registered and Note. It changes nothing.
+func (c *Connector) Registered(ctx context.Context, agent string) domain.AgentStatus {
+	switch agent {
+	case "claude":
+		return c.cliRegistered(ctx, "claude", "mcp", "get", name)
+	case "codex":
+		return c.cliRegistered(ctx, "codex", "mcp", "list")
+	case "opencode":
+		return c.openCodeRegistered()
+	}
+	return domain.AgentStatus{Note: "Unknown agent."}
+}
+
+func (c *Connector) cliRegistered(ctx context.Context, cli string, args ...string) domain.AgentStatus {
+	path, err := c.d.LookPath(cli)
+	if err != nil {
+		return domain.AgentStatus{Note: "Not installed on Windows."}
+	}
+	out, err := c.d.Run(ctx, path, args...)
+	r := domain.AgentStatus{Installed: true}
+	switch {
+	case err != nil || !strings.Contains(strings.ToLower(out), name):
+		r.Note = "Not set up yet."
+	case !strings.Contains(strings.ToLower(out), strings.ToLower(c.d.Exe)):
+		r.Note = "Set up for another copy of ReforgePulse; Connect points it at this one."
+	default:
+		r.Registered = true
+	}
+	return r
+}
+
+func (c *Connector) openCodeRegistered() domain.AgentStatus {
+	_, lookErr := c.d.LookPath("opencode")
+	b, err := os.ReadFile(filepath.Join(c.d.Home, ".config", "opencode", "opencode.json"))
+	r := domain.AgentStatus{Installed: lookErr == nil || err == nil}
+	if !r.Installed {
+		return domain.AgentStatus{Note: "Not installed on Windows."}
+	}
+	var cfg struct {
+		MCP map[string]struct {
+			Command []string `json:"command"`
+		} `json:"mcp"`
+	}
+	if err != nil || json.Unmarshal(b, &cfg) != nil {
+		r.Note = "Not set up yet."
+		return r
+	}
+	s, ok := cfg.MCP[name]
+	switch {
+	case !ok || len(s.Command) == 0:
+		r.Note = "Not set up yet."
+	case !strings.EqualFold(s.Command[0], c.d.Exe):
+		r.Note = "Set up for another copy of ReforgePulse; Connect points it at this one."
+	default:
+		r.Registered = true
+	}
+	return r
 }

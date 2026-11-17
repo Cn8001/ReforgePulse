@@ -35,3 +35,17 @@ func (System) WindowOpen() bool {
 	}
 	return errors.Is(err, windows.ERROR_ACCESS_DENIED)
 }
+
+// Alive reports whether pid is a process still running.
+func (System) Alive(pid uint32) bool {
+	h, err := windows.OpenProcess(windows.PROCESS_QUERY_LIMITED_INFORMATION, false, pid)
+	if err != nil {
+		return false
+	}
+	defer windows.CloseHandle(h)
+	var code uint32
+	if windows.GetExitCodeProcess(h, &code) != nil {
+		return false
+	}
+	return code == 259 // STILL_ACTIVE
+}

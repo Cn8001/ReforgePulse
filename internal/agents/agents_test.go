@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/cn8001/reforgepulse/internal/domain"
 )
 
 type runs struct{ calls []string }
@@ -89,5 +91,31 @@ func TestConnector_OpenCodeRefusesBrokenConfig(t *testing.T) {
 	b, _ := os.ReadFile(path)
 	if err == nil || string(b) != `{ broken` {
 		t.Fatalf("err = %v, file = %s", err, b)
+	}
+}
+
+func TestConnector_RegisteredTellsThisCopyFromAnother(t *testing.T) {
+	// Arrange
+	exe := `C:\Program Files\ReforgePulse\reforgepulse.exe`
+	answer := func(out string) func(context.Context, string, ...string) (string, error) {
+		return func(context.Context, string, ...string) (string, error) { return out, nil }
+	}
+	this := New(Deps{Exe: exe, LookPath: found, Run: answer("reforgepulse:\n  command: c:\\program files\\reforgepulse\\reforgepulse.exe mcp")})
+	other := New(Deps{Exe: exe, LookPath: found, Run: answer(`reforgepulse: C:\Program Files\Old\ReforgePulse\reforgepulse.exe mcp`)})
+	none := New(Deps{Exe: exe, LookPath: found, Run: func(context.Context, string, ...string) (string, error) {
+		return "No MCP server named reforgepulse", errors.New("exit status 1")
+	}})
+	missing := New(Deps{Exe: exe, LookPath: func(string) (string, error) { return "", errors.New("not found") }})
+
+	// Act
+	got := []domain.AgentStatus{
+		this.Registered(context.Background(), "claude"), other.Registered(context.Background(), "codex"),
+		none.Registered(context.Background(), "claude"), missing.Registered(context.Background(), "claude"),
+	}
+
+	// Assert
+	if !got[0].Registered || got[1].Registered || !strings.Contains(got[1].Note, "another copy") ||
+		got[2].Registered || !got[2].Installed || got[3].Installed {
+		t.Fatalf("registrations = %+v", got)
 	}
 }

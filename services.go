@@ -73,6 +73,7 @@ type backend struct {
 	overview *system.Inspector
 	journal  *journal.Journal
 	db       *sql.DB
+	mcpLog   *store.McpLog
 	runner   *tasks.Runner
 	sampler  *windows.Sampler
 	hw       hardwareReads
@@ -90,6 +91,10 @@ const keepReports = 30
 // keepRecordings is how many recorder sessions stay saved; each is at most
 // a few hundred points per series, so they stay small.
 const keepRecordings = 20
+
+// keepMcpLog is how many lines of agents' MCP activity stay; enough to see
+// the last few sessions of each agent.
+const keepMcpLog = 500
 
 // keepChecks is how many health check results stay saved.
 const keepChecks = 50
@@ -123,6 +128,7 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier, hw h
 	}
 	recordings, analyses := store.NewRecordings(db, keepRecordings), store.NewAnalyses(db)
 	checks := store.NewChecks(db, keepChecks)
+	mcpLog := store.NewMcpLog(db, keepMcpLog)
 	reportStore := reports.New(db, keepReports)
 	resolved := reports.NewResolutions(db)
 	exe, err := os.Executable()
@@ -186,9 +192,11 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier, hw h
 		System:  app.NewSystemService(overview, overview, runner),
 		Tasks:   app.NewTaskService(runner),
 		History: app.NewHistoryService(j, map[string]app.Reverter{"startup": startupSvc, "cpu-cap": cpuCap, "feature": feats}),
-		Agent: app.NewAgentService(exe, agents.New(agents.Deps{
-			Exe: exe, Home: home, LookPath: exec.LookPath, Run: runProgram,
-		}), j),
+		Agent: app.NewAgentService(app.AgentDeps{
+			Exe: exe, Journal: j, Log: mcpLog, Alive: host.Alive,
+			Conn: agents.New(agents.Deps{Exe: exe, Home: home, LookPath: exec.LookPath, Run: runProgram}),
+		}),
+		mcpLog:   mcpLog,
 		overview: overview,
 		journal:  j,
 		db:       db,

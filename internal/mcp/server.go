@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"time"
 )
 
 const (
@@ -43,9 +44,26 @@ type response struct {
 	Error   *rpcError       `json:"error,omitempty"`
 }
 
+// Observer hears what the server does, for the window's Agents panel.
+type Observer interface {
+	Started(client string)
+	Called(tool string, took time.Duration, err error)
+	Ended(err error)
+}
+
+type silent struct{}
+
+func (silent) Started(string)                      {}
+func (silent) Called(string, time.Duration, error) {}
+func (silent) Ended(error)                         {}
+
 // Serve answers requests from in on out until in ends or ctx is cancelled.
-// version is the app's, from build/config.yml.
-func Serve(ctx context.Context, in io.Reader, out io.Writer, version string, tools []Tool) error {
+// version is the app's, from build/config.yml. obs may be nil.
+func Serve(ctx context.Context, in io.Reader, out io.Writer, version string, tools []Tool, obs Observer) (err error) {
+	if obs == nil {
+		obs = silent{}
+	}
+	defer func() { obs.Ended(err) }()
 	byName := make(map[string]Tool, len(tools))
 	for _, t := range tools {
 		byName[t.Name] = t
@@ -67,7 +85,7 @@ func Serve(ctx context.Context, in io.Reader, out io.Writer, version string, too
 		if len(req.ID) == 0 {
 			continue // notifications such as notifications/initialized need no answer
 		}
-		result, rerr := handle(ctx, req, version, byName, tools)
+		result, rerr := handle(ctx, req, version, byName, tools, obs)
 		if err := enc.Encode(response{JSONRPC: "2.0", ID: req.ID, Result: result, Error: rerr}); err != nil {
 			return fmt.Errorf("write response: %w", err)
 		}
@@ -78,9 +96,16 @@ func Serve(ctx context.Context, in io.Reader, out io.Writer, version string, too
 	return nil
 }
 
-func handle(ctx context.Context, req request, version string, byName map[string]Tool, tools []Tool) (any, *rpcError) {
+func handle(ctx context.Context, req request, version string, byName map[string]Tool, tools []Tool, obs Observer) (any, *rpcError) {
 	switch req.Method {
 	case "initialize":
+		var p struct {
+			ClientInfo struct {
+				Name string `json:"name"`
+			} `json:"clientInfo"`
+		}
+		_ = json.Unmarshal(req.Params, &p) // an agent that names nothing is still served
+		obs.Started(p.ClientInfo.Name)
 		return map[string]any{
 			"protocolVersion": ProtocolVersion,
 			"capabilities":    map[string]any{"tools": map[string]any{}},
@@ -108,7 +133,10 @@ func handle(ctx context.Context, req request, version string, byName map[string]
 		if !ok {
 			return nil, &rpcError{-32602, "unknown tool: " + p.Name}
 		}
-		return callResult(t.Call(ctx, p.Arguments)), nil
+		start := time.Now()
+		v, err := t.Call(ctx, p.Arguments)
+		obs.Called(p.Name, time.Since(start), err)
+		return callResult(v, err), nil
 	default:
 		return nil, &rpcError{-32601, "method not found: " + req.Method}
 	}

@@ -753,3 +753,37 @@ func TestCoreTestSummary_NamesOnlyTheProcessorsWorthALook(t *testing.T) {
 		t.Fatalf("good run: %d\n%s", goodCode, goodText)
 	}
 }
+
+type fakeConn struct{}
+
+func (fakeConn) Connect(context.Context, string) (string, error) { return "", nil }
+func (fakeConn) Registered(_ context.Context, agent string) domain.AgentStatus {
+	return domain.AgentStatus{Installed: true, Registered: agent != "opencode"}
+}
+
+type fakeMcpLog []domain.McpEvent
+
+func (f fakeMcpLog) Recent(context.Context, int) ([]domain.McpEvent, error) { return f, nil }
+
+func TestAgentService_LiveOnlyWhileItsServerRuns(t *testing.T) {
+	// Arrange: newest first, as the log reads
+	log := fakeMcpLog{
+		{PID: 20, Client: "codex-mcp-client", Event: "end"},
+		{PID: 10, Client: "claude-code", Event: "call", Tool: "scan_pc"},
+		{PID: 20, Client: "codex-mcp-client", Event: "start"},
+		{PID: 10, Client: "claude-code", Event: "start"},
+	}
+	s := NewAgentService(AgentDeps{Conn: fakeConn{}, Log: log, Alive: func(pid uint32) bool { return pid == 10 || pid == 20 }})
+
+	// Act
+	got, err := s.Status(context.Background())
+
+	// Assert
+	if err != nil || len(got) != 3 {
+		t.Fatalf("status = %+v, %v", got, err)
+	}
+	claude, codex, opencode := got[0], got[1], got[2]
+	if !claude.Live || len(claude.Events) != 2 || codex.Live || len(codex.Events) != 2 || opencode.Registered || opencode.Live {
+		t.Fatalf("claude %+v\ncodex %+v\nopencode %+v", claude, codex, opencode)
+	}
+}

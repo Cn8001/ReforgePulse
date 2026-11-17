@@ -218,3 +218,28 @@ func TestChecks_KeepTheNewest(t *testing.T) {
 		t.Fatalf("delete before: %d, %v", gone, delErr)
 	}
 }
+
+func TestMcpLog_KeepsTheNewest(t *testing.T) {
+	// Arrange
+	ctx := context.Background()
+	db, err := Open(ctx, filepath.Join(t.TempDir(), "app.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	l := NewMcpLog(db, 3)
+	at := time.Date(2026, 11, 17, 10, 0, 0, 0, time.UTC)
+
+	// Act
+	for i, ev := range []string{"start", "call", "call", "call", "end"} {
+		if err := l.Add(ctx, domain.McpEvent{At: at.Add(time.Duration(i) * time.Second), PID: 7, Client: "claude-code", Event: ev}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := l.Recent(ctx, 10)
+
+	// Assert
+	if err != nil || len(got) != 3 || got[0].Event != "end" || got[0].Client != "claude-code" {
+		t.Fatalf("recent = %+v, %v", got, err)
+	}
+}
