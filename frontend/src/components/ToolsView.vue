@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import Icon from './Icon.vue'
 import HardwarePanel from './HardwarePanel.vue'
 import CpuCapPanel from './CpuCapPanel.vue'
 import SensorsPanel from './SensorsPanel.vue'
@@ -9,18 +8,17 @@ import DumpsPanel from './DumpsPanel.vue'
 import RecorderPanel from './RecorderPanel.vue'
 import ChecksPanel from './ChecksPanel.vue'
 import DriversPanel from './DriversPanel.vue'
-import type { IconName } from '../lib/icons'
 
 const props = defineProps<{ tab?: string }>()
-const tabs: { id: string; label: string; icon: IconName }[] = [
-  { id: 'hardware', label: 'Hardware & cores', icon: 'cpu' },
-  { id: 'sensors', label: 'Sensors', icon: 'gpu' },
-  { id: 'events', label: 'Events', icon: 'history' },
-  { id: 'dumps', label: 'Minidumps', icon: 'disk' },
-  { id: 'recorder', label: 'Recorder', icon: 'fix' },
-  { id: 'drivers', label: 'Drivers', icon: 'plug' },
-  { id: 'checks', label: 'System checks', icon: 'check' },
-  { id: 'cpu-cap', label: 'CPU cap', icon: 'cpu' },
+const tabs: { id: string; label: string }[] = [
+  { id: 'hardware', label: 'Hardware' },
+  { id: 'sensors', label: 'Sensors' },
+  { id: 'events', label: 'Events' },
+  { id: 'dumps', label: 'Minidumps' },
+  { id: 'recorder', label: 'Recorder' },
+  { id: 'drivers', label: 'Drivers' },
+  { id: 'checks', label: 'Checks' },
+  { id: 'cpu-cap', label: 'CPU cap' },
 ]
 const tab = ref(props.tab ?? 'hardware')
 </script>
@@ -33,7 +31,7 @@ const tab = ref(props.tab ?? 'hardware')
     </header>
     <nav class="tabs" aria-label="Tools">
       <button v-for="t in tabs" :key="t.id" class="tab" :class="tab === t.id && 'tab-on'" :aria-current="tab === t.id" @click="tab = t.id">
-        <Icon :name="t.icon" class="size-4!" />{{ t.label }}
+        {{ t.label }}
       </button>
     </nav>
     <KeepAlive>

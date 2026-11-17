@@ -36,7 +36,7 @@ first start shows the terms and the licence to accept before anything else.
   share), private memory, TCP/UDP ports and "not responding". Search `:8080`
   for a port. End task refuses Windows' own processes.
 - **Tools**
-  - Hardware & cores: board, BIOS, RAM sticks (rated vs configured speed),
+  - Hardware: board, BIOS, RAM sticks (rated vs configured speed),
     GPUs and drivers, disk health; every logical processor with its live
     effective clock (PDH `% Processor Performance`), P/E class and x2APIC ID
     from `CPUID`, so a WHEA "APIC 32" shows as LP 8, P-core 4.
@@ -55,7 +55,7 @@ first start shows the terms and the licence to accept before anything else.
   - Drivers: problem devices (ConfigManagerErrorCode) and what Windows
     Update offers, read through the Windows Update Agent. Installing is left
     to Windows Update and the makers' pages it links to.
-  - System checks: `sfc /verifyonly`, `DISM /ScanHealth`, `chkdsk /scan`,
+  - Checks: `sfc /verifyonly`, `DISM /ScanHealth`, `chkdsk /scan`,
     Windows Memory Diagnostic.
   - CPU cap: `PROCFREQMAX` and `PROCFREQMAX1` on every power plan through
     `powrprof.dll`, old values kept for revert.

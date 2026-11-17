@@ -1,20 +1,18 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import Icon from './Icon.vue'
 import DiskCleanup from './DiskCleanup.vue'
 import LeftoversPanel from './LeftoversPanel.vue'
 import ProgramsPanel from './ProgramsPanel.vue'
 import StartupPanel from './StartupPanel.vue'
 import FeaturesPanel from './FeaturesPanel.vue'
-import type { IconName } from '../lib/icons'
 
-const tabs: { id: string; label: string; icon: IconName }[] = [
-  { id: 'disk', label: 'Disk space', icon: 'disk' },
-  { id: 'leftovers', label: 'Leftovers', icon: 'cleanup' },
-  { id: 'downloads', label: 'Old downloads', icon: 'history' },
-  { id: 'programs', label: 'Programs', icon: 'list' },
-  { id: 'startup', label: 'Startup apps', icon: 'power' },
-  { id: 'features', label: 'Features', icon: 'settings' },
+const tabs: { id: string; label: string }[] = [
+  { id: 'disk', label: 'Disk space' },
+  { id: 'leftovers', label: 'Leftovers' },
+  { id: 'downloads', label: 'Old downloads' },
+  { id: 'programs', label: 'Programs' },
+  { id: 'startup', label: 'Startup apps' },
+  { id: 'features', label: 'Features' },
 ]
 const props = defineProps<{ tab?: string }>()
 const tab = ref(props.tab ?? 'disk')
@@ -28,7 +26,7 @@ const tab = ref(props.tab ?? 'disk')
     </header>
     <nav class="tabs" aria-label="Cleanup sections">
       <button v-for="t in tabs" :key="t.id" class="tab" :class="tab === t.id && 'tab-on'" :aria-current="tab === t.id" @click="tab = t.id">
-        <Icon :name="t.icon" class="size-4!" />{{ t.label }}
+        {{ t.label }}
       </button>
     </nav>
     <KeepAlive>

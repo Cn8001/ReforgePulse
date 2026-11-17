@@ -133,7 +133,9 @@ body {
      a bolder label would move the other tabs every time one is picked. */
   .tabs {
     @apply flex flex-nowrap gap-1 overflow-x-auto overflow-y-hidden;
-    scrollbar-width: thin;
+    /* The tabs are sized to fit; in a window too narrow for them the row
+       still scrolls sideways, without a scrollbar cutting through it. */
+    scrollbar-width: none;
     /* The baseline is drawn inside the row, under the tabs' own underline;
        a border would sit outside the scrolling box and get clipped. */
     box-shadow: inset 0 -1px 0 var(--line);
