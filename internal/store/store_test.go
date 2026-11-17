@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -186,5 +187,35 @@ func TestDeleteBefore_RecordingsAndAnalyses(t *testing.T) {
 	leftA, _ := an.All(ctx)
 	if err1 != nil || err2 != nil || nr != 1 || na != 1 || len(leftR) != 1 || len(leftA) != 1 {
 		t.Fatalf("recordings %d %v left %d, analyses %d %v left %d", nr, err1, len(leftR), na, err2, len(leftA))
+	}
+}
+
+func TestChecks_KeepTheNewestAndTheEndOfLongOutput(t *testing.T) {
+	// Arrange
+	ctx := context.Background()
+	db, err := Open(ctx, filepath.Join(t.TempDir(), "app.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	s := NewChecks(db, 2)
+	at := time.Date(2026, 11, 17, 10, 0, 0, 0, time.UTC)
+	long := strings.Repeat("x", maxCheckOutput) + "verdict"
+
+	// Act
+	for i := range 3 {
+		if _, err := s.Save(ctx, domain.CheckResult{Name: "sfc", At: at.Add(time.Duration(i) * time.Minute), Output: long}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	all, err := s.All(ctx)
+	gone, delErr := s.DeleteBefore(ctx, at.Add(2*time.Minute))
+
+	// Assert
+	if err != nil || len(all) != 2 || !all[0].At.Equal(at.Add(2*time.Minute)) || !strings.HasSuffix(all[0].Output, "verdict") || len(all[0].Output) > maxCheckOutput+4 {
+		t.Fatalf("all = %d results, %v", len(all), err)
+	}
+	if delErr != nil || gone != 1 {
+		t.Fatalf("delete before: %d, %v", gone, delErr)
 	}
 }

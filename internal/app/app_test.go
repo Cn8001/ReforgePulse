@@ -587,3 +587,35 @@ func TestRetentionService_OffUntilSetThenDeletesOlderThanTheDays(t *testing.T) {
 		t.Fatal("negative days were accepted")
 	}
 }
+
+type fakeCheck struct{}
+
+func (fakeCheck) RunCheck(context.Context, string) (int, string, error) {
+	return 0, "no integrity violations", nil
+}
+
+type memChecks struct{ saved []domain.CheckResult }
+
+func (m *memChecks) Save(_ context.Context, r domain.CheckResult) (domain.CheckResult, error) {
+	r.ID = "id"
+	m.saved = append(m.saved, r)
+	return r, nil
+}
+func (m *memChecks) All(context.Context) ([]domain.CheckResult, error) { return m.saved, nil }
+func (m *memChecks) Delete(context.Context, string) error              { return nil }
+
+func TestCheckService_SavesChecksButNotTheMemoryTestBooking(t *testing.T) {
+	// Arrange
+	ctx := context.Background()
+	store := &memChecks{}
+	s := NewCheckService(CheckDeps{Run: fakeCheck{}, Runner: tasks.New(1, func(tasks.Status) {}), Saved: store, Now: time.Now})
+
+	// Act
+	sfc, err := s.Run(ctx, "sfc")
+	_, memErr := s.Run(ctx, "memtest")
+
+	// Assert
+	if err != nil || memErr != nil || sfc.ID != "id" || len(store.saved) != 1 || store.saved[0].Name != "sfc" {
+		t.Fatalf("sfc %+v %v, memtest %v, saved %+v", sfc, err, memErr, store.saved)
+	}
+}

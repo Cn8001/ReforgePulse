@@ -60,6 +60,12 @@ var migrations = []string{
 		id   TEXT PRIMARY KEY,
 		body TEXT NOT NULL
 	);`,
+	`CREATE TABLE check_results (
+		id        TEXT PRIMARY KEY,
+		name      TEXT NOT NULL,
+		exit_code INTEGER NOT NULL,
+		output    TEXT NOT NULL
+	);`,
 }
 
 // Open opens path, creating it and its folder when needed, and brings the

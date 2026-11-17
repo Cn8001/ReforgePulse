@@ -89,6 +89,9 @@ const keepReports = 30
 // a few hundred points per series, so they stay small.
 const keepRecordings = 20
 
+// keepChecks is how many health check results stay saved.
+const keepChecks = 50
+
 // keepChanges caps the change log; older entries are dropped at start-up.
 // Years of normal use, and still only a few hundred KB.
 const keepChanges = 500
@@ -117,6 +120,7 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier, hw h
 		return nil, fmt.Errorf("trim change log: %w", err)
 	}
 	recordings, analyses := store.NewRecordings(db, keepRecordings), store.NewAnalyses(db)
+	checks := store.NewChecks(db, keepChecks)
 	reportStore := reports.New(db, keepReports)
 	resolved := reports.NewResolutions(db)
 	exe, err := os.Executable()
@@ -148,12 +152,12 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier, hw h
 		Feats:   feats,
 		Sens:    app.NewSensorService(hw.Sensors),
 		Events:  app.NewEventService(events.New(host), runner),
-		Checks:  app.NewCheckService(host, runner),
+		Checks:  app.NewCheckService(app.CheckDeps{Run: host, Runner: runner, Saved: checks, Now: time.Now}),
 		Drivers: app.NewDriverService(host, runner),
 		Rec:     app.NewRecorderService(recorder.New(overview, procs), runner, recordings),
 		Keep: app.NewRetentionService(app.RetentionDeps{
 			Settings: store.NewSettings(db), Now: time.Now,
-			Prune: []app.Pruner{j.DeleteBefore, scan.DeleteReportsBefore, recordings.DeleteBefore, analyses.DeleteBefore},
+			Prune: []app.Pruner{j.DeleteBefore, scan.DeleteReportsBefore, recordings.DeleteBefore, analyses.DeleteBefore, checks.DeleteBefore},
 		}),
 		Dumps: app.NewDumpService(dumps.New(dumps.Deps{
 			Dir: host.DumpDir(), Symbols: filepath.Join(dataDir, "symbols"), Debugger: host, Names: diagnosis.BugcheckNames,
