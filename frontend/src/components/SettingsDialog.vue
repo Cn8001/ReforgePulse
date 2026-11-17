@@ -138,8 +138,6 @@ const read = (what: 'license' | 'terms') => (reading.value = reading.value === w
                 <Icon name="copy" class="size-3.5!" />
               </button>
             </dd>
-            <dt class="text-muted">Built with</dt>
-            <dd>Wails, Vue and Tailwind CSS</dd>
           </dl>
 
           <div class="flex flex-col gap-3 px-5 py-4">
