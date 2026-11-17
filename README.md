@@ -60,6 +60,10 @@ log, with revert where the change can be undone. It runs elevated.
   its own or everything before a date. The log keeps its last 500 entries,
   the last 30 scans are kept. A revert entry is deleted with the change it
   undid, never alone, so a change can never look revertible twice.
+- **Updates**: Settings > Check for updates asks GitHub Releases for a
+  newer version. Nothing is checked in the background. The download is
+  verified against the release's `SHA256SUMS`, logged in the change log, and
+  swapped in when you restart.
 - **MCP**: `reforgepulse.exe mcp` is a read-only MCP server over stdio,
   running unelevated. The MCP button registers it with Claude Code, Codex or
   OpenCode. Agents can scan and read; changes stay in the window.
@@ -78,6 +82,10 @@ make release            # dist/: release assets and SHA256SUMS for the updater
 make version V=1.2.3    # the version lives in build/config.yml only
 ```
 
+To publish: `make version V=x.y.z`, `make release`, then a GitHub release
+tagged `vx.y.z` with everything in `dist/`. The updater picks
+`reforgepulse-windows-amd64.exe` and checks it against `SHA256SUMS`.
+
 Builds from Windows or WSL with Go, Node and `wails3`. Windows is the only
 platform implemented so far: OS access sits behind the interfaces in
 `internal/platform`, so the rest of `internal/` builds and tests anywhere and
@@ -85,8 +93,8 @@ another OS is a new package next to `platform/windows`.
 
 Data is in `%LOCALAPPDATA%\ReforgePulse`: `journal.jsonl` (the change
 log), `reports/` (one JSON file per scan), `resolved.json`, `webview/` and
-the debugger's `symbols/` cache. The only network use
-is that symbol download, and only when you ask for a dump analysis.
+the debugger's `symbols/` cache. The network is used only when you ask:
+for that symbol download during a dump analysis, and for Check for updates.
 
 ## Layout
 

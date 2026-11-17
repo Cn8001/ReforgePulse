@@ -133,7 +133,6 @@ const finishedText = computed(() => {
     <span class="ml-auto shrink-0" :class="elevated === false ? 'text-warn' : ''">
       {{ elevated === null ? '' : elevated ? 'Administrator' : 'Limited rights' }}
     </span>
-    <span class="shrink-0">Offline</span>
   </footer>
 </template>
 

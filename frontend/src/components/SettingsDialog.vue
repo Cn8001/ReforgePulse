@@ -2,9 +2,13 @@
 import { onMounted, ref } from 'vue'
 import { Clipboard } from '@wailsio/runtime'
 import Icon from './Icon.vue'
+import ConfirmDialog from './ConfirmDialog.vue'
 import { theme } from '../lib/theme'
 import { Info } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/aboutservice'
 import type { About } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/models'
+import { Check, Download, Restart } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/updateservice'
+import type { Release } from '../../bindings/github.com/cn8001/reforgepulse/internal/domain/models'
+import { formatBytes } from '../lib/format'
 
 defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: []; agent: [] }>()
@@ -12,6 +16,45 @@ const emit = defineEmits<{ close: []; agent: [] }>()
 const about = ref<About | null>(null)
 onMounted(() => Info().then((a) => (about.value = a)))
 const showTerms = ref(false)
+
+// Nothing is fetched until the user presses the button.
+type Update = 'idle' | 'checking' | 'latest' | 'available' | 'downloading' | 'ready'
+const update = ref<Update>('idle')
+const release = ref<Release | null>(null)
+const updateError = ref('')
+const showNotes = ref(false)
+const confirmRestart = ref(false)
+
+async function check() {
+  update.value = 'checking'
+  updateError.value = ''
+  try {
+    release.value = await Check()
+    update.value = release.value ? 'available' : 'latest'
+  } catch (e) {
+    updateError.value = String(e)
+    update.value = 'idle'
+  }
+}
+async function download() {
+  update.value = 'downloading'
+  updateError.value = ''
+  try {
+    await Download(release.value!.version)
+    update.value = 'ready'
+  } catch (e) {
+    updateError.value = String(e)
+    update.value = 'available'
+  }
+}
+async function restart() {
+  try {
+    await Restart()
+  } catch (e) {
+    updateError.value = String(e)
+    confirmRestart.value = false
+  }
+}
 </script>
 
 <template>
@@ -47,6 +90,39 @@ const showTerms = ref(false)
             <button class="btn shrink-0" @click="emit('agent')"><Icon name="plug" class="size-4!" />Connect</button>
           </div>
 
+          <div class="flex flex-col gap-3 border-b border-line px-5 py-4">
+            <div class="flex items-center justify-between gap-4">
+              <div>
+                <h3 class="font-medium">Updates</h3>
+                <p class="text-[13px] text-muted">
+                  <template v-if="update === 'latest'">Version {{ about?.version }} is the latest.</template>
+                  <template v-else-if="update === 'available' || update === 'downloading'">Version {{ release?.version }} is available. You have {{ about?.version }}.</template>
+                  <template v-else-if="update === 'ready'">Version {{ release?.version }} is downloaded and verified. Restart to finish.</template>
+                  <template v-else>Looks at GitHub Releases only when you press the button.</template>
+                </p>
+              </div>
+              <button v-if="update === 'ready'" class="btn-primary shrink-0" @click="confirmRestart = true">Restart now</button>
+              <button v-else-if="update === 'available' || update === 'downloading'" class="btn-primary shrink-0"
+                      :disabled="update === 'downloading'" @click="download">
+                {{ update === 'downloading' ? 'Downloading…' : `Download${release?.size ? ` (${formatBytes(release.size)})` : ''}` }}
+              </button>
+              <button v-else class="btn shrink-0" :disabled="update === 'checking'" @click="check">
+                <Icon name="refresh" class="size-3.5!" />{{ update === 'checking' ? 'Checking…' : 'Check for updates' }}
+              </button>
+            </div>
+            <p v-if="updateError" class="text-xs text-bad select-text">{{ updateError }}</p>
+            <template v-if="release && update !== 'latest'">
+              <p class="text-xs text-muted">
+                The file is checked against the release's SHA256SUMS before it replaces this one. The update is recorded in the change log.
+                <a :href="release.url" target="_blank" class="text-accent hover:underline">See it on GitHub</a>
+              </p>
+              <button v-if="release.notes" class="flex items-center gap-1 self-start text-xs text-muted hover:text-fg" :aria-expanded="showNotes" @click="showNotes = !showNotes">
+                <Icon name="chevron" class="size-3! transition-transform" :class="showNotes && 'rotate-90'" />What is new
+              </button>
+              <pre v-if="showNotes" class="max-h-48 overflow-y-auto rounded border border-line bg-raised p-3 font-sans text-xs leading-relaxed whitespace-pre-wrap text-muted select-text">{{ release.notes }}</pre>
+            </template>
+          </div>
+
           <div class="flex flex-col gap-2 px-5 py-4">
             <h3 class="font-medium">About</h3>
             <dl class="grid grid-cols-[7rem_1fr] gap-y-1.5 text-[13px]">
@@ -69,4 +145,9 @@ const showTerms = ref(false)
       </section>
     </div>
   </Transition>
+  <ConfirmDialog :open="confirmRestart" title="Restart ReforgePulse now?" confirm="Restart"
+                 warning="Anything still running, such as a scan or a core test, stops. Are you sure?"
+                 @yes="restart" @no="confirmRestart = false">
+    ReforgePulse closes, puts version {{ release?.version }} in place and opens again.
+  </ConfirmDialog>
 </template>
