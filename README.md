@@ -16,7 +16,10 @@ log, with revert where the change can be undone. It runs elevated.
   WinRing0...) and devices without drivers. Findings have a severity and a
   confidence. On an unstable PC it weighs each suspect (CPU, memory, storage,
   heat, power, drivers, software) with the evidence for and against, and
-  says "unmeasured" where Windows cannot see, rather than "fine".
+  says "unmeasured" where Windows cannot see, rather than "fine". Every scan
+  is saved as a report (the last 30 are kept) and findings new since the
+  previous scan are marked. A finding marked resolved stays out of the way
+  until an event newer than the mark turns up, then shows as "came back".
 - **Cleanup**: temp, browser, app, developer and shader caches; Windows
   Update and WER leftovers; old logs; the Recycle Bin. Leftover folders of
   uninstalled programs in Program Files, ProgramData and AppData, matched
@@ -77,7 +80,8 @@ platform implemented so far: OS access sits behind the interfaces in
 another OS is a new package next to `platform/windows`.
 
 Data is in `%LOCALAPPDATA%\ReforgePulse`: `journal.jsonl` (the change
-log), `webview/` and the debugger's `symbols/` cache. The only network use
+log), `reports/` (one JSON file per scan), `resolved.json`, `webview/` and
+the debugger's `symbols/` cache. The only network use
 is that symbol download, and only when you ask for a dump analysis.
 
 ## Layout
@@ -94,6 +98,7 @@ internal/
   coretest     the per-core stress test
   recorder     session recording and leak detection
   journal      the change log
+  reports      saved scans and resolved findings
   tasks        bounded, cancellable background work for the status bar
   agents       registers the MCP server with agent CLIs
   mcp          the MCP server

@@ -12,7 +12,7 @@ import { facts, loadFacts } from '../lib/hardware'
 import { GetLive, GetOverview } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/systemservice'
 import { List, Revert } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/historyservice'
 import ConfirmDialog from './ConfirmDialog.vue'
-import { loadLastScan, runScan, scan, scanning, severityTone } from '../lib/scan'
+import { active, loadLastScan, runScan, scan, scanning, severityTone } from '../lib/scan'
 import { Availability, type Change, type Measurement, type Overview } from '../../bindings/github.com/cn8001/reforgepulse/internal/domain/models'
 import { formatBytes, formatDuration, measured, show, since } from '../lib/format'
 
@@ -107,8 +107,8 @@ const drives = computed(() =>
 )
 
 // Up to three findings worth acting on; info-only ones stay on Issues.
-const top = computed(() => (scan.value?.findings ?? []).filter((f) => f.severity !== 'info').slice(0, 3))
-const issues = computed(() => (scan.value?.findings ?? []).filter((f) => f.severity !== 'info').length)
+const top = computed(() => (scan.value?.findings ?? []).filter((f) => f.severity !== 'info' && active(f)).slice(0, 3))
+const issues = computed(() => (scan.value?.findings ?? []).filter((f) => f.severity !== 'info' && active(f)).length)
 
 const reverting = ref<Change | null>(null)
 const busy = ref(false)

@@ -40,3 +40,8 @@ export function since(iso: string): string {
   if (s < 86400) return `${Math.floor(s / 3600)} h ago`
   return new Date(iso).toLocaleDateString()
 }
+
+// A date and time short enough for a list row, in the user's locale.
+export function when(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
