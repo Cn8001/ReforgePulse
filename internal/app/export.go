@@ -34,7 +34,9 @@ type ExportService struct {
 
 func NewExportService(d ExportDeps) *ExportService { return &ExportService{d: d} }
 
-var checkNames = map[string]string{"sfc": "System files", "dism": "Windows image", "chkdsk": "System drive", "memtest": "Memory"}
+var checkNames = map[string]string{
+	"sfc": "System files", "dism": "Windows image", "chkdsk": "System drive", "memtest": "Memory", "coretest": "Processor cores",
+}
 
 func (s *ExportService) Scan(ctx context.Context, id, path string) error {
 	r, err := s.d.Scans.Report(ctx, id)

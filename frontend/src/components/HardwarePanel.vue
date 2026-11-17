@@ -157,6 +157,7 @@ const loadTone = (l?: CoreLoad) => (!l ? 'var(--hover)' : l.load > 85 ? 'var(--b
         <button class="btn-primary ml-auto" :disabled="!picked.size || testing" @click="confirm = true">{{ testing ? 'Testing…' : 'Run core test' }}</button>
       </footer>
       <div v-if="result" class="border-t border-line px-4 py-3">
+        <p class="mb-2 text-xs text-muted">Saved under Reports, Checks, as Processor cores.</p>
         <p :class="result.newWhea || (result.results ?? []).some((r) => r.errors) ? 'text-bad' : ''">
           {{ (result.results ?? []).filter((r) => r.errors).length ? `${(result.results ?? []).filter((r) => r.errors).length} cores returned wrong results.` : 'Every core returned correct results.' }}
           {{ result.newWhea ? `Windows logged ${result.newWhea} hardware errors during the test.` : 'No hardware errors were logged during the test.' }}

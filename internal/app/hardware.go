@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/cn8001/reforgepulse/internal/domain"
@@ -29,6 +30,8 @@ type HardwareDeps struct {
 	Loads  CoreLoads
 	Tester CoreTester
 	Runner TaskRunner
+	Saved  CheckStore // core tests are kept with Windows' health checks
+	Now    func() time.Time
 }
 
 // HardwareService shows what the PC is made of, each core live, and runs
@@ -82,5 +85,34 @@ func (s *HardwareService) TestCores(ctx context.Context, cpus []int, seconds int
 	if err != nil {
 		return t, fmt.Errorf("core test: %w", err)
 	}
+	summary, code := coreTestSummary(t)
+	if _, err := s.d.Saved.Save(ctx, domain.CheckResult{Name: "coretest", At: s.d.Now(), ExitCode: code, Summary: summary}); err != nil {
+		return t, fmt.Errorf("save core test: %w", err)
+	}
 	return t, nil
+}
+
+// coreTestSummary is the verdict kept for Reports: what ran, and only the
+// processors worth a look. Exit code 1 means one disagreed with the others
+// or Windows logged a hardware error during the test.
+func coreTestSummary(t domain.CoreTest) (string, int) {
+	lines := []string{fmt.Sprintf("Tested %d processors for %d seconds each.", len(t.Results), t.Seconds)}
+	code := 0
+	for _, r := range t.Results {
+		switch {
+		case r.Skipped != "":
+			lines = append(lines, fmt.Sprintf("Processor %d was skipped: %s.", r.Index, r.Skipped))
+		case r.Errors > 0:
+			lines = append(lines, fmt.Sprintf("Processor %d disagreed with the others in %d of %d rounds.", r.Index, r.Errors, r.Rounds))
+			code = 1
+		}
+	}
+	if t.NewWHEA > 0 {
+		lines = append(lines, fmt.Sprintf("Windows logged %d hardware errors during the test.", t.NewWHEA))
+		code = 1
+	}
+	if code == 0 {
+		lines = append(lines, "Every processor gave the same results as the others.")
+	}
+	return strings.Join(lines, "\n"), code
 }

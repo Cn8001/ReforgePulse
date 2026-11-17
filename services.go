@@ -165,7 +165,7 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier, hw h
 			Dir: host.DumpDir(), Symbols: filepath.Join(dataDir, "symbols"), Debugger: host, Names: diagnosis.BugcheckNames,
 		}), runner, analyses),
 		HW: app.NewHardwareService(app.HardwareDeps{
-			Facts: host, Cores: hw.Cores, Loads: hw.Loads, Tester: hw.Tester, Runner: runner,
+			Facts: host, Cores: hw.Cores, Loads: hw.Loads, Tester: hw.Tester, Runner: runner, Saved: checks, Now: time.Now,
 		}),
 		Old: app.NewOldFilesService(app.LeftoverDeps{
 			What:   "old downloads",

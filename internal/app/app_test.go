@@ -732,3 +732,24 @@ func TestProcessService_MarksWhatEndTaskWouldRefuse(t *testing.T) {
 		}
 	}
 }
+
+func TestCoreTestSummary_NamesOnlyTheProcessorsWorthALook(t *testing.T) {
+	// Arrange
+	bad := domain.CoreTest{Seconds: 30, NewWHEA: 1, Results: []domain.CoreTestResult{
+		{Index: 0, Rounds: 40}, {Index: 8, Rounds: 40, Errors: 3}, {Index: 9, Skipped: "outside group 0"},
+	}}
+	good := domain.CoreTest{Seconds: 30, Results: []domain.CoreTestResult{{Index: 0, Rounds: 40}, {Index: 1, Rounds: 40}}}
+
+	// Act
+	badText, badCode := coreTestSummary(bad)
+	goodText, goodCode := coreTestSummary(good)
+
+	// Assert
+	if badCode != 1 || !strings.Contains(badText, "Processor 8 disagreed with the others in 3 of 40 rounds.") ||
+		!strings.Contains(badText, "Processor 9 was skipped") || !strings.Contains(badText, "1 hardware errors") || strings.Contains(badText, "Processor 0") {
+		t.Fatalf("bad run: %d\n%s", badCode, badText)
+	}
+	if goodCode != 0 || !strings.Contains(goodText, "Every processor gave the same results") {
+		t.Fatalf("good run: %d\n%s", goodCode, goodText)
+	}
+}

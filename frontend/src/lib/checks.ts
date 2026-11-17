@@ -6,4 +6,7 @@ export const checks = [
   { id: 'memtest', title: 'Memory', what: 'Opens Windows Memory Diagnostic, which tests the RAM after a restart you choose.', time: 'one restart' },
 ] as const
 
-export const checkTitle = (id: string) => checks.find((c) => c.id === id)?.title ?? id
+// The core test runs from Tools, Hardware, but its results sit with these.
+const otherTitles: Record<string, string> = { coretest: 'Processor cores' }
+
+export const checkTitle = (id: string) => checks.find((c) => c.id === id)?.title ?? otherTitles[id] ?? id
