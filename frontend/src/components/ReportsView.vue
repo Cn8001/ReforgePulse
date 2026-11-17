@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageLayout from './PageLayout.vue'
 import { computed, onMounted, ref } from 'vue'
 import Icon from './Icon.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
@@ -139,26 +140,27 @@ const minutes = (r: Recording) => Math.max(1, Math.round(r.seconds / 60))
 </script>
 
 <template>
-  <section class="mx-auto flex max-w-6xl flex-col gap-5 p-6">
-    <header>
-      <h1 class="heading">Reports</h1>
-      <p class="mt-1 text-muted">Scans, crash dump analyses, recordings and health checks, kept to look back at. The last 30 scans, 20 recordings and 50 check results are kept.</p>
-    </header>
-
-    <nav class="tabs" role="tablist">
-      <button role="tab" class="tab" :class="tab === 'scans' && 'tab-on'" :aria-selected="tab === 'scans'" @click="tab = 'scans'">
-        Scans <span class="text-xs text-muted">{{ reports.length }}</span>
-      </button>
-      <button role="tab" class="tab" :class="tab === 'dumps' && 'tab-on'" :aria-selected="tab === 'dumps'" @click="tab = 'dumps'">
-        Crash dumps <span class="text-xs text-muted">{{ analyses.length }}</span>
-      </button>
-      <button role="tab" class="tab" :class="tab === 'recordings' && 'tab-on'" :aria-selected="tab === 'recordings'" @click="tab = 'recordings'">
-        Recordings <span class="text-xs text-muted">{{ recordings.length }}</span>
-      </button>
-      <button role="tab" class="tab" :class="tab === 'checks' && 'tab-on'" :aria-selected="tab === 'checks'" @click="tab = 'checks'">
-        Checks <span class="text-xs text-muted">{{ checkResults.length }}</span>
-      </button>
-    </nav>
+  <PageLayout>
+    <template #head>
+      <header>
+        <h1 class="heading">Reports</h1>
+        <p class="mt-1 text-muted">Scans, crash dump analyses, recordings and health checks, kept to look back at. The last 30 scans, 20 recordings and 50 check results are kept.</p>
+      </header>
+      <nav class="tabs" role="tablist">
+        <button role="tab" class="tab" :class="tab === 'scans' && 'tab-on'" :aria-selected="tab === 'scans'" @click="tab = 'scans'">
+          Scans <span class="text-xs text-muted">{{ reports.length }}</span>
+        </button>
+        <button role="tab" class="tab" :class="tab === 'dumps' && 'tab-on'" :aria-selected="tab === 'dumps'" @click="tab = 'dumps'">
+          Crash dumps <span class="text-xs text-muted">{{ analyses.length }}</span>
+        </button>
+        <button role="tab" class="tab" :class="tab === 'recordings' && 'tab-on'" :aria-selected="tab === 'recordings'" @click="tab = 'recordings'">
+          Recordings <span class="text-xs text-muted">{{ recordings.length }}</span>
+        </button>
+        <button role="tab" class="tab" :class="tab === 'checks' && 'tab-on'" :aria-selected="tab === 'checks'" @click="tab = 'checks'">
+          Checks <span class="text-xs text-muted">{{ checkResults.length }}</span>
+        </button>
+      </nav>
+    </template>
 
     <p v-if="error" class="notice border-bad/40 bg-bad/10 text-bad">{{ error }}</p>
 
@@ -247,5 +249,5 @@ const minutes = (r: Recording) => Math.max(1, Math.round(r.seconds / 60))
                    @yes="confirmDelete" @no="pending = null">
       {{ dialog.body }}
     </ConfirmDialog>
-  </section>
+  </PageLayout>
 </template>

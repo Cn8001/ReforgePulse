@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageLayout from './PageLayout.vue'
 import { ref } from 'vue'
 import HardwarePanel from './HardwarePanel.vue'
 import CpuCapPanel from './CpuCapPanel.vue'
@@ -24,16 +25,18 @@ const tab = ref(props.tab ?? 'hardware')
 </script>
 
 <template>
-  <section class="mx-auto flex max-w-6xl flex-col gap-5 p-6">
-    <header>
-      <h1 class="heading">Tools</h1>
-      <p class="mt-1 text-muted">Look at each part of the PC up close, test it, and tune it.</p>
-    </header>
-    <nav class="tabs" aria-label="Tools">
-      <button v-for="t in tabs" :key="t.id" class="tab" :class="tab === t.id && 'tab-on'" :aria-current="tab === t.id" @click="tab = t.id">
-        {{ t.label }}
-      </button>
-    </nav>
+  <PageLayout>
+    <template #head>
+      <header>
+        <h1 class="heading">Tools</h1>
+        <p class="mt-1 text-muted">Look at each part of the PC up close, test it, and tune it.</p>
+      </header>
+      <nav class="tabs" aria-label="Tools">
+        <button v-for="t in tabs" :key="t.id" class="tab" :class="tab === t.id && 'tab-on'" :aria-current="tab === t.id" @click="tab = t.id">
+          {{ t.label }}
+        </button>
+      </nav>
+    </template>
     <KeepAlive>
       <HardwarePanel v-if="tab === 'hardware'" />
       <SensorsPanel v-else-if="tab === 'sensors'" />
@@ -44,5 +47,5 @@ const tab = ref(props.tab ?? 'hardware')
       <ChecksPanel v-else-if="tab === 'checks'" />
       <CpuCapPanel v-else />
     </KeepAlive>
-  </section>
+  </PageLayout>
 </template>

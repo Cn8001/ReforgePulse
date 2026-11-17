@@ -78,9 +78,9 @@ function openAgent() {
     <template v-else-if="accepted">
     <div class="flex min-h-0 flex-1">
     <SideNav :pages="pages" :page="page" @go="go($event as Page)" />
-    <!-- The scrollbar's room is kept even when a page is short, so switching
-         pages or tabs never changes the width and nothing reflows. -->
-    <main class="min-w-0 flex-1 [scrollbar-gutter:stable]" :class="page === 'processes' ? 'overflow-hidden' : 'overflow-y-auto'">
+    <!-- Pages scroll inside themselves (PageLayout), under a head that stays,
+         and keep the scrollbar's room so nothing reflows. -->
+    <main class="min-w-0 flex-1 overflow-hidden">
       <Transition name="page" mode="out-in">
         <HomeView v-if="page === 'home'" @elevated="elevated = $event" @open="(p, s) => go(p as Page, s)" />
         <ProcessesView v-else-if="page === 'processes'" :key="sort" :sort="sort as any" />

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageLayout from './PageLayout.vue'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import Icon from './Icon.vue'
 import Bar from './Bar.vue'
@@ -145,29 +146,31 @@ const headline = computed(() => {
 </script>
 
 <template>
-  <section class="mx-auto flex max-w-6xl flex-col gap-5 p-6">
-    <header class="flex flex-wrap items-center justify-between gap-4">
-      <div class="flex items-center gap-4">
-        <button class="rounded-full" :aria-expanded="healthOpen" :disabled="!scan"
-                :aria-label="scan ? `Health score ${scan.health.score} out of 100, show what it is made of` : 'No health score before the first scan'"
-                :title="scan ? 'What makes up the score' : 'Scan to get a health score'" @click="healthOpen = !healthOpen">
-          <HealthGauge :score="scan ? scan.health.score : null" />
-        </button>
-        <div>
-          <h1 class="heading">{{ headline }}</h1>
-          <p class="mt-1 text-muted">
-            <template v-if="scan">Health {{ scan.health.score }} out of 100. Last scan {{ since(scan.at) }}.</template>
-            <template v-else>Scan to get a health score. A scan reads crash records, hardware errors, drives and memory; it changes nothing.</template>
-          </p>
+  <PageLayout>
+    <template #head>
+      <header class="flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-4">
+          <button class="rounded-full" :aria-expanded="healthOpen" :disabled="!scan"
+                  :aria-label="scan ? `Health score ${scan.health.score} out of 100, show what it is made of` : 'No health score before the first scan'"
+                  :title="scan ? 'What makes up the score' : 'Scan to get a health score'" @click="healthOpen = !healthOpen">
+            <HealthGauge :score="scan ? scan.health.score : null" />
+          </button>
+          <div>
+            <h1 class="heading">{{ headline }}</h1>
+            <p class="mt-1 text-muted">
+              <template v-if="scan">Health {{ scan.health.score }} out of 100. Last scan {{ since(scan.at) }}.</template>
+              <template v-else>Scan to get a health score. A scan reads crash records, hardware errors, drives and memory; it changes nothing.</template>
+            </p>
+          </div>
         </div>
-      </div>
-      <div class="flex items-center gap-2">
-        <button class="btn size-9 px-0" title="Refresh" aria-label="Refresh" :disabled="loading" @click="load">
-          <Icon name="refresh" class="size-4!" :class="loading && 'animate-spin'" />
-        </button>
-        <button class="btn-primary h-9 px-5" :disabled="scanning" @click="runScan">{{ scanning ? 'Scanning…' : 'Scan PC' }}</button>
-      </div>
-    </header>
+        <div class="flex items-center gap-2">
+          <button class="btn size-9 px-0" title="Refresh" aria-label="Refresh" :disabled="loading" @click="load">
+            <Icon name="refresh" class="size-4!" :class="loading && 'animate-spin'" />
+          </button>
+          <button class="btn-primary h-9 px-5" :disabled="scanning" @click="runScan">{{ scanning ? 'Scanning…' : 'Scan PC' }}</button>
+        </div>
+      </header>
+    </template>
 
     <article v-if="healthOpen && scan" class="panel">
       <header class="border-b border-line px-4 py-3">
@@ -275,5 +278,5 @@ const headline = computed(() => {
     <ConfirmDialog :open="!!reverting" :title="`Revert “${reverting?.summary}”?`" confirm="Revert" :busy="busy" @yes="revert" @no="reverting = null">
       This goes back from <b class="text-fg">{{ reverting?.after }}</b> to <b class="text-fg">{{ reverting?.before }}</b>. The revert is recorded as a new change.
     </ConfirmDialog>
-  </section>
+  </PageLayout>
 </template>

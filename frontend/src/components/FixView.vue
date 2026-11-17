@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageLayout from './PageLayout.vue'
 import { computed, onMounted, ref } from 'vue'
 import FindingCard from './FindingCard.vue'
 import Icon from './Icon.vue'
@@ -54,17 +55,19 @@ function act(kind: string, arg?: string) {
 </script>
 
 <template>
-  <section class="mx-auto flex max-w-6xl flex-col gap-5 p-6">
-    <header class="flex flex-wrap items-center justify-between gap-4">
-      <div>
-        <h1 class="heading">Issues</h1>
-        <p class="mt-1 text-muted">
-          <template v-if="shown">Scanned {{ since(shown.at) }}. {{ summary() }}</template>
-          <template v-else>Crashes, hardware errors and slowdowns from the last 30 days of Windows records.</template>
-        </p>
-      </div>
-      <button class="btn-primary h-9 px-5" :disabled="scanning" @click="runScan">{{ scanning ? 'Scanning…' : scan ? 'Scan again' : 'Scan PC' }}</button>
-    </header>
+  <PageLayout>
+    <template #head>
+      <header class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 class="heading">Issues</h1>
+          <p class="mt-1 text-muted">
+            <template v-if="shown">Scanned {{ since(shown.at) }}. {{ summary() }}</template>
+            <template v-else>Crashes, hardware errors and slowdowns from the last 30 days of Windows records.</template>
+          </p>
+        </div>
+        <button class="btn-primary h-9 px-5" :disabled="scanning" @click="runScan">{{ scanning ? 'Scanning…' : scan ? 'Scan again' : 'Scan PC' }}</button>
+      </header>
+    </template>
 
     <p v-if="scanError" class="notice border-bad/40 bg-bad/10 text-bad">{{ scanError }}</p>
     <p v-if="openError" class="notice border-bad/40 bg-bad/10 text-bad">{{ openError }}</p>
@@ -120,5 +123,5 @@ function act(kind: string, arg?: string) {
         </li>
       </ul>
     </div>
-  </section>
+  </PageLayout>
 </template>

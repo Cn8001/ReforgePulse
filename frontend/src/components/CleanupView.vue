@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageLayout from './PageLayout.vue'
 import { ref } from 'vue'
 import DiskCleanup from './DiskCleanup.vue'
 import LeftoversPanel from './LeftoversPanel.vue'
@@ -19,16 +20,18 @@ const tab = ref(props.tab ?? 'disk')
 </script>
 
 <template>
-  <section class="mx-auto flex max-w-6xl flex-col gap-5 p-6">
-    <header>
-      <h1 class="heading">Cleanup</h1>
-      <p class="mt-1 text-muted">Free disk space and memory. Each change shows what it will do and waits for your confirmation.</p>
-    </header>
-    <nav class="tabs" aria-label="Cleanup sections">
-      <button v-for="t in tabs" :key="t.id" class="tab" :class="tab === t.id && 'tab-on'" :aria-current="tab === t.id" @click="tab = t.id">
-        {{ t.label }}
-      </button>
-    </nav>
+  <PageLayout>
+    <template #head>
+      <header>
+        <h1 class="heading">Cleanup</h1>
+        <p class="mt-1 text-muted">Free disk space and memory. Each change shows what it will do and waits for your confirmation.</p>
+      </header>
+      <nav class="tabs" aria-label="Cleanup sections">
+        <button v-for="t in tabs" :key="t.id" class="tab" :class="tab === t.id && 'tab-on'" :aria-current="tab === t.id" @click="tab = t.id">
+          {{ t.label }}
+        </button>
+      </nav>
+    </template>
     <KeepAlive>
       <DiskCleanup v-if="tab === 'disk'" />
       <LeftoversPanel v-else-if="tab === 'leftovers'" key="leftovers" kind="leftovers" />
@@ -37,5 +40,5 @@ const tab = ref(props.tab ?? 'disk')
       <StartupPanel v-else-if="tab === 'startup'" />
       <FeaturesPanel v-else />
     </KeepAlive>
-  </section>
+  </PageLayout>
 </template>

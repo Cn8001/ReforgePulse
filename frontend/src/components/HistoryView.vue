@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageLayout from './PageLayout.vue'
 import { computed, onMounted, ref } from 'vue'
 import Icon from './Icon.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
@@ -124,13 +125,15 @@ const statusText: Record<string, [string, string]> = {
 </script>
 
 <template>
-  <section class="mx-auto flex max-w-6xl flex-col gap-5 p-6">
-    <header>
-      <h1 class="heading">History</h1>
-      <p class="mt-1 text-muted">
-        Everything ReforgePulse changed on this PC, newest first. Reverting a change and deleting an entry both start here. The log keeps its last 500 entries.
-      </p>
-    </header>
+  <PageLayout>
+    <template #head>
+      <header>
+        <h1 class="heading">History</h1>
+        <p class="mt-1 text-muted">
+          Everything ReforgePulse changed on this PC, newest first. Reverting a change and deleting an entry both start here. The log keeps its last 500 entries.
+        </p>
+      </header>
+    </template>
 
 
     <div class="flex flex-wrap items-center gap-2">
@@ -174,5 +177,5 @@ const statusText: Record<string, [string, string]> = {
     <ConfirmDialog :open="!!reverting" :title="`Revert “${reverting?.summary}”?`" confirm="Revert" :busy="busy" @yes="revert" @no="reverting = null">
       This goes back from <b class="text-fg">{{ reverting?.after }}</b> to <b class="text-fg">{{ reverting?.before }}</b>. The revert is recorded as a new change.
     </ConfirmDialog>
-  </section>
+  </PageLayout>
 </template>
