@@ -5,6 +5,7 @@ package journal
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -16,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cn8001/reforgepulse/internal/atomicfile"
 	"github.com/cn8001/reforgepulse/internal/domain"
 )
 
@@ -102,6 +104,123 @@ func (j *Journal) Log(ctx context.Context) ([]domain.Change, error) {
 		out = append(out, *byID[order[i]])
 	}
 	return out, nil
+}
+
+// ErrRevertAlone is refused on purpose: without the entry that undid it, the
+// original change would look applied again and could be reverted twice.
+var ErrRevertAlone = errors.New("a revert goes with the change it undid; delete that change instead")
+
+// Delete removes these changes, and with each the entries that revert it.
+// It returns how many changes went.
+func (j *Journal) Delete(ctx context.Context, ids ...string) (int, error) {
+	drop := map[string]bool{}
+	for _, id := range ids {
+		drop[id] = true
+	}
+	return j.remove(ctx, func(cs []domain.Change, byID map[string]domain.Change) (map[string]bool, error) {
+		for id := range drop {
+			c, ok := byID[id]
+			if !ok {
+				return nil, fmt.Errorf("change %s not found", id)
+			}
+			if _, orig := byID[c.Reverts]; c.Reverts != "" && orig && !drop[c.Reverts] {
+				return nil, fmt.Errorf("delete %s: %w", id, ErrRevertAlone)
+			}
+		}
+		return drop, nil
+	})
+}
+
+// DeleteBefore removes changes begun before t, with what reverts them.
+func (j *Journal) DeleteBefore(ctx context.Context, t time.Time) (int, error) {
+	return j.remove(ctx, func(cs []domain.Change, _ map[string]domain.Change) (map[string]bool, error) {
+		drop := map[string]bool{}
+		for _, c := range cs {
+			if c.At.Before(t) {
+				drop[c.ID] = true
+			}
+		}
+		return drop, nil
+	})
+}
+
+// Prune keeps the newest keep changes, so the log cannot grow without end.
+func (j *Journal) Prune(ctx context.Context, keep int) (int, error) {
+	return j.remove(ctx, func(cs []domain.Change, _ map[string]domain.Change) (map[string]bool, error) {
+		drop := map[string]bool{}
+		for _, c := range cs[:max(0, len(cs)-keep)] {
+			drop[c.ID] = true
+		}
+		return drop, nil
+	})
+}
+
+// remove rewrites the log without the changes pick names. pick sees each
+// change as first written, oldest first.
+func (j *Journal) remove(ctx context.Context, pick func([]domain.Change, map[string]domain.Change) (map[string]bool, error)) (int, error) {
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	b, err := os.ReadFile(j.path)
+	if errors.Is(err, os.ErrNotExist) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("read journal: %w", err)
+	}
+	type line struct {
+		id  string
+		raw []byte
+	}
+	var lines []line
+	var first []domain.Change
+	byID := map[string]domain.Change{}
+	for raw := range bytes.Lines(b) {
+		var c domain.Change
+		if json.Unmarshal(raw, &c) != nil || c.ID == "" {
+			continue // torn lines go with the rewrite
+		}
+		lines = append(lines, line{c.ID, raw})
+		if _, ok := byID[c.ID]; !ok {
+			byID[c.ID] = c
+			first = append(first, c)
+		}
+	}
+	drop, err := pick(first, byID)
+	if err != nil {
+		return 0, err
+	}
+	// Reverts follow their originals out, and a revert can itself be undone.
+	for grew := true; grew; {
+		grew = false
+		for _, c := range first {
+			if !drop[c.ID] && c.Reverts != "" && drop[c.Reverts] {
+				drop[c.ID], grew = true, true
+			}
+		}
+	}
+	n := 0
+	for _, c := range first {
+		if drop[c.ID] {
+			n++
+		}
+	}
+	if n == 0 {
+		return 0, nil
+	}
+	var out []byte
+	for _, l := range lines {
+		if !drop[l.id] {
+			out = append(out, bytes.TrimRight(l.raw, "\r\n")...)
+			out = append(out, '\n')
+		}
+	}
+	if err := atomicfile.Write(j.path, out); err != nil {
+		return 0, fmt.Errorf("rewrite journal: %w", err)
+	}
+	return n, nil
 }
 
 // append writes one line and syncs it: the entry must survive a crash in the

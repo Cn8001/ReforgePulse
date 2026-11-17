@@ -162,3 +162,75 @@ func TestJournal_FinishRecordsAfter(t *testing.T) {
 		t.Fatalf("change = %+v", log[0])
 	}
 }
+
+// record begins and finishes a change and returns its ID.
+func record(t *testing.T, j *Journal, c domain.Change) string {
+	t.Helper()
+	id, err := j.Begin(context.Background(), c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := j.Finish(context.Background(), id, "", nil); err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
+func ids(t *testing.T, j *Journal) []string {
+	t.Helper()
+	log, err := j.Log(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out []string
+	for _, c := range log {
+		out = append(out, c.ID)
+	}
+	return out
+}
+
+func TestJournal_DeleteTakesRevertsAlongButNotAlone(t *testing.T) {
+	// Arrange
+	j, ctx := newTest(t), context.Background()
+	a := record(t, j, domain.Change{Summary: "a", Reversible: true})
+	undo := record(t, j, domain.Change{Summary: "undo a", Reverts: a})
+	b := record(t, j, domain.Change{Summary: "b"})
+
+	// Act
+	_, aloneErr := j.Delete(ctx, undo)
+	n, err := j.Delete(ctx, a)
+
+	// Assert
+	if !errors.Is(aloneErr, ErrRevertAlone) {
+		t.Fatalf("deleting a revert alone: %v", aloneErr)
+	}
+	if got := ids(t, j); err != nil || n != 2 || len(got) != 1 || got[0] != b {
+		t.Fatalf("n = %d, err = %v, left = %v", n, err, got)
+	}
+}
+
+func TestJournal_DeleteBeforeAndPrune(t *testing.T) {
+	// Arrange
+	j, ctx := newTest(t), context.Background()
+	var all []string
+	for i := range 5 {
+		all = append(all, record(t, j, domain.Change{Summary: string(rune('a' + i))}))
+	}
+	log, _ := j.Log(ctx)
+	third := log[2].At // log is newest first: the third of five
+
+	// Act
+	before, err := j.DeleteBefore(ctx, third)
+	pruned, pruneErr := j.Prune(ctx, 2)
+
+	// Assert
+	if err != nil || before != 2 {
+		t.Fatalf("delete before: %d, %v", before, err)
+	}
+	if got := ids(t, j); pruneErr != nil || pruned != 1 || len(got) != 2 || got[0] != all[4] || got[1] != all[3] {
+		t.Fatalf("pruned %d, %v, left %v", pruned, pruneErr, got)
+	}
+	if log, _ := j.Log(ctx); log[0].Status != domain.Applied {
+		t.Fatalf("status lost in the rewrite: %+v", log[0])
+	}
+}
