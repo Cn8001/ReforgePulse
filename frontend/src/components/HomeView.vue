@@ -172,6 +172,11 @@ const headline = computed(() => {
           <Icon name="chevron" class="size-3.5! text-muted" />
         </button>
       </li>
+      <li v-if="issues > top.length">
+        <button class="w-full px-4 py-2 text-left text-xs text-muted transition hover:bg-hover hover:text-fg" @click="emit('open', 'fix')">
+          {{ issues - top.length }} more in Issues
+        </button>
+      </li>
     </ul>
 
     <p v-if="error" class="notice border-bad/40 bg-bad/10 text-bad">{{ error }}</p>
@@ -217,12 +222,14 @@ const headline = computed(() => {
 
     <article class="panel">
       <header class="flex items-baseline justify-between border-b border-line px-4 py-3">
-        <h2 class="text-[13px] font-semibold">Change log</h2>
-        <span class="text-xs text-muted">{{ changes.length ? `${changes.length} changes` : '' }}</span>
+        <h2 class="text-[13px] font-semibold">Recent changes</h2>
+        <button v-if="changes.length" class="text-xs text-muted hover:text-fg hover:underline" @click="emit('open', 'history', 'changes')">
+          {{ changes.length > 5 ? `Show all ${changes.length}` : 'Open history' }}
+        </button>
       </header>
       <p v-if="!changes.length" class="px-4 py-4 text-muted">Nothing has been changed yet. Every change ReforgePulse makes is recorded here before it happens.</p>
       <table v-else class="w-full text-[13px]">
-        <tr v-for="c in changes.slice(0, 8)" :key="c.id" class="border-b border-line last:border-0 hover:bg-hover">
+        <tr v-for="c in changes.slice(0, 5)" :key="c.id" class="border-b border-line last:border-0 hover:bg-hover">
           <td class="w-24 px-4 py-2 font-mono text-xs text-muted">{{ c.id }}</td>
           <td class="truncate py-2" :title="c.before && c.after ? `${c.before} → ${c.after}` : ''">{{ c.summary }}</td>
           <td class="w-24 py-2" :class="statusText[c.status]?.[1]">{{ statusText[c.status]?.[0] ?? c.status }}</td>

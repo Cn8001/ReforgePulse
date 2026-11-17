@@ -6,18 +6,20 @@ import HomeView from './components/HomeView.vue'
 import ProcessesView from './components/ProcessesView.vue'
 import FixView from './components/FixView.vue'
 import ToolsView from './components/ToolsView.vue'
+import HistoryView from './components/HistoryView.vue'
 import CleanupView from './components/CleanupView.vue'
 import AgentPanel from './components/AgentPanel.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
 import StatusBar from './components/StatusBar.vue'
 import type { IconName } from './lib/icons'
 
-type Page = 'home' | 'processes' | 'cleanup' | 'fix' | 'tools'
+type Page = 'home' | 'processes' | 'cleanup' | 'fix' | 'history' | 'tools'
 const pages: { id: Page; label: string; icon: IconName }[] = [
   { id: 'home', label: 'Overview', icon: 'home' },
   { id: 'processes', label: 'Processes', icon: 'list' },
   { id: 'cleanup', label: 'Cleanup', icon: 'cleanup' },
   { id: 'fix', label: 'Issues', icon: 'fix' },
+  { id: 'history', label: 'History', icon: 'history' },
   { id: 'tools', label: 'Tools', icon: 'settings' },
 ]
 const page = ref<Page>('home')
@@ -26,7 +28,7 @@ const agentOpen = ref(false)
 const settingsOpen = ref(false)
 const elevated = ref<boolean | null>(null) // set by Home once the overview arrives
 
-// Ctrl+1..5 switch pages, Ctrl+, opens settings, Escape closes what is open.
+// Ctrl+1..6 switch pages, Ctrl+, opens settings, Escape closes what is open.
 function onKey(e: KeyboardEvent) {
   const n = Number(e.key)
   if (e.ctrlKey && n >= 1 && n <= pages.length) {
@@ -65,6 +67,7 @@ function openAgent() {
         <ProcessesView v-else-if="page === 'processes'" :key="sort" :sort="sort as any" />
         <CleanupView v-else-if="page === 'cleanup'" :key="sort" :tab="sort" />
         <FixView v-else-if="page === 'fix'" @open="(p, s) => go(p as Page, s)" />
+        <HistoryView v-else-if="page === 'history'" :key="sort" :tab="sort" @open="(p, s) => go(p as Page, s)" />
         <ToolsView v-else :key="sort" :tab="sort" />
       </Transition>
     </main>

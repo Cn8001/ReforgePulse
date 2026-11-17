@@ -25,8 +25,9 @@ export async function runScan() {
   }
 }
 
+// A failed read keeps what is shown; null means no report is left.
 export async function loadLastScan() {
-  scan.value = (await Last().catch(() => null)) ?? scan.value
+  scan.value = await Last().catch(() => scan.value)
 }
 
 export async function loadReports() {

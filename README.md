@@ -56,6 +56,10 @@ log, with revert where the change can be undone. It runs elevated.
     Windows Memory Diagnostic.
   - CPU cap: `PROCFREQMAX` and `PROCFREQMAX1` on every power plan through
     `powrprof.dll`, old values kept for revert.
+- **History**: the change log and the saved scans, each entry deletable on
+  its own or everything before a date. The log keeps its last 500 entries,
+  the last 30 scans are kept. A revert entry is deleted with the change it
+  undid, never alone, so a change can never look revertible twice.
 - **MCP**: `reforgepulse.exe mcp` is a read-only MCP server over stdio,
   running unelevated. The MCP button registers it with Claude Code, Codex or
   OpenCode. Agents can scan and read; changes stay in the window.
