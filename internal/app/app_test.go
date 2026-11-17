@@ -635,3 +635,27 @@ func TestCheckService_SavesChecksButNotTheMemoryTestBooking(t *testing.T) {
 		t.Fatalf("results %+v, deleting a memory test: %v", all, delErr)
 	}
 }
+
+type fakeScans struct{}
+
+func (fakeScans) Report(context.Context, string) (domain.ScanResult, error) {
+	return domain.ScanResult{Health: domain.Health{Score: 64}}, nil
+}
+
+func TestExportService_WritesTheReportWhereChosen(t *testing.T) {
+	// Arrange
+	files := map[string]string{}
+	s := NewExportService(ExportDeps{Scans: fakeScans{}, Write: func(p string, b []byte) error { files[p] = string(b); return nil }})
+
+	// Act
+	err := s.Scan(context.Background(), "20261117-090000-000", `C:\Users\me\scan.md`)
+	noPath := s.Scan(context.Background(), "x", "")
+
+	// Assert
+	if err != nil || !strings.Contains(files[`C:\Users\me\scan.md`], "64 out of 100") {
+		t.Fatalf("err %v, files %v", err, files)
+	}
+	if noPath == nil {
+		t.Fatal("an empty path was accepted")
+	}
+}

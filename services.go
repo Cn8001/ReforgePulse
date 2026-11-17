@@ -67,6 +67,7 @@ type backend struct {
 	Dumps   *app.DumpService
 	Drivers *app.DriverService
 	Keep    *app.RetentionService
+	Export  *app.ExportService
 
 	overview *system.Inspector
 	journal  *journal.Journal
@@ -145,7 +146,7 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier, hw h
 		Hardware: host, Sensors: hw.Sensors, Devices: host, Overview: overview, Live: overview, Crashes: crashes.New(host), Startup: startupApps, Processes: procs, Runner: runner,
 		Reports: reportStore, Resolved: resolved,
 	})
-	return &backend{
+	b := &backend{
 		Startup: startupSvc,
 		Scan:    scan,
 		CPUCap:  cpuCap,
@@ -198,7 +199,12 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier, hw h
 		startup:  startupApps,
 		programs: progs,
 		left:     left,
-	}, nil
+	}
+	b.Export = app.NewExportService(app.ExportDeps{
+		Scans: b.Scan, Analyses: b.Dumps, Recordings: b.Rec, Checks: b.Checks,
+		Write: func(path string, data []byte) error { return os.WriteFile(path, data, 0o644) },
+	})
+	return b, nil
 }
 
 // services lists what the window can call. The binding generator reads the
@@ -227,6 +233,7 @@ func (b *backend) services() []application.Service {
 		application.NewService(b.Dumps),
 		application.NewService(b.Drivers),
 		application.NewService(b.Keep),
+		application.NewService(b.Export),
 	}
 }
 
