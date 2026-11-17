@@ -59,7 +59,7 @@ const sureness: Record<string, string> = { confirmed: 'Confirmed', likely: 'Like
           <p class="mt-1 pl-5 text-muted">{{ f.summary }}</p>
         </button>
         <p class="mt-2 flex flex-wrap items-center gap-2 text-xs">
-          <span class="chip capitalize" :style="{ color: severityTone[f.severity], borderColor: severityTone[f.severity] }">{{ f.severity }} severity</span>
+          <span class="chip" :style="{ color: severityTone[f.severity], borderColor: severityTone[f.severity] }">{{ f.severity[0].toUpperCase() + f.severity.slice(1) }} severity</span>
           <span class="chip border-line text-muted">{{ sureness[f.confidence] ?? f.confidence }}</span>
           <span v-if="f.status === 'returned'" class="chip border-warn text-warn"
                 :title="`Marked resolved ${when(f.resolvedAt!)}, seen again ${when(f.latest!)}`">Came back</span>
