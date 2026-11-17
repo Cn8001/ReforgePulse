@@ -1,9 +1,10 @@
 # ReforgePulse terms of use
 
-## Free to use
+## Licence
 
-ReforgePulse is free. You may download it and use it, for any purpose, at no
-cost. It is licensed to you as is, on the terms below.
+ReforgePulse is free and open source under the MIT License (see LICENSE):
+you may use, copy, change and share it, for any purpose, at no cost. These
+terms add what using a tool that changes your PC means.
 
 ## As is
 

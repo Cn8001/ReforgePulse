@@ -135,7 +135,7 @@ async function restart() {
                 </button>
               </dd>
               <dt class="text-muted">Licence</dt>
-              <dd>Free to use, provided as is, without warranty.
+              <dd>Free and open source under the MIT License, provided as is, without warranty.
                 <button class="text-accent hover:underline" @click="showTerms = !showTerms">{{ showTerms ? 'Hide' : 'Read' }} the terms</button>
               </dd>
             </dl>

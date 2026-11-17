@@ -118,5 +118,6 @@ internal/
 frontend/src   Vue shell, Tailwind, one component per page and tab
 ```
 
-ReforgePulse is free to use and provided as is, without warranty: see
-[TERMS.md](TERMS.md).
+ReforgePulse is free and open source under the [MIT License](LICENSE),
+provided as is, without warranty. [TERMS.md](TERMS.md) says what that means
+for a tool that runs as Administrator and changes your PC.
