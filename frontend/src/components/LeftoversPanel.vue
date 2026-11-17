@@ -2,6 +2,8 @@
 import { computed, onMounted, ref } from 'vue'
 import Icon from './Icon.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
+import TaskProgress from './TaskProgress.vue'
+import { cancelled } from '../lib/tasks'
 import * as Leftovers from '../../bindings/github.com/cn8001/reforgepulse/internal/app/leftoverservice'
 import * as OldFiles from '../../bindings/github.com/cn8001/reforgepulse/internal/app/oldfilesservice'
 import type { Leftover } from '../../bindings/github.com/cn8001/reforgepulse/internal/domain/models'
@@ -27,6 +29,7 @@ const picked = ref(new Set<string>())
 const scanning = ref(false)
 const confirm = ref(false)
 const busy = ref(false)
+const stopped = ref(false)
 const done = ref('')
 
 // Nothing starts ticked: matching is by name, so each folder is the user's call.
@@ -53,16 +56,21 @@ const selected = computed(() => (items.value ?? []).filter((l) => picked.value.h
 const selectedBytes = computed(() => selected.value.reduce((n, l) => n + l.size, 0))
 const totalBytes = computed(() => (items.value ?? []).reduce((n, l) => n + l.size, 0))
 
+// The question closes as soon as it is answered; the move shows below with
+// its own bar and Cancel, and the window stays usable.
 async function recycle() {
+  confirm.value = false
   busy.value = true
+  stopped.value = false
+  done.value = ''
   try {
     await Recycle([...picked.value])
     done.value = `${selected.value.length} items, ${formatBytes(selectedBytes.value)}, moved to the Recycle Bin`
   } catch (e) {
-    error.value = String(e)
+    if (cancelled(e)) stopped.value = true
+    else error.value = String(e)
   } finally {
     busy.value = false
-    confirm.value = false
     await scan()
   }
 }
@@ -72,8 +80,10 @@ onMounted(scan)
 
 <template>
   <div class="flex flex-col gap-4">
+    <TaskProgress v-if="busy" :title="`Moving ${kind === 'downloads' ? 'old downloads' : 'leftovers'} to the Recycle Bin`" />
     <p v-if="error" class="notice border-bad/40 bg-bad/10 text-bad">{{ error }}</p>
     <p v-if="done" class="notice border-ok/40 bg-ok/10">{{ done }}</p>
+    <p v-if="stopped" class="notice border-line bg-raised">Stopped. What was already moved is in the Recycle Bin; the rest is where it was.</p>
 
     <div class="panel">
       <header class="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
@@ -101,7 +111,7 @@ onMounted(scan)
     </div>
 
     <ConfirmDialog :open="confirm" :title="`Move ${selected.length} items to the Recycle Bin?`" confirm="Move to Recycle Bin"
-                   :warning="warning" :busy="busy"
+                   :warning="warning"
                    @yes="recycle" @no="confirm = false">
       <ul class="mb-3 max-h-40 overflow-y-auto font-mono text-xs text-fg">
         <li v-for="l in selected" :key="l.path" class="truncate py-0.5">{{ l.path }}</li>

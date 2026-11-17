@@ -228,10 +228,12 @@ const headline = computed(() => {
         </button>
       </header>
       <p v-if="!changes.length" class="px-4 py-4 text-muted">Nothing has been changed yet. Every change ReforgePulse makes is recorded here before it happens.</p>
-      <table v-else class="w-full text-[14px]">
+      <!-- Fixed layout: an auto table grows to fit a long summary instead of
+           cutting it, and spills out of the panel. -->
+      <table v-else class="w-full table-fixed text-[14px]">
         <tr v-for="c in changes.slice(0, 5)" :key="c.id" class="border-b border-line last:border-0 hover:bg-hover">
           <td class="w-24 px-4 py-2 font-mono text-xs text-muted">{{ c.id }}</td>
-          <td class="truncate py-2" :title="c.before && c.after ? `${c.before} → ${c.after}` : ''">{{ c.summary }}</td>
+          <td class="truncate py-2 pr-3" :title="c.before && c.after ? `${c.summary}: ${c.before} → ${c.after}` : c.summary">{{ c.summary }}</td>
           <td class="w-24 py-2" :class="statusText[c.status]?.[1]">{{ statusText[c.status]?.[0] ?? c.status }}</td>
           <td class="w-28 py-2 text-right text-muted">{{ since(c.at) }}</td>
           <td class="w-24 px-4 py-2 text-right">

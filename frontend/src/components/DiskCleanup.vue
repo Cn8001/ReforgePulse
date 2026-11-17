@@ -2,6 +2,8 @@
 import { computed, onMounted, ref } from 'vue'
 import Icon from './Icon.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
+import TaskProgress from './TaskProgress.vue'
+import { cancelled } from '../lib/tasks'
 import { Analyze, Clean } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/cleanupservice'
 import type { CleanupArea, CleanupResult } from '../../bindings/github.com/cn8001/reforgepulse/internal/domain/models'
 import { formatBytes } from '../lib/format'
@@ -12,6 +14,7 @@ const picked = ref(new Set<string>())
 const analysing = ref(false)
 const confirmClean = ref(false)
 const cleaning = ref(false)
+const stopped = ref(false)
 const result = ref<CleanupResult | null>(null)
 
 // The Recycle Bin is the one area people may still want, so it starts unticked.
@@ -38,15 +41,19 @@ const selected = computed(() => (areas.value ?? []).filter((a) => picked.value.h
 const selectedBytes = computed(() => selected.value.reduce((n, a) => n + a.bytes, 0))
 const totalBytes = computed(() => (areas.value ?? []).reduce((n, a) => n + a.bytes, 0))
 
+// The question closes as soon as it is answered; the work shows below with
+// its own bar and Cancel, and the window stays usable.
 async function clean() {
+  confirmClean.value = false
   cleaning.value = true
+  stopped.value = false
   try {
     result.value = await Clean([...picked.value])
   } catch (e) {
-    error.value = String(e)
+    if (cancelled(e)) stopped.value = true
+    else error.value = String(e)
   } finally {
     cleaning.value = false
-    confirmClean.value = false
     await analyse()
   }
 }
@@ -56,7 +63,9 @@ onMounted(analyse)
 
 <template>
   <div class="flex flex-col gap-4">
+    <TaskProgress v-if="cleaning" title="Cleaning up" />
     <p v-if="error" class="notice border-bad/40 bg-bad/10 text-bad">{{ error }}</p>
+    <p v-if="stopped" class="notice border-line bg-raised">Stopped. What was already deleted stays deleted; the change log says how far it got.</p>
     <p v-if="result" class="notice border-ok/40 bg-ok/10">
       Freed <b>{{ formatBytes(result.freed) }}</b> by deleting {{ result.deleted }} files.
       <template v-if="result.skipped">{{ result.skipped }} files were in use and left alone.</template>
@@ -88,7 +97,7 @@ onMounted(analyse)
     </div>
 
     <ConfirmDialog :open="confirmClean" title="Delete these files?" confirm="Delete files" danger
-                   warning="Deleted files cannot be brought back. Are you sure?" :busy="cleaning" @yes="clean" @no="confirmClean = false">
+                   warning="Deleted files cannot be brought back. Are you sure?" @yes="clean" @no="confirmClean = false">
       <ul class="mb-3 text-[14px] text-fg">
         <li v-for="a in selected" :key="a.id" class="flex justify-between py-0.5"><span>{{ a.name }}</span><span class="tabular-nums">{{ formatBytes(a.bytes) }}</span></li>
       </ul>
