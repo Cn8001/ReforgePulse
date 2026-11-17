@@ -2,7 +2,7 @@
 # Go tests run on the host: Windows-only packages drop out by build tag.
 
 .DEFAULT_GOAL := help
-.PHONY: help build run dev test vet fmt tidy clean installer release publish version
+.PHONY: help build run dev test vet fmt tidy clean installer release publish version site
 
 ## help: list the targets
 help:
@@ -63,6 +63,18 @@ publish:
 ## version: V=1.2.3 sets the version in build/config.yml, the one place it lives
 version:
 	@sh scripts/version.sh $(V)
+
+# GitHub Pages serves docs/ from master. The live demo is the real frontend
+# with demo/backend.js standing in for the Go services; the screenshots and
+# icon in docs/ are source files the README uses too, so only the build's
+# own output is cleared.
+## site: build the website into docs/ (the pages and the live demo)
+site:
+	@[ -d frontend/node_modules ] || (cd frontend && npm ci)
+	@[ -d site/node_modules ] || (cd site && npm ci)
+	cd frontend && npx vite build --config vite.demo.config.ts
+	rm -rf docs/assets
+	cd site && npm run build
 
 ## clean: remove built binaries and release assets
 clean:

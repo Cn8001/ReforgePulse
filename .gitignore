@@ -13,3 +13,5 @@ CLAUDE.md
 frontend/bindings
 build/windows/nsis/license.txt
 dist
+
+site/node_modules
