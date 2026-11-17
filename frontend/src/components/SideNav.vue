@@ -6,7 +6,8 @@ import type { IconName } from '../lib/icons'
 const props = defineProps<{ pages: { id: string; label: string; icon: IconName; group?: string }[]; page: string }>()
 const emit = defineEmits<{ go: [id: string] }>()
 
-// Rows are a fixed 40px, so the indicator can slide by index.
+// The indicator is exactly one row tall, so it slides by whole multiples of
+// its own height and stays aligned whatever the root font size is.
 const index = computed(() => props.pages.findIndex((p) => p.id === props.page))
 </script>
 
@@ -14,7 +15,7 @@ const index = computed(() => props.pages.findIndex((p) => p.id === props.page))
   <aside class="flex w-56 shrink-0 flex-col border-r border-line bg-panel/70 py-2">
     <nav class="relative">
       <span class="active absolute inset-x-0 top-0 h-10 transition-transform duration-300 ease-[cubic-bezier(.2,.8,.2,1)]"
-            :style="{ transform: `translateY(${index * 40}px)` }">
+            :style="{ transform: `translateY(${index * 100}%)` }">
         <span class="bar absolute inset-y-0 left-0 w-[3px]" />
       </span>
       <button v-for="p in pages" :key="p.id"
