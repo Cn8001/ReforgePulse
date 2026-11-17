@@ -59,6 +59,9 @@ ManifestDPIAware true
 
 !insertmacro MUI_PAGE_WELCOME # Welcome to the installer page.
 !insertmacro MUI_PAGE_LICENSE "license.txt" # TERMS.md, written by make installer
+# The shortcuts are a choice, both ticked by default; the app itself is not.
+!define MUI_COMPONENTSPAGE_NODESC
+!insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_DIRECTORY # In which folder install page.
 !insertmacro MUI_PAGE_INSTFILES # Installing page.
 # Offer to start the app when the install is done, ticked by default. The
@@ -88,7 +91,8 @@ Function .onInit
    !insertmacro wails.checkArchitecture
 FunctionEnd
 
-Section
+Section "${INFO_PRODUCTNAME}" SecApp
+    SectionIn RO
     !insertmacro wails.setShellContext
 
     !insertmacro wails.webview2runtime
@@ -97,13 +101,20 @@ Section
     
     !insertmacro wails.files
 
-    CreateShortcut "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
-    CreateShortCut "$DESKTOP\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
-
     !insertmacro wails.associateFiles
     !insertmacro wails.associateCustomProtocols
     
     !insertmacro wails.writeUninstaller
+SectionEnd
+
+Section "Start menu shortcut" SecStartMenu
+    !insertmacro wails.setShellContext
+    CreateShortcut "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
+SectionEnd
+
+Section "Desktop shortcut" SecDesktop
+    !insertmacro wails.setShellContext
+    CreateShortcut "$DESKTOP\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
 SectionEnd
 
 Section "uninstall" 
