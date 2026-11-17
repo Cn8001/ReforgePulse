@@ -128,15 +128,21 @@ body {
   .notice {
     @apply rounded-md border px-4 py-3 text-[14px];
   }
-  /* Tabs that switch a page's sections. */
+  /* Tabs that switch a page's sections. One row that scrolls sideways when
+     it does not fit, and the chosen tab keeps its weight: a wrapping row or
+     a bolder label would move the other tabs every time one is picked. */
   .tabs {
-    @apply flex flex-wrap gap-1 border-b border-line;
+    @apply flex flex-nowrap gap-1 overflow-x-auto overflow-y-hidden;
+    scrollbar-width: thin;
+    /* The baseline is drawn inside the row, under the tabs' own underline;
+       a border would sit outside the scrolling box and get clipped. */
+    box-shadow: inset 0 -1px 0 var(--line);
   }
   .tab {
-    @apply -mb-px flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-[14px] text-muted transition-colors hover:text-fg;
+    @apply flex shrink-0 items-center gap-2 border-b-2 border-transparent px-3 py-2 text-[14px] whitespace-nowrap text-muted transition-colors hover:text-fg;
   }
   .tab-on {
-    @apply border-accent font-semibold text-fg;
+    @apply border-accent text-fg;
   }
 }
 
