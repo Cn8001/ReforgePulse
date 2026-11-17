@@ -3,6 +3,53 @@
 Versions follow [semantic versioning](https://semver.org). Before 1.0 a
 minor version may change behaviour; the changes say so.
 
+## 0.0.2
+
+A health score on Overview, processes as a tree with program icons, system
+check results kept in Reports, reports to download, and an Agents panel
+that shows whether each agent is connected. Data from 0.0.1 carries over;
+the database is upgraded on first start.
+
+### New
+
+- Overview scores system health out of 100 from the last scan's open
+  findings and shows what took points off. Resolved findings, installed
+  tuning tools and checks that could not run do not lower it.
+- Processes shows the tree on the left, beside the opened process and its
+  children.
+- Program icons beside each process, loaded in the background so the list
+  never waits for them.
+- ReforgePulse's own processes show in green.
+- System check results are kept: the verdict and where Windows keeps the
+  full log, which opens from the result. Core test results are kept with
+  them, as Processor cores. Both are in a new Checks tab in Reports.
+- Any report downloads as a Markdown file.
+- The Agents panel shows whether each agent is set up and whether its
+  ReforgePulse server is running now, and what that server did.
+- Leftovers can be selected all at once.
+
+### Improved
+
+- The process tree and table sort by the chosen column, by name until one
+  is picked, and only the opened process holds its place.
+- End task is hidden on processes Windows protects, where it could only
+  fail.
+- A dump's saved analysis opens and closes.
+- An agent's setup command shows when asked for.
+- An agent's server started while the window is open stops when the window
+  closes.
+- Page titles and tabs stay in place; only the content under them scrolls.
+- Cards and rows that open something show an arrow.
+- Tools comes before Reports in the sidebar.
+
+### Fixed
+
+- Memory diagnostic results are read from the event log, and a cancelled
+  test no longer counts as a pass.
+- Checking and connecting agents no longer flashes console windows.
+- Long names and paths stay inside their boxes.
+- Severity labels are written in sentence case.
+
 ## 0.0.1
 
 The first release, for Windows 10 and 11 on x64.
