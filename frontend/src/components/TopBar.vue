@@ -4,7 +4,8 @@ import Icon from './Icon.vue'
 import WindowControls from './WindowControls.vue'
 import logo from '../assets/logo.svg'
 
-defineProps<{ title: string }>()
+// locked hides what opens other screens, while the terms are unanswered.
+defineProps<{ title: string; locked?: boolean }>()
 const emit = defineEmits<{ agent: []; settings: [] }>()
 </script>
 
@@ -15,7 +16,7 @@ const emit = defineEmits<{ agent: []; settings: [] }>()
       <span class="font-display text-[14px] font-semibold">ReforgePulse</span>
     </div>
     <div class="flex flex-1 items-center px-4 text-[13px] text-muted" @dblclick="Window.ToggleMaximise()">{{ title }}</div>
-    <div class="no-drag flex items-center gap-1 pr-2">
+    <div v-if="!locked" class="no-drag flex items-center gap-1 pr-2">
       <button class="flex h-7 items-center gap-1.5 rounded px-2.5 text-[12px] text-muted transition hover:bg-hover hover:text-fg"
               title="Connect an AI agent" @click="emit('agent')">
         <Icon name="plug" class="size-4!" />Agents

@@ -7,7 +7,8 @@ what the system already records (event logs, WHEA, minidumps, counters,
 sensors) to find why a PC crashes or slows down, and cleans up what it no
 longer needs. Nothing is changed or deleted before it shows exactly what will
 happen and you confirm it; every change then goes into a git-style change
-log, with revert where the change can be undone. It runs elevated.
+log, with revert where the change can be undone. It runs elevated, and on
+first start shows the terms and the licence to accept before anything else.
 
 - **Issues**: Scan PC reads 30 days of stop errors (WER 1001), unexpected
   restarts (Kernel-Power 41), WHEA errors with their APIC IDs, display
@@ -92,8 +93,9 @@ platform implemented so far: OS access sits behind the interfaces in
 another OS is a new package next to `platform/windows`.
 
 Data is in `%LOCALAPPDATA%\ReforgePulse`: `journal.jsonl` (the change
-log), `reports/` (one JSON file per scan), `resolved.json`, `webview/` and
-the debugger's `symbols/` cache. The network is used only when you ask:
+log), `reports/` (one JSON file per scan), `resolved.json`, `accepted.json`,
+`reforgepulse.log` (errors, panics and crash reports, rotated at 1 MB),
+`webview/` and the debugger's `symbols/` cache. The network is used only when you ask:
 for that symbol download during a dump analysis, and for Check for updates.
 
 ## Layout

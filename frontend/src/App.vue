@@ -11,6 +11,8 @@ import CleanupView from './components/CleanupView.vue'
 import AgentPanel from './components/AgentPanel.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
 import StatusBar from './components/StatusBar.vue'
+import TermsGate from './components/TermsGate.vue'
+import { Accepted } from '../bindings/github.com/cn8001/reforgepulse/internal/app/aboutservice'
 import type { IconName } from './lib/icons'
 
 type Page = 'home' | 'processes' | 'cleanup' | 'fix' | 'history' | 'tools'
@@ -27,9 +29,14 @@ const sort = ref<string | undefined>() // how the page opens: the Processes sort
 const agentOpen = ref(false)
 const settingsOpen = ref(false)
 const elevated = ref<boolean | null>(null) // set by Home once the overview arrives
+// null while asking; nothing of the app shows until the terms are accepted.
+// If the answer cannot be read, the terms are shown again rather than skipped.
+const accepted = ref<boolean | null>(null)
+Accepted().then((ok) => (accepted.value = ok)).catch(() => (accepted.value = false))
 
 // Ctrl+1..6 switch pages, Ctrl+, opens settings, Escape closes what is open.
 function onKey(e: KeyboardEvent) {
+  if (!accepted.value) return
   const n = Number(e.key)
   if (e.ctrlKey && n >= 1 && n <= pages.length) {
     page.value = pages[n - 1].id
@@ -57,8 +64,11 @@ function openAgent() {
 
 <template>
   <div class="flex h-full flex-col font-sans text-sm text-fg">
-    <TopBar :title="pages.find((p) => p.id === page)!.label" @agent="openAgent" @settings="settingsOpen = true" />
+    <TopBar :title="accepted ? pages.find((p) => p.id === page)!.label : ''" :locked="!accepted"
+            @agent="openAgent" @settings="settingsOpen = true" />
 
+    <TermsGate v-if="accepted === false" @accepted="accepted = true" />
+    <template v-else-if="accepted">
     <div class="flex min-h-0 flex-1">
     <SideNav :pages="pages" :page="page" @go="go($event as Page)" />
     <main class="min-w-0 flex-1" :class="page === 'processes' ? 'overflow-hidden' : 'overflow-y-auto'">
@@ -76,5 +86,6 @@ function openAgent() {
     <StatusBar :elevated="elevated" />
     <AgentPanel :open="agentOpen" @close="agentOpen = false" />
     <SettingsDialog :open="settingsOpen" @close="settingsOpen = false" @agent="openAgent" />
+    </template>
   </div>
 </template>
