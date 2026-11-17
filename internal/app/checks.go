@@ -14,6 +14,7 @@ import (
 type CheckRunner interface {
 	RunCheck(ctx context.Context, name string) (int, string, error)
 	CheckLog(name string) string // where Windows keeps the full log, or ""
+	ShowInFolder(path string) error
 }
 
 // MemoryTestReader reads Windows Memory Diagnostic's verdicts, which only
@@ -95,6 +96,16 @@ func (s *CheckService) Results(ctx context.Context) ([]domain.CheckResult, error
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].At.After(out[j].At) })
 	return out, nil
+}
+
+// ShowLog opens Explorer at the full log Windows keeps for a check. It takes
+// the check's name, not a path, so the window cannot point it anywhere else.
+func (s *CheckService) ShowLog(name string) error {
+	path := s.d.Run.CheckLog(name)
+	if path == "" {
+		return fmt.Errorf("%s keeps no log of its own", name)
+	}
+	return s.d.Run.ShowInFolder(path)
 }
 
 // DeleteResult forgets a saved result. Memory tests are Windows' own records

@@ -593,7 +593,8 @@ type fakeCheck struct{}
 func (fakeCheck) RunCheck(context.Context, string) (int, string, error) {
 	return 0, "Beginning system scan.\r\nVerification 100% complete.\r\n\r\nWindows Resource Protection did not find any integrity violations.\r\n", nil
 }
-func (fakeCheck) CheckLog(string) string { return `C:\Windows\Logs\CBS\CBS.log` }
+func (fakeCheck) CheckLog(string) string    { return `C:\Windows\Logs\CBS\CBS.log` }
+func (fakeCheck) ShowInFolder(string) error { return nil }
 
 type fakeMemory struct{}
 

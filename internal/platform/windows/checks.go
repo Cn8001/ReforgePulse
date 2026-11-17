@@ -122,3 +122,11 @@ func (s System) MemoryTests(ctx context.Context, since time.Time) ([]domain.Chec
 	}
 	return out, nil
 }
+
+// ShowInFolder opens Explorer with path selected.
+func (System) ShowInFolder(path string) error {
+	if err := exec.Command("explorer.exe", "/select,", path).Start(); err != nil {
+		return fmt.Errorf("open explorer: %w", err)
+	}
+	return nil
+}
