@@ -11,6 +11,8 @@ type About struct {
 	Version string `json:"version"`
 	DataDir string `json:"dataDir"` // the one folder ReforgePulse keeps everything in
 	Terms   string `json:"terms"`
+	License string `json:"license"`
+	Source  string `json:"source"` // the repository's web page
 }
 
 type AboutService struct {

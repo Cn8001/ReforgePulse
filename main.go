@@ -27,6 +27,8 @@ var (
 	buildConfig []byte // the version lives here
 	//go:embed TERMS.md
 	terms string
+	//go:embed LICENSE
+	license string
 )
 
 func main() {

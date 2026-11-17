@@ -32,6 +32,7 @@ import (
 	"github.com/cn8001/reforgepulse/internal/recorder"
 	"github.com/cn8001/reforgepulse/internal/reports"
 	"github.com/cn8001/reforgepulse/internal/tasks"
+	"github.com/cn8001/reforgepulse/internal/updates"
 )
 
 // backend is every service, built once and shared by the window and the MCP
@@ -86,7 +87,10 @@ const keepChanges = 500
 const maxTasks = 4
 
 func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*backend, error) {
-	about := app.About{Version: app.VersionFrom(buildConfig), DataDir: dataDir, Terms: terms}
+	about := app.About{
+		Version: app.VersionFrom(buildConfig), DataDir: dataDir, Terms: terms, License: license,
+		Source: "https://github.com/" + updates.Repository,
+	}
 	j, err := journal.Open(dataDir)
 	if err != nil {
 		return nil, fmt.Errorf("open change log: %w", err)

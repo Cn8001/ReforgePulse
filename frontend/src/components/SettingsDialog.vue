@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { Clipboard } from '@wailsio/runtime'
+import { Browser, Clipboard } from '@wailsio/runtime'
+import logo from '../assets/logo.svg'
 import Icon from './Icon.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import { theme } from '../lib/theme'
@@ -15,7 +16,15 @@ const emit = defineEmits<{ close: []; agent: [] }>()
 
 const about = ref<About | null>(null)
 onMounted(() => Info().then((a) => (about.value = a)))
-const showTerms = ref(false)
+const tab = ref<'general' | 'updates' | 'about'>('general')
+const tabs = [
+  { id: 'general', label: 'General' },
+  { id: 'updates', label: 'Updates' },
+  { id: 'about', label: 'About' },
+] as const
+// One long text open at a time: the licence or the terms.
+const reading = ref<'license' | 'terms' | null>(null)
+const read = (what: 'license' | 'terms') => (reading.value = reading.value === what ? null : what)
 
 // Nothing is fetched until the user presses the button.
 type Update = 'idle' | 'checking' | 'latest' | 'available' | 'downloading' | 'ready'
@@ -61,13 +70,18 @@ async function restart() {
   <Transition enter-from-class="opacity-0" leave-to-class="opacity-0"
               enter-active-class="transition-opacity duration-150" leave-active-class="transition-opacity duration-150">
     <div v-if="open" class="fixed inset-0 z-40 grid place-items-center bg-black/50 p-6" @click.self="emit('close')">
-      <section role="dialog" aria-modal="true" aria-labelledby="settings-title" class="panel flex max-h-full w-[560px] max-w-full flex-col shadow-2xl">
+      <section role="dialog" aria-modal="true" aria-labelledby="settings-title" class="panel flex max-h-full min-h-[380px] w-[560px] max-w-full flex-col shadow-2xl">
         <header class="flex items-center justify-between border-b border-line px-5 py-3">
           <h2 id="settings-title" class="text-[15px] font-semibold">Settings</h2>
           <button class="grid size-7 place-items-center rounded text-muted transition hover:bg-hover hover:text-fg" aria-label="Close" @click="emit('close')"><Icon name="close" /></button>
         </header>
+        <nav class="tabs px-3" role="tablist">
+          <button v-for="t in tabs" :key="t.id" role="tab" class="tab" :class="tab === t.id && 'tab-on'" :aria-selected="tab === t.id" @click="tab = t.id">
+            {{ t.label }}
+          </button>
+        </nav>
 
-        <div class="flex flex-col overflow-y-auto">
+        <div v-if="tab === 'general'" class="flex flex-col overflow-y-auto">
           <div class="flex items-center justify-between gap-4 border-b border-line px-5 py-4">
             <div>
               <h3 class="font-medium">Theme</h3>
@@ -89,8 +103,10 @@ async function restart() {
             </div>
             <button class="btn shrink-0" @click="emit('agent')"><Icon name="plug" class="size-4!" />Connect</button>
           </div>
+        </div>
 
-          <div class="flex flex-col gap-3 border-b border-line px-5 py-4">
+        <div v-else-if="tab === 'updates'" class="flex flex-col overflow-y-auto">
+          <div class="flex flex-col gap-3 px-5 py-4">
             <div class="flex items-center justify-between gap-4">
               <div>
                 <h3 class="font-medium">Updates</h3>
@@ -114,7 +130,7 @@ async function restart() {
             <template v-if="release && update !== 'latest'">
               <p class="text-xs text-muted">
                 The file is checked against the release's SHA256SUMS before it replaces this one. The update is recorded in the change log.
-                <a :href="release.url" target="_blank" class="text-accent hover:underline">See it on GitHub</a>
+                <button class="text-accent hover:underline" @click="Browser.OpenURL(release.url)">See it on GitHub</button>
               </p>
               <button v-if="release.notes" class="flex items-center gap-1 self-start text-xs text-muted hover:text-fg" :aria-expanded="showNotes" @click="showNotes = !showNotes">
                 <Icon name="chevron" class="size-3! transition-transform" :class="showNotes && 'rotate-90'" />What is new
@@ -123,23 +139,42 @@ async function restart() {
             </template>
           </div>
 
-          <div class="flex flex-col gap-2 px-5 py-4">
-            <h3 class="font-medium">About</h3>
-            <dl class="grid grid-cols-[7rem_1fr] gap-y-1.5 text-[13px]">
-              <dt class="text-muted">Version</dt><dd class="tabular-nums">{{ about?.version ?? '–' }}</dd>
-              <dt class="text-muted">Data folder</dt>
-              <dd class="flex min-w-0 items-center gap-2">
-                <span class="truncate font-mono text-xs select-text" :title="about?.dataDir">{{ about?.dataDir ?? '–' }}</span>
-                <button v-if="about" class="text-muted transition hover:text-fg" aria-label="Copy the folder path" @click="Clipboard.SetText(about.dataDir)">
-                  <Icon name="copy" class="size-3.5!" />
-                </button>
-              </dd>
-              <dt class="text-muted">Licence</dt>
-              <dd>Free and open source under the MIT License, provided as is, without warranty.
-                <button class="text-accent hover:underline" @click="showTerms = !showTerms">{{ showTerms ? 'Hide' : 'Read' }} the terms</button>
-              </dd>
-            </dl>
-            <pre v-if="showTerms" class="mt-2 max-h-64 overflow-y-auto rounded border border-line bg-raised p-3 font-sans text-xs leading-relaxed whitespace-pre-wrap text-muted select-text">{{ about?.terms }}</pre>
+        </div>
+
+        <div v-else class="flex flex-col overflow-y-auto">
+          <div class="flex items-center gap-4 border-b border-line px-5 py-5">
+            <img :src="logo" alt="" class="size-12" />
+            <div class="min-w-0 flex-1">
+              <h3 class="text-[17px] font-semibold">ReforgePulse <span class="text-[13px] font-normal text-muted tabular-nums">{{ about?.version }}</span></h3>
+              <p class="text-[13px] text-muted">Finds why a Windows PC crashes or slows down, and cleans up what it no longer needs.</p>
+            </div>
+          </div>
+
+          <dl class="grid grid-cols-[7rem_1fr] gap-y-2 border-b border-line px-5 py-4 text-[13px]">
+            <dt class="text-muted">Licence</dt>
+            <dd>MIT License. Free and open source, provided as is, without warranty.</dd>
+            <dt class="text-muted">Source</dt>
+            <dd class="flex flex-wrap gap-x-3">
+              <button v-if="about" class="text-accent hover:underline" @click="Browser.OpenURL(about.source)">GitHub</button>
+              <button v-if="about" class="text-accent hover:underline" @click="Browser.OpenURL(`${about.source}/issues`)">Report a problem</button>
+            </dd>
+            <dt class="text-muted">Data folder</dt>
+            <dd class="flex min-w-0 items-center gap-2">
+              <span class="truncate font-mono text-xs select-text" :title="about?.dataDir">{{ about?.dataDir ?? '–' }}</span>
+              <button v-if="about" class="text-muted transition hover:text-fg" aria-label="Copy the folder path" @click="Clipboard.SetText(about.dataDir)">
+                <Icon name="copy" class="size-3.5!" />
+              </button>
+            </dd>
+            <dt class="text-muted">Built with</dt>
+            <dd>Wails, Vue and Tailwind CSS</dd>
+          </dl>
+
+          <div class="flex flex-col gap-3 px-5 py-4">
+            <div class="flex gap-2">
+              <button class="btn" :aria-expanded="reading === 'license'" @click="read('license')">{{ reading === 'license' ? 'Hide' : 'Read' }} the licence</button>
+              <button class="btn" :aria-expanded="reading === 'terms'" @click="read('terms')">{{ reading === 'terms' ? 'Hide' : 'Read' }} the terms</button>
+            </div>
+            <pre v-if="reading" class="max-h-64 overflow-y-auto rounded border border-line bg-raised p-3 font-sans text-xs leading-relaxed whitespace-pre-wrap text-muted select-text">{{ reading === 'license' ? about?.license : about?.terms }}</pre>
           </div>
         </div>
       </section>
