@@ -84,6 +84,22 @@ hardware directly (CPUID pinned to each processor, per-core counters, GPU
 sensors, the core test) run in a `reforgepulse.exe probe` child process: if
 one of them crashes, the child is restarted and the window stays open.
 
+## Install
+
+Download `reforgepulse-windows-amd64-installer.exe` from
+[Releases](https://github.com/Cn8001/ReforgePulse/releases/latest) and run it.
+
+The installer and the app are not code-signed yet, so Windows SmartScreen
+shows "Windows protected your PC" the first time. Choose **More info**, then
+**Run anyway**. To check the download first, compare its hash with the one in
+the release's `SHA256SUMS`:
+
+```
+certutil -hashfile reforgepulse-windows-amd64-installer.exe SHA256
+```
+
+The app then asks for administrator rights (UAC) each time it starts.
+
 ## Use
 
 ```
