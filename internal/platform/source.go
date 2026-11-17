@@ -161,6 +161,7 @@ type Power interface {
 type Feature struct {
 	Name    string
 	Enabled bool
+	Pending string // "on" or "off" when Windows finishes switching it at the next restart
 }
 
 // Features reads and toggles Windows optional features.

@@ -40,3 +40,19 @@ func TestInspector_SuggestsOnlyCatalogued(t *testing.T) {
 		}
 	}
 }
+
+func TestInspector_ListsFeaturesWaitingForARestart(t *testing.T) {
+	// Arrange
+	in := New(fakeFeatures{
+		{Name: "WorkFolders-Client", Pending: "off"},
+		{Name: "TelnetClient"},
+	})
+
+	// Act
+	got, err := in.List(context.Background())
+
+	// Assert
+	if err != nil || len(got) != 1 || got[0].Name != "WorkFolders-Client" || got[0].Pending != "off" || got[0].Enabled {
+		t.Fatalf("got %+v, %v", got, err)
+	}
+}

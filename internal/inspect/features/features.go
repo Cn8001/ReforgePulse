@@ -43,7 +43,8 @@ type Inspector struct{ src platform.Features }
 
 func New(src platform.Features) *Inspector { return &Inspector{src: src} }
 
-// List returns enabled features, suggestions first.
+// List returns enabled features, suggestions first, and the ones waiting for
+// a restart to switch, so the window can say a restart is still owed.
 func (in *Inspector) List(ctx context.Context) ([]domain.WindowsFeature, error) {
 	fs, err := in.src.OptionalFeatures(ctx)
 	if err != nil {
@@ -51,11 +52,11 @@ func (in *Inspector) List(ctx context.Context) ([]domain.WindowsFeature, error) 
 	}
 	var out []domain.WindowsFeature
 	for _, f := range fs {
-		if !f.Enabled {
+		if !f.Enabled && f.Pending == "" {
 			continue // only what is on can be turned off
 		}
 		e, known := catalog[f.Name]
-		w := domain.WindowsFeature{Name: f.Name, Title: f.Name, Enabled: true}
+		w := domain.WindowsFeature{Name: f.Name, Title: f.Name, Enabled: f.Enabled, Pending: f.Pending}
 		if known {
 			w.Title, w.Note, w.Suggest, w.Protected = e.title, e.note, e.suggest, e.protected
 		}

@@ -22,20 +22,26 @@ var _ platform.Features = System{}
 var featureName = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
 
 func (System) OptionalFeatures(ctx context.Context) ([]platform.Feature, error) {
-	out, err := powershell(ctx, `Get-WindowsOptionalFeature -Online | Select-Object FeatureName, @{n='Enabled';e={$_.State -eq 'Enabled'}} | ConvertTo-Json -Compress`)
+	out, err := powershell(ctx, `Get-WindowsOptionalFeature -Online | Select-Object FeatureName, @{n='State';e={"$($_.State)"}} | ConvertTo-Json -Compress`)
 	if err != nil {
 		return nil, err
 	}
 	var rows []struct {
 		FeatureName string
-		Enabled     bool
+		State       string
 	}
 	if err := json.Unmarshal([]byte(out), &rows); err != nil {
 		return nil, fmt.Errorf("read feature list: %w", err)
 	}
 	fs := make([]platform.Feature, len(rows))
 	for i, r := range rows {
-		fs[i] = platform.Feature{Name: r.FeatureName, Enabled: r.Enabled}
+		fs[i] = platform.Feature{Name: r.FeatureName, Enabled: r.State == "Enabled"}
+		switch r.State {
+		case "DisablePending":
+			fs[i].Pending = "off"
+		case "EnablePending":
+			fs[i].Pending = "on"
+		}
 	}
 	return fs, nil
 }
