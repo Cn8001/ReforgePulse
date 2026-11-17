@@ -4,14 +4,15 @@ import type { IconName } from '../lib/icons'
 
 // A readout panel: the label, one big number, the detail under it.
 // clickable makes it a button with a ">" in its corner, so a card that
-// opens a page says so before it is hovered.
+// opens a page says so before it is hovered. The extra bottom room keeps
+// the ">" on a line of its own, clear of a graph at the card's end.
 defineProps<{ title: string; icon: IconName; value?: string; unit?: string; sub?: string; clickable?: boolean }>()
 const emit = defineEmits<{ click: [] }>()
 </script>
 
 <template>
   <article class="panel group relative flex min-w-0 flex-col gap-3 p-4 transition-colors"
-           :class="clickable && 'cursor-pointer hover:bg-raised focus-visible:outline-2 focus-visible:outline-accent'"
+           :class="clickable && 'cursor-pointer pb-9 hover:bg-raised focus-visible:outline-2 focus-visible:outline-accent'"
            :role="clickable ? 'button' : undefined" :tabindex="clickable ? 0 : undefined"
            @click="clickable && emit('click')" @keydown.enter.space.prevent="clickable && emit('click')">
     <header class="flex items-center gap-2 text-muted">
