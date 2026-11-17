@@ -28,6 +28,7 @@ export const icons = {
   undo: 'M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3',
   history: 'M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2',
   trash: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3',
+  report: 'M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6',
 } as const
 
 export type IconName = keyof typeof icons

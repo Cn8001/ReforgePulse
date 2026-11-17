@@ -3,7 +3,7 @@
 Versions follow [semantic versioning](https://semver.org). Before 1.0 a
 minor version may change behaviour; the changes say so.
 
-## 0.0.1 (2026-11-17)
+## 0.0.1
 
 The first release, for Windows 10 and 11 on x64.
 
@@ -46,15 +46,21 @@ The first release, for Windows 10 and 11 on x64.
 - Core test: one core at a time, results compared across cores.
 - Sensors (NVIDIA through NVML, CPU through HWiNFO), events, minidumps with
   `!analyze -v` when the Windows debugger is installed, a recorder that
-  spots steady memory growth, driver problems with what Windows Update
+  spots steady memory growth and stays the same size however long it runs, driver problems with what Windows Update
   offers, system checks (SFC, DISM, CHKDSK, memory diagnostic) and a CPU
   frequency cap on every power plan.
+
+### Reports
+
+- Saved scans (the last 30), crash dump analyses and recorder sessions (the
+  last 20) stay to be opened again or deleted. A dump analysis is kept once
+  it has run, so it does not have to run again.
 
 ### History
 
 - Every change is recorded before it is made, with revert where it can be
-  undone. Changes and saved scans can be deleted one by one or before a
-  date. The log keeps its last 500 entries, and the last 30 scans are kept.
+  undone. Entries can be deleted one by one or before a date; the log keeps
+  its last 500.
 
 ### The app
 

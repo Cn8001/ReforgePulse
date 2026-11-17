@@ -7,6 +7,7 @@ import ProcessesView from './components/ProcessesView.vue'
 import FixView from './components/FixView.vue'
 import ToolsView from './components/ToolsView.vue'
 import HistoryView from './components/HistoryView.vue'
+import ReportsView from './components/ReportsView.vue'
 import CleanupView from './components/CleanupView.vue'
 import AgentPanel from './components/AgentPanel.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
@@ -17,14 +18,15 @@ import { checkAtStart } from './lib/update'
 import { Accepted } from '../bindings/github.com/cn8001/reforgepulse/internal/app/aboutservice'
 import type { IconName } from './lib/icons'
 
-type Page = 'home' | 'processes' | 'cleanup' | 'fix' | 'history' | 'tools'
+type Page = 'home' | 'processes' | 'cleanup' | 'fix' | 'reports' | 'tools' | 'history'
 const pages: { id: Page; label: string; icon: IconName }[] = [
   { id: 'home', label: 'Overview', icon: 'home' },
   { id: 'processes', label: 'Processes', icon: 'list' },
   { id: 'cleanup', label: 'Cleanup', icon: 'cleanup' },
   { id: 'fix', label: 'Issues', icon: 'fix' },
-  { id: 'history', label: 'History', icon: 'history' },
+  { id: 'reports', label: 'Reports', icon: 'report' },
   { id: 'tools', label: 'Tools', icon: 'settings' },
+  { id: 'history', label: 'History', icon: 'history' },
 ]
 const page = ref<Page>('home')
 const sort = ref<string | undefined>() // how the page opens: the Processes sort or the Cleanup tab
@@ -39,7 +41,7 @@ Accepted().then((ok) => (accepted.value = ok)).catch(() => (accepted.value = fal
 // before the user has agreed to use the app.
 watch(accepted, (ok) => ok && checkAtStart(), { once: true })
 
-// Ctrl+1..6 switch pages, Ctrl+, opens settings, Escape closes what is open.
+// Ctrl+1..7 switch pages, Ctrl+, opens settings, Escape closes what is open.
 function onKey(e: KeyboardEvent) {
   if (!accepted.value) return
   const n = Number(e.key)
@@ -84,7 +86,8 @@ function openAgent() {
         <ProcessesView v-else-if="page === 'processes'" :key="sort" :sort="sort as any" />
         <CleanupView v-else-if="page === 'cleanup'" :key="sort" :tab="sort" />
         <FixView v-else-if="page === 'fix'" @open="(p, s) => go(p as Page, s)" />
-        <HistoryView v-else-if="page === 'history'" :key="sort" :tab="sort" @open="(p, s) => go(p as Page, s)" />
+        <ReportsView v-else-if="page === 'reports'" :key="sort" :tab="sort" @open="(p, s) => go(p as Page, s)" />
+        <HistoryView v-else-if="page === 'history'" />
         <ToolsView v-else :key="sort" :tab="sort" />
       </Transition>
     </main>

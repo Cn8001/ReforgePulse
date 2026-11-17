@@ -3,15 +3,9 @@ import { computed, onMounted, ref } from 'vue'
 import Icon from './Icon.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import { Delete, DeleteBefore, List, Revert } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/historyservice'
-import { DeleteReport, DeleteReportsBefore } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/scanservice'
 import type { Change } from '../../bindings/github.com/cn8001/reforgepulse/internal/domain/models'
-import { loadLastScan, loadReports, openReport, reports, severityTone, viewed } from '../lib/scan'
 import { when } from '../lib/format'
 
-const props = defineProps<{ tab?: string }>()
-const emit = defineEmits<{ open: [page: string, arg?: string] }>()
-
-const tab = ref<'changes' | 'scans'>(props.tab === 'scans' ? 'scans' : 'changes')
 const changes = ref<Change[]>([])
 const error = ref('')
 const busy = ref(false)
@@ -20,7 +14,7 @@ const before = ref('') // yyyy-mm-dd from the date field
 async function load() {
   error.value = ''
   try {
-    const [c] = await Promise.all([List(), loadReports()])
+    const c = await List()
     changes.value = c ?? []
   } catch (e) {
     error.value = String(e)
@@ -54,8 +48,6 @@ function withReverts(drop: Set<string>): Set<string> {
 type Pending =
   | { kind: 'change'; change: Change; count: number; revertible: boolean }
   | { kind: 'changes-before'; count: number; revertible: boolean }
-  | { kind: 'report'; id: string; at: string }
-  | { kind: 'reports-before'; count: number }
 const pending = ref<Pending | null>(null)
 
 function askChange(c: Change) {
@@ -65,13 +57,9 @@ function askChange(c: Change) {
 function askBefore() {
   const t = cutoff.value
   if (!t) return
-  if (tab.value === 'changes') {
-    const drop = withReverts(new Set(changes.value.filter((c) => new Date(c.at) < t).map((c) => c.id)))
-    const revertible = changes.value.some((c) => drop.has(c.id) && c.reversible && c.status === 'applied')
-    pending.value = { kind: 'changes-before', count: drop.size, revertible }
-  } else {
-    pending.value = { kind: 'reports-before', count: reports.value.filter((r) => new Date(r.at) < t).length }
-  }
+  const drop = withReverts(new Set(changes.value.filter((c) => new Date(c.at) < t).map((c) => c.id)))
+  const revertible = changes.value.some((c) => drop.has(c.id) && c.reversible && c.status === 'applied')
+  pending.value = { kind: 'changes-before', count: drop.size, revertible }
 }
 
 const dialog = computed(() => {
@@ -91,18 +79,6 @@ const dialog = computed(() => {
         warning: `This cannot be undone.${p.revertible ? ' Some of these changes could still be reverted.' : ''} Are you sure?`,
         body: `Entries that revert them go too, even when newer. ${lost}`,
       }
-    case 'report':
-      return {
-        title: `Delete the scan from ${when(p.at)}?`,
-        warning: 'This cannot be undone. Are you sure?',
-        body: 'Only the saved report goes. Findings you marked resolved stay resolved.',
-      }
-    case 'reports-before':
-      return {
-        title: `Delete ${p.count} ${p.count === 1 ? 'scan' : 'scans'} from before ${cutoff.value?.toLocaleDateString()}?`,
-        warning: 'This cannot be undone. Are you sure?',
-        body: 'Only the saved reports go. Findings you marked resolved stay resolved.',
-      }
   }
 })
 
@@ -114,13 +90,7 @@ async function confirmDelete() {
   try {
     const t = cutoff.value?.toISOString() ?? ''
     if (p.kind === 'change') await Delete(p.change.id)
-    else if (p.kind === 'changes-before') await DeleteBefore(t)
-    else if (p.kind === 'report') await DeleteReport(p.id)
-    else await DeleteReportsBefore(t)
-    if (p.kind === 'report' || p.kind === 'reports-before') {
-      if (viewed.value && (p.kind === 'report' ? viewed.value.id === p.id : new Date(viewed.value.at) < cutoff.value!)) viewed.value = null
-      await loadLastScan()
-    }
+    else await DeleteBefore(t)
     await load()
   } catch (e) {
     error.value = String(e)
@@ -145,15 +115,6 @@ async function revert() {
   }
 }
 
-async function show(id: string) {
-  try {
-    await openReport(id)
-    emit('open', 'fix')
-  } catch (e) {
-    error.value = String(e)
-  }
-}
-
 const statusText: Record<string, [string, string]> = {
   applied: ['Applied', 'text-fg'],
   failed: ['Failed', 'text-bad'],
@@ -167,18 +128,10 @@ const statusText: Record<string, [string, string]> = {
     <header>
       <h1 class="heading">History</h1>
       <p class="mt-1 text-muted">
-        What ReforgePulse changed on this PC and the scans it saved. The change log keeps its last 500 entries and the last 30 scans are kept.
+        Everything ReforgePulse changed on this PC, newest first. Reverting a change and deleting an entry both start here. The log keeps its last 500 entries.
       </p>
     </header>
 
-    <nav class="tabs" role="tablist">
-      <button role="tab" class="tab" :class="tab === 'changes' && 'tab-on'" :aria-selected="tab === 'changes'" @click="tab = 'changes'">
-        Changes <span class="text-xs text-muted">{{ changes.length }}</span>
-      </button>
-      <button role="tab" class="tab" :class="tab === 'scans' && 'tab-on'" :aria-selected="tab === 'scans'" @click="tab = 'scans'">
-        Scans <span class="text-xs text-muted">{{ reports.length }}</span>
-      </button>
-    </nav>
 
     <div class="flex flex-wrap items-center gap-2">
       <label for="before" class="text-muted">Delete everything before</label>
@@ -190,7 +143,7 @@ const statusText: Record<string, [string, string]> = {
 
     <p v-if="error" class="notice border-bad/40 bg-bad/10 text-bad">{{ error }}</p>
 
-    <article v-if="tab === 'changes'" class="panel">
+    <article class="panel">
       <p v-if="!changes.length" class="px-4 py-6 text-center text-muted">Nothing in the change log.</p>
       <table v-else class="w-full table-fixed text-[14px]">
         <tr v-for="c in changes" :key="c.id" class="border-b border-line last:border-0 hover:bg-hover">
@@ -213,23 +166,6 @@ const statusText: Record<string, [string, string]> = {
       </table>
     </article>
 
-    <article v-else class="panel">
-      <p v-if="!reports.length" class="px-4 py-6 text-center text-muted">No saved scans.</p>
-      <ul v-else>
-        <li v-for="r in reports" :key="r.id" class="flex items-center gap-3 border-b border-line px-4 py-2 last:border-b-0 hover:bg-hover">
-          <span class="size-2 shrink-0 rounded-full" :style="{ background: r.open ? severityTone[r.worst ?? 'info'] : 'var(--ok)' }" />
-          <span class="w-36 shrink-0 tabular-nums">{{ when(r.at) }}</span>
-          <span class="flex-1 text-muted">
-            {{ r.open ? `${r.open} open` : 'Nothing open' }}<template v-if="r.resolved">, {{ r.resolved }} resolved</template>
-          </span>
-          <button class="btn h-7" @click="show(r.id)">Open</button>
-          <button class="rounded p-1 text-muted hover:bg-hover hover:text-bad" :aria-label="`Delete the scan from ${when(r.at)}`"
-                  title="Delete this scan" @click="pending = { kind: 'report', id: r.id, at: r.at }">
-            <Icon name="trash" class="size-3.5!" />
-          </button>
-        </li>
-      </ul>
-    </article>
 
     <ConfirmDialog :open="!!pending" :title="dialog.title" confirm="Delete" danger :busy="busy" :warning="dialog.warning"
                    @yes="confirmDelete" @no="pending = null">

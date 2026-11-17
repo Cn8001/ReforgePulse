@@ -59,10 +59,12 @@ first start shows the terms and the licence to accept before anything else.
     Windows Memory Diagnostic.
   - CPU cap: `PROCFREQMAX` and `PROCFREQMAX1` on every power plan through
     `powrprof.dll`, old values kept for revert.
-- **History**: the change log and the saved scans, each entry deletable on
-  its own or everything before a date. The log keeps its last 500 entries,
-  the last 30 scans are kept. A revert entry is deleted with the change it
-  undid, never alone, so a change can never look revertible twice.
+- **Reports**: saved scans (the last 30), crash dump analyses and recorder
+  sessions (the last 20), to open again or delete.
+- **History**: the change log, each entry deletable on its own or everything
+  before a date; it keeps its last 500 entries. A revert entry is deleted
+  with the change it undid, never alone, so a change can never look
+  revertible twice.
 - **Updates**: at start (unless turned off in Settings) and from Settings >
   Check for updates, ReforgePulse asks GitHub Releases for a newer version
   and asks before downloading it. The download is verified against the
