@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cn8001/reforgepulse/internal/atomicfile"
 	"github.com/cn8001/reforgepulse/internal/domain"
 )
 
@@ -19,7 +20,6 @@ import (
 // not in the change journal.
 type Resolutions struct {
 	mu   sync.Mutex
-	dir  string
 	path string
 	now  func() time.Time
 }
@@ -29,7 +29,7 @@ func OpenResolutions(dir string) (*Resolutions, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, fmt.Errorf("create resolutions dir: %w", err)
 	}
-	return &Resolutions{dir: dir, path: filepath.Join(dir, "resolved.json"), now: time.Now}, nil
+	return &Resolutions{path: filepath.Join(dir, "resolved.json"), now: time.Now}, nil
 }
 
 // All returns every resolution by key.
@@ -74,7 +74,7 @@ func (r *Resolutions) change(ctx context.Context, edit func(map[string]domain.Re
 	if err != nil {
 		return fmt.Errorf("encode resolutions: %w", err)
 	}
-	return writeFile(r.dir, r.path, b)
+	return atomicfile.Write(r.path, b)
 }
 
 func (r *Resolutions) load() (map[string]domain.Resolution, error) {

@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cn8001/reforgepulse/internal/atomicfile"
 	"github.com/cn8001/reforgepulse/internal/domain"
 )
 
@@ -159,32 +160,7 @@ func (s *Store) write(r domain.ScanResult) error {
 	if err != nil {
 		return fmt.Errorf("encode report: %w", err)
 	}
-	return writeFile(s.dir, s.path(r.ID), b)
-}
-
-// writeFile replaces path through a temporary file, so a crash leaves either
-// the old file or the new one, never half of one.
-func writeFile(dir, path string, b []byte) error {
-	tmp, err := os.CreateTemp(dir, ".tmp-*")
-	if err != nil {
-		return fmt.Errorf("create temp file: %w", err)
-	}
-	defer os.Remove(tmp.Name())
-	if _, err := tmp.Write(b); err != nil {
-		tmp.Close()
-		return fmt.Errorf("write %s: %w", filepath.Base(path), err)
-	}
-	if err := tmp.Sync(); err != nil {
-		tmp.Close()
-		return fmt.Errorf("sync %s: %w", filepath.Base(path), err)
-	}
-	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("close %s: %w", filepath.Base(path), err)
-	}
-	if err := os.Rename(tmp.Name(), path); err != nil {
-		return fmt.Errorf("replace %s: %w", filepath.Base(path), err)
-	}
-	return nil
+	return atomicfile.Write(s.path(r.ID), b)
 }
 
 func markNew(r *domain.ScanResult, prev domain.ScanResult) {
