@@ -30,6 +30,7 @@ import (
 	"github.com/cn8001/reforgepulse/internal/mcp"
 	"github.com/cn8001/reforgepulse/internal/platform/windows"
 	"github.com/cn8001/reforgepulse/internal/recorder"
+	"github.com/cn8001/reforgepulse/internal/reports"
 	"github.com/cn8001/reforgepulse/internal/tasks"
 )
 
@@ -71,6 +72,10 @@ type backend struct {
 	left     *leftovers.Inspector
 }
 
+// keepReports is how many past scans stay on disk: a month of daily scans,
+// a few hundred KB.
+const keepReports = 30
+
 // maxTasks bounds how much work runs at once, so a scan never starves the
 // PC it is diagnosing.
 const maxTasks = 4
@@ -80,6 +85,14 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 	j, err := journal.Open(dataDir)
 	if err != nil {
 		return nil, fmt.Errorf("open change log: %w", err)
+	}
+	reportStore, err := reports.Open(filepath.Join(dataDir, "reports"), keepReports)
+	if err != nil {
+		return nil, fmt.Errorf("open reports: %w", err)
+	}
+	resolved, err := reports.OpenResolutions(dataDir)
+	if err != nil {
+		return nil, fmt.Errorf("open resolutions: %w", err)
 	}
 	exe, err := os.Executable()
 	if err != nil {
@@ -104,6 +117,7 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 	left := leftovers.New(leftovers.Deps{Machine: host, Startup: host, Processes: procs, Files: host})
 	scan := app.NewScanService(app.ScanDeps{
 		Hardware: host, Sensors: sensors, Devices: host, Overview: overview, Live: overview, Crashes: crashes.New(host), Startup: startupApps, Processes: procs, Runner: runner,
+		Reports: reportStore, Resolved: resolved,
 	})
 	return &backend{
 		Startup: startupSvc,

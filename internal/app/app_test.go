@@ -3,7 +3,10 @@ package app
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
 	"testing"
+	"time"
 
 	"github.com/cn8001/reforgepulse/internal/domain"
 	"github.com/cn8001/reforgepulse/internal/platform"
@@ -301,9 +304,45 @@ type fakeStartupList []domain.StartupApp
 
 func (f fakeStartupList) List(context.Context) ([]domain.StartupApp, error) { return f, nil }
 
-func TestScanService_EvaluatesAndKeepsLast(t *testing.T) {
+type memReports struct{ saved []domain.ScanResult }
+
+func (m *memReports) Save(_ context.Context, r domain.ScanResult) (domain.ScanResult, error) {
+	r.ID = fmt.Sprint(len(m.saved))
+	m.saved = append([]domain.ScanResult{r}, m.saved...)
+	return r, nil
+}
+func (m *memReports) All(context.Context) ([]domain.ScanResult, error) { return m.saved, nil }
+func (m *memReports) Get(_ context.Context, id string) (domain.ScanResult, error) {
+	for _, r := range m.saved {
+		if r.ID == id {
+			return r, nil
+		}
+	}
+	return domain.ScanResult{}, os.ErrNotExist
+}
+func (m *memReports) Latest(context.Context) (*domain.ScanResult, error) {
+	if len(m.saved) == 0 {
+		return nil, nil
+	}
+	return &m.saved[0], nil
+}
+
+type memResolved map[string]domain.Resolution
+
+func (m memResolved) All(context.Context) (map[string]domain.Resolution, error) { return m, nil }
+func (m memResolved) Resolve(_ context.Context, key, title string) error {
+	m[key] = domain.Resolution{Key: key, Title: title, At: time.Now()}
+	return nil
+}
+func (m memResolved) Reopen(_ context.Context, key string) error {
+	delete(m, key)
+	return nil
+}
+
+func TestScanService_SavesReportsAndAppliesResolutions(t *testing.T) {
 	// Arrange
-	s := NewScanService(ScanDeps{
+	store := &memReports{}
+	deps := ScanDeps{
 		Hardware:  fakeHardware{},
 		Sensors:   fakeHardware{},
 		Devices:   fakeHardware{},
@@ -313,20 +352,31 @@ func TestScanService_EvaluatesAndKeepsLast(t *testing.T) {
 		Startup:   fakeStartupList{},
 		Processes: fakeLister{},
 		Runner:    tasks.New(1, func(tasks.Status) {}),
-	})
+		Reports:   store,
+		Resolved:  memResolved{},
+	}
+	ctx := context.Background()
+	s := NewScanService(deps)
 
 	// Act
-	res, err := s.Scan(context.Background())
+	res, err := s.Scan(ctx)
+	resolveErr := s.Resolve(ctx, "unexpected-restarts", "restarts")
+	restarted := NewScanService(deps)
+	last, lastErr := restarted.Last(ctx)
+	list, listErr := s.Reports(ctx)
 
 	// Assert
-	if err != nil {
-		t.Fatal(err)
+	if err != nil || len(res.Findings) != 1 || res.Findings[0].Status != domain.Open || res.ID != "0" {
+		t.Fatalf("scan = %+v, %v", res, err)
 	}
-	if len(res.Findings) != 1 || res.Findings[0].Rule != "unexpected-restarts" {
-		t.Fatalf("findings = %+v", res.Findings)
+	if resolveErr != nil || lastErr != nil || last == nil || last.Findings[0].Status != domain.Resolved {
+		t.Fatalf("last after restart = %+v, %v %v", last, resolveErr, lastErr)
 	}
-	if s.Last() == nil || len(s.Last().Findings) != 1 {
-		t.Fatal("the result was not kept")
+	if store.saved[0].Findings[0].Status != "" {
+		t.Fatal("a status leaked into the stored report")
+	}
+	if listErr != nil || len(list) != 1 || list[0].Resolved != 1 || list[0].Open != 0 {
+		t.Fatalf("reports = %+v, %v", list, listErr)
 	}
 }
 
