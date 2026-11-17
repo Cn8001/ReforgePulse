@@ -2,6 +2,8 @@
 
 <h1 align="center">ReforgePulse</h1>
 
+<p align="center"><a href="https://cn8001.github.io/ReforgePulse/">Website and live demo</a></p>
+
 <p align="center">
   <a href="docs/overview.png"><img src="docs/overview.png" alt="Overview: health score, the issues worth a look, live processor, graphics and memory load" width="32%"></a>
   <a href="docs/issues.png"><img src="docs/issues.png" alt="Issues: findings with their severity, to open, mark resolved or delete" width="32%"></a>
