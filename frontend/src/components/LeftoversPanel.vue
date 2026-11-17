@@ -52,6 +52,11 @@ function pick(p: string) {
   picked.value = next
 }
 
+const allPicked = computed(() => !!items.value?.length && picked.value.size === items.value.length)
+function pickAll() {
+  picked.value = allPicked.value ? new Set() : new Set((items.value ?? []).map((l) => l.path))
+}
+
 const selected = computed(() => (items.value ?? []).filter((l) => picked.value.has(l.path)))
 const selectedBytes = computed(() => selected.value.reduce((n, l) => n + l.size, 0))
 const totalBytes = computed(() => (items.value ?? []).reduce((n, l) => n + l.size, 0))
@@ -95,6 +100,7 @@ onMounted(scan)
           <p class="mt-0.5 text-xs text-muted">{{ texts.note }}</p>
         </div>
         <div class="flex gap-2">
+          <button class="btn" :disabled="!items?.length || busy" @click="pickAll">{{ allPicked ? 'Select none' : 'Select all' }}</button>
           <button class="btn" :disabled="scanning" @click="scan"><Icon name="refresh" class="size-4!" :class="scanning && 'animate-spin'" />Look again</button>
           <button class="btn-primary" :disabled="!picked.size || busy" @click="confirm = true">Move to Recycle Bin</button>
         </div>
