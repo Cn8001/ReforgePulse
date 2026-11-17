@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"strings"
 	"sync"
 
@@ -91,18 +90,21 @@ func (s *LeftoverService) Recycle(ctx context.Context, paths []string) error {
 		if err != nil {
 			return fmt.Errorf("log recycle: %w", err)
 		}
-		// One item at a time: Windows moves a whole list in one call that
-		// can neither report nor stop, and a big folder takes a while.
+		// Windows moves a list in one call that can neither report nor stop,
+		// and each call has a start-up cost. A few batches keep it about as
+		// fast as one call while the bar moves and Cancel works between them.
 		var moved []string
-		for i, p := range paths {
+		size := (len(paths) + recycleBatches - 1) / recycleBatches
+		for start := 0; start < len(paths); start += size {
 			if err = ctx.Err(); err != nil {
 				break
 			}
-			report(float64(i)/float64(len(paths)), filepath.Base(p))
-			if err = s.bin.Recycle(ctx, []string{p}); err != nil {
+			batch := paths[start:min(start+size, len(paths))]
+			report(float64(start)/float64(len(paths)), fmt.Sprintf("%d of %d", start, len(paths)))
+			if err = s.bin.Recycle(ctx, batch); err != nil {
 				break
 			}
-			moved = append(moved, p)
+			moved = append(moved, batch...)
 		}
 		after := fmt.Sprintf("%d of %d in the Recycle Bin; restore from there", len(moved), len(paths))
 		if ferr := s.journal.Finish(ctx, id, after, err); ferr != nil && err == nil {
@@ -116,6 +118,9 @@ func (s *LeftoverService) Recycle(ctx context.Context, paths []string) error {
 		return err
 	})
 }
+
+// recycleBatches is how many calls a move to the Recycle Bin is split into.
+const recycleBatches = 20
 
 // OldFilesService is the same service pointed at old downloads. It is its
 // own type because the window binds services by type.
