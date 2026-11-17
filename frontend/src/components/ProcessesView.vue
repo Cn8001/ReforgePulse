@@ -137,6 +137,12 @@ const order = (ns: Node[]) => {
   return ns.sort((a, b) => (value(a) < value(b) ? -dir : value(a) > value(b) ? dir : 0))
 }
 
+// The tree is for finding one's way, so it keeps a fixed order: by name,
+// then PID. Sorting it by load like the table would move both panes on every
+// refresh; only the numbers in it change.
+const byName = (ns: Node[]) =>
+  ns.sort((a, b) => a.p.name.localeCompare(b.p.name, undefined, { sensitivity: 'base' }) || a.p.pid - b.p.pid)
+
 // The left pane: the tree, opened where the user opened it.
 const treeRows = computed(() => {
   const { nodes, roots } = tree.value
@@ -146,9 +152,9 @@ const treeRows = computed(() => {
     if (shown.has(n.p.pid)) return
     shown.add(n.p.pid)
     out.push({ n, depth })
-    if (expanded.value.has(n.p.pid)) for (const c of order(n.kids.map((k) => nodes.get(k.pid)!))) walk(c, depth + 1)
+    if (expanded.value.has(n.p.pid)) for (const c of byName(n.kids.map((k) => nodes.get(k.pid)!))) walk(c, depth + 1)
   }
-  for (const r of order(roots.map((p) => nodes.get(p.pid)!))) walk(r, 0)
+  for (const r of byName(roots.map((p) => nodes.get(p.pid)!))) walk(r, 0)
   return out
 })
 
