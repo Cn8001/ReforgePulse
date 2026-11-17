@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/cn8001/reforgepulse/internal/app"
 	"github.com/cn8001/reforgepulse/internal/domain"
@@ -37,6 +38,8 @@ type PowerReader interface {
 type Scanner interface {
 	Scan(ctx context.Context) (domain.ScanResult, error)
 	Evidence(ctx context.Context) (domain.CrashEvidence, error)
+	Reports(ctx context.Context) ([]domain.ReportSummary, error)
+	Report(ctx context.Context, id string) (domain.ScanResult, error)
 }
 
 type ProgramLister interface {
@@ -55,6 +58,28 @@ func Tools(d Deps) []Tool {
 			Schema: noArgs,
 			Call: func(ctx context.Context, _ json.RawMessage) (any, error) {
 				return d.Scanner.Scan(ctx)
+			},
+		},
+		{
+			Name: "list_scan_reports",
+			Description: "Past scans, newest first: when each ran, how many findings are open and how many the user marked resolved. " +
+				"Compare them to see whether a fix held.",
+			Schema: noArgs,
+			Call: func(ctx context.Context, _ json.RawMessage) (any, error) {
+				return d.Scanner.Reports(ctx)
+			},
+		},
+		{
+			Name: "get_scan_report",
+			Description: "One past scan by the id list_scan_reports gives. Each finding has a status: open, resolved, or returned " +
+				"(marked resolved, then newer evidence turned up). New means the scan before it did not have it.",
+			Schema: json.RawMessage(`{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`),
+			Call: func(ctx context.Context, args json.RawMessage) (any, error) {
+				var a struct{ ID string }
+				if err := json.Unmarshal(args, &a); err != nil {
+					return nil, fmt.Errorf("read arguments: %w", err)
+				}
+				return d.Scanner.Report(ctx, a.ID)
 			},
 		},
 		{
