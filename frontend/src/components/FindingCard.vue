@@ -24,6 +24,11 @@ async function mark(resolved: boolean) {
 }
 
 const sureness: Record<string, string> = { confirmed: 'Confirmed', likely: 'Likely', possible: 'Possible' }
+const doubt: Record<string, string> = {
+  confirmed: 'Windows recorded exactly this.',
+  likely: 'the records point here, but do not prove it.',
+  possible: 'one explanation among others.',
+}
 </script>
 
 <template>
@@ -32,8 +37,15 @@ const sureness: Record<string, string> = { confirmed: 'Confirmed', likely: 'Like
       <span class="mt-1.5 size-2.5 shrink-0 rounded-full"
             :style="{ background: f.status === 'resolved' ? 'var(--muted)' : severityTone[f.severity] }" />
       <div class="min-w-0 flex-1">
-        <h3 class="text-[15px] font-semibold">{{ f.title }}</h3>
-        <p class="mt-1 text-muted">{{ f.summary }}</p>
+        <!-- The whole heading opens the details: a small "Evidence" link was
+             too easy to miss. -->
+        <button class="group -mx-2 -my-1 block w-[calc(100%+1rem)] rounded px-2 py-1 text-left hover:bg-hover" :aria-expanded="open" @click="open = !open">
+          <h3 class="flex items-start gap-1.5 text-[15px] font-semibold">
+            <Icon name="chevron" class="mt-1 size-3.5! shrink-0 text-muted transition-transform group-hover:text-fg" :class="open && 'rotate-90'" />
+            {{ f.title }}
+          </h3>
+          <p class="mt-1 pl-5 text-muted">{{ f.summary }}</p>
+        </button>
         <p class="mt-2 flex flex-wrap items-center gap-2 text-xs">
           <span class="chip capitalize" :style="{ color: severityTone[f.severity], borderColor: severityTone[f.severity] }">{{ f.severity }} severity</span>
           <span class="chip border-line text-muted">{{ sureness[f.confidence] ?? f.confidence }}</span>
@@ -41,17 +53,28 @@ const sureness: Record<string, string> = { confirmed: 'Confirmed', likely: 'Like
                 :title="`Marked resolved ${when(f.resolvedAt!)}, seen again ${when(f.latest!)}`">Came back</span>
           <span v-else-if="f.status === 'resolved'" class="chip border-line text-muted">Resolved {{ when(f.resolvedAt!) }}</span>
           <span v-if="f.new && f.status !== 'resolved'" class="chip border-fg/40 text-fg">New since last scan</span>
-          <button v-if="f.evidence?.length || f.alternatives" class="flex items-center gap-1 text-muted hover:text-fg" :aria-expanded="open" @click="open = !open">
-            <Icon name="chevron" class="size-3! transition-transform" :class="open && 'rotate-90'" />Evidence
-          </button>
         </p>
         <p v-if="f.status === 'returned'" class="mt-2 text-xs text-warn">
           You marked this resolved on {{ when(f.resolvedAt!) }}, but it happened again on {{ when(f.latest!) }}.
         </p>
         <p v-if="error" class="mt-2 text-xs text-bad">{{ error }}</p>
-        <div v-if="open" class="mt-3 flex flex-col gap-1.5 border-l-2 border-line pl-3 text-xs">
-          <p v-for="(e, i) in f.evidence" :key="i" class="text-muted select-text">{{ e }}</p>
-          <p v-if="f.alternatives" class="mt-1"><span class="text-muted">Other explanations:</span> {{ f.alternatives }}</p>
+        <div v-if="open" class="mt-3 flex flex-col gap-4 rounded border border-line bg-raised p-4 text-[14px]">
+          <section v-if="f.evidence?.length">
+            <h4 class="label mb-1.5">What Windows recorded</h4>
+            <ul class="flex flex-col gap-1 font-mono text-xs select-text">
+              <li v-for="(e, i) in f.evidence" :key="i">{{ e }}</li>
+            </ul>
+          </section>
+          <section v-if="f.alternatives">
+            <h4 class="label mb-1">Other explanations the evidence allows</h4>
+            <p>{{ f.alternatives }}</p>
+          </section>
+          <dl class="grid grid-cols-[9rem_1fr] gap-y-1 text-xs">
+            <dt class="text-muted">How sure</dt><dd>{{ sureness[f.confidence] ?? f.confidence }}: {{ doubt[f.confidence] }}</dd>
+            <template v-if="f.latest"><dt class="text-muted">Last seen</dt><dd>{{ when(f.latest) }}</dd></template>
+            <template v-if="f.resolvedAt"><dt class="text-muted">Marked resolved</dt><dd>{{ when(f.resolvedAt) }}</dd></template>
+            <dt class="text-muted">Key</dt><dd class="font-mono select-text">{{ f.key }}</dd>
+          </dl>
         </div>
       </div>
       <div class="flex shrink-0 flex-col items-end gap-2">

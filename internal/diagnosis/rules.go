@@ -441,12 +441,16 @@ func newest(events []domain.CrashEvent, detail string) time.Time {
 	return t
 }
 
-// times lists up to five occurrences for the evidence panel.
+// shownEvents is how many occurrences a finding's details list; the rest are
+// counted. Enough to see a pattern, small enough for a saved scan.
+const shownEvents = 15
+
+// times lists the first occurrences for the evidence panel.
 func times(source string, events []domain.CrashEvent) []string {
 	var out []string
 	for i, e := range events {
-		if i == 5 {
-			out = append(out, fmt.Sprintf("… and %d more", len(events)-5))
+		if i == shownEvents {
+			out = append(out, fmt.Sprintf("… and %d more", len(events)-shownEvents))
 			break
 		}
 		line := fmt.Sprintf("%s · %s", e.Time.Local().Format("2006-01-02 15:04"), source)
