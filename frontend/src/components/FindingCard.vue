@@ -4,6 +4,7 @@ import Icon from './Icon.vue'
 import type { Finding } from '../../bindings/github.com/cn8001/reforgepulse/internal/domain/models'
 import { severityTone, setResolved } from '../lib/scan'
 import { when } from '../lib/format'
+import { estimate } from '../lib/scan'
 
 const props = defineProps<{ f: Finding }>()
 const emit = defineEmits<{ act: [kind: string, arg?: string] }>()
@@ -24,11 +25,7 @@ async function mark(resolved: boolean) {
 }
 
 const sureness: Record<string, string> = { confirmed: 'Confirmed', likely: 'Likely', possible: 'Possible' }
-const doubt: Record<string, string> = {
-  confirmed: 'Windows recorded exactly this.',
-  likely: 'the records point here, but do not prove it.',
-  possible: 'one explanation among others.',
-}
+
 </script>
 
 <template>
@@ -70,11 +67,11 @@ const doubt: Record<string, string> = {
             <p>{{ f.alternatives }}</p>
           </section>
           <dl class="grid grid-cols-[9rem_1fr] gap-y-1 text-xs">
-            <dt class="text-muted">How sure</dt><dd>{{ sureness[f.confidence] ?? f.confidence }}: {{ doubt[f.confidence] }}</dd>
             <template v-if="f.latest"><dt class="text-muted">Last seen</dt><dd>{{ when(f.latest) }}</dd></template>
             <template v-if="f.resolvedAt"><dt class="text-muted">Marked resolved</dt><dd>{{ when(f.resolvedAt) }}</dd></template>
             <dt class="text-muted">Key</dt><dd class="font-mono select-text">{{ f.key }}</dd>
           </dl>
+          <p class="text-xs text-muted">{{ estimate }}</p>
         </div>
       </div>
       <div class="flex shrink-0 flex-col items-end gap-2">

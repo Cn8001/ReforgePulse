@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import FindingCard from './FindingCard.vue'
 import Icon from './Icon.vue'
 import SuspectList from './SuspectList.vue'
-import { active, loadLastScan, loadReports, openReport, reports, runScan, scan, scanError, scanning, severityTone, viewed } from '../lib/scan'
+import { active, estimate, loadLastScan, loadReports, openReport, reports, runScan, scan, scanError, scanning, severityTone, viewed } from '../lib/scan'
 import { since, when } from '../lib/format'
 
 const emit = defineEmits<{ open: [page: string, arg?: string] }>()
@@ -97,6 +97,8 @@ function act(kind: string, arg?: string) {
         <FindingCard v-for="f in resolved" :key="f.key" :f="f" @act="act" />
       </template>
     </div>
+
+    <p v-if="shown?.findings?.length" class="text-xs text-muted">{{ estimate }}</p>
 
     <div v-if="reports.length" class="panel">
       <div class="flex items-baseline justify-between border-b border-line px-5 py-3">

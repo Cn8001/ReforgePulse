@@ -48,6 +48,11 @@ export async function setResolved(f: Finding, resolved: boolean) {
   await Promise.all([loadLastScan(), loadReports(), id ? Report(id).then((r) => (viewed.value = r)) : null])
 }
 
+// Every finding is read from Windows' own records and can be wrong; the user
+// decides what to do with it. Shown under each finding and under the list.
+export const estimate =
+  'These are estimates drawn from what Windows recorded, not a diagnosis. Do not rely on them alone; what you do with them is your decision and your responsibility.'
+
 // Red and amber are spent only on what needs attention; the signal colour
 // stays for live data, so low and info findings are grey.
 export const severityTone: Record<string, string> = {
