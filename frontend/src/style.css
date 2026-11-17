@@ -67,8 +67,24 @@ body,
   color: var(--fg);
   user-select: none;
 }
+/* The app scrolls inside its own panes. The document itself never does:
+   a scrollbar appearing for a moment narrows the whole window and makes
+   everything jump. */
+html,
+body {
+  overflow: hidden;
+}
 body {
   font-size: 14px;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 120ms linear;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
 :focus-visible {

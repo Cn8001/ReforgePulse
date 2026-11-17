@@ -108,10 +108,11 @@ const finishedText = computed(() => {
       </div>
     </div>
   </Transition>
-  <footer class="flex h-7 shrink-0 items-center gap-4 border-t border-line bg-panel px-3 text-[13px] text-muted">
+  <footer class="flex h-7 shrink-0 items-center gap-4 overflow-hidden border-t border-line bg-panel px-3 text-[13px] text-muted">
     <button class="flex min-w-0 items-center self-stretch rounded px-1 -mx-1 hover:bg-hover" :aria-expanded="open"
             title="Show tasks" @click="open = !open">
-    <Transition name="page" mode="out-in">
+    <!-- A fade only: a moving transform would spill out of the bar. -->
+    <Transition name="fade" mode="out-in">
       <div v-if="current" key="busy" class="flex min-w-0 items-center gap-2.5">
         <span class="size-2 shrink-0 animate-pulse rounded-full bg-accent" />
         <span class="truncate text-fg">{{ current.title }}<span v-if="current.note" class="text-muted">, {{ current.note }}</span></span>
