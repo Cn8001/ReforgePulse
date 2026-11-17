@@ -64,7 +64,8 @@ first start shows the terms and the licence to accept before anything else.
 - **History**: the change log, each entry deletable on its own or everything
   before a date; it keeps its last 500 entries. A revert entry is deleted
   with the change it undid, never alone, so a change can never look
-  revertible twice.
+  revertible twice. Settings can delete history and reports older than 10,
+  30 or any number of days, now and at every start; it is off by default.
 - **Updates**: at start (unless turned off in Settings) and from Settings >
   Check for updates, ReforgePulse asks GitHub Releases for a newer version
   and asks before downloading it. The download is verified against the

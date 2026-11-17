@@ -61,6 +61,8 @@ The first release, for Windows 10 and 11 on x64.
 - Every change is recorded before it is made, with revert where it can be
   undone. Entries can be deleted one by one or before a date; the log keeps
   its last 500.
+- Settings can delete history and reports older than 10, 30 or a chosen
+  number of days, at once and at every start. Off unless turned on.
 
 ### The app
 

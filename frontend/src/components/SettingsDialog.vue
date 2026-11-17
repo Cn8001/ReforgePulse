@@ -9,6 +9,7 @@ import { Info } from '../../bindings/github.com/cn8001/reforgepulse/internal/app
 import type { About } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/models'
 import { formatBytes } from '../lib/format'
 import Toggle from './Toggle.vue'
+import RetentionSetting from './RetentionSetting.vue'
 import { askRestart, check, checkOnStart, download, release, setCheckOnStart, update, updateError } from '../lib/update'
 
 const showNotes = ref(false)
@@ -59,6 +60,8 @@ const read = (what: 'license' | 'terms') => (reading.value = reading.value === w
               </button>
             </div>
           </div>
+
+          <RetentionSetting />
 
           <div class="flex items-center justify-between gap-4 border-b border-line px-5 py-4">
             <div>
