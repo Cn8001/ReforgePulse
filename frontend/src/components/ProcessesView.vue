@@ -232,7 +232,8 @@ async function endTask() {
             <span v-else class="size-6 shrink-0" />
             <button class="flex min-w-0 flex-1 items-center gap-2 rounded px-1.5 py-1 text-left hover:bg-hover"
                     :class="selected === n.p.pid && 'bg-hover'" :aria-current="selected === n.p.pid" @click="select(n.p.pid)">
-              <span class="min-w-0 truncate" :class="[!n.p.access && 'text-muted', selected === n.p.pid && 'text-fg']" :title="n.p.name">{{ n.p.name }}</span>
+              <span class="min-w-0 truncate" :class="[n.p.ours ? 'text-ok' : !n.p.access && 'text-muted', selected === n.p.pid && !n.p.ours && 'text-fg']"
+                    :title="n.p.ours ? `${n.p.name}: ReforgePulse itself` : n.p.name">{{ n.p.name }}</span>
               <span v-if="n.count" class="text-xs text-muted">{{ n.count }}</span>
               <span v-if="n.p.hung" class="size-1.5 shrink-0 rounded-full bg-bad" title="Not responding" />
               <span class="ml-auto shrink-0 text-xs tabular-nums" :class="n.cpu >= 25 ? 'text-warn' : 'text-muted'">{{ n.cpu >= 0.1 ? n.cpu.toFixed(1) : '' }}</span>
@@ -255,6 +256,7 @@ async function endTask() {
               <h2 class="flex min-w-0 flex-wrap items-center gap-2 text-[16px] font-semibold break-all">
                 {{ current.p.name }} <span class="font-mono text-xs font-normal text-muted">{{ current.p.pid }}</span>
                 <span v-if="current.p.hung" class="chip border-bad/50 text-bad">Not responding</span>
+                <span v-if="current.p.ours" class="chip border-ok/50 font-normal text-ok">ReforgePulse itself</span>
               </h2>
               <dl class="mt-2 grid grid-cols-[7rem_minmax(0,1fr)] gap-y-1">
                 <dt class="text-muted">Path</dt><dd class="truncate font-mono text-xs select-text" :title="current.p.path">{{ current.p.path || 'Hidden by Windows (protected process)' }}</dd>
@@ -297,7 +299,8 @@ async function endTask() {
                 <td class="truncate px-3 py-1.5">
                   <span class="flex items-center gap-2">
                     <Icon v-if="!n.p.access" name="lock" class="size-3.5! shrink-0 text-muted" />
-                    <span class="min-w-0 truncate" :class="!n.p.access && 'text-muted'" :title="n.p.name">{{ n.p.name }}</span>
+                    <span class="min-w-0 truncate" :class="n.p.ours ? 'text-ok' : !n.p.access && 'text-muted'" :title="n.p.name">{{ n.p.name }}</span>
+                    <span v-if="n.p.ours" class="chip border-ok/50 text-ok">ReforgePulse</span>
                     <span v-if="n.count" class="text-xs text-muted">{{ n.count }}</span>
                     <span v-if="n.p.hung" class="chip border-bad/50 text-bad">Not responding</span>
                   </span>

@@ -660,21 +660,25 @@ func TestExportService_WritesTheReportWhereChosen(t *testing.T) {
 	}
 }
 
-func TestProcessService_MarksEveryProcessRunningOurExe(t *testing.T) {
+func TestProcessService_MarksOurPIDAndWhatItStarted(t *testing.T) {
 	// Arrange
-	exe := `C:\Program Files\ReforgePulse\reforgepulse.exe`
 	ps := []domain.Process{
-		{PID: 10, Name: "reforgepulse.exe", Path: exe},
-		{PID: 11, Name: "reforgepulse.exe", Path: `c:\program files\reforgepulse\REFORGEPULSE.EXE`},
-		{PID: 12, Name: "chrome.exe", Path: `C:\Chrome\chrome.exe`},
+		{PID: 10, ParentPID: 1, Name: "reforgepulse.exe"},
+		{PID: 11, ParentPID: 10, Name: "reforgepulse.exe"}, // the probe
+		{PID: 12, ParentPID: 11, Name: "cdb.exe"},
+		{PID: 20, ParentPID: 30, Name: "reforgepulse.exe"}, // an agent's MCP server, the agent's child
+		{PID: 30, ParentPID: 30, Name: "claude.exe"},
 	}
-	s := NewProcessService(ProcessDeps{Lister: fakeLister{ps: ps}, Self: 10, Exe: exe})
+	s := NewProcessService(ProcessDeps{Lister: fakeLister{ps: ps}, Self: 10})
 
 	// Act
 	got, err := s.List(context.Background())
 
 	// Assert
-	if err != nil || !got[0].Ours || !got[1].Ours || got[2].Ours {
-		t.Fatalf("ours = %v %v %v, %v", got[0].Ours, got[1].Ours, got[2].Ours, err)
+	want := []bool{true, true, true, false, false}
+	for i, w := range want {
+		if err != nil || got[i].Ours != w {
+			t.Fatalf("%s %d ours = %v, want %v (%v)", got[i].Name, got[i].PID, got[i].Ours, w, err)
+		}
 	}
 }

@@ -179,7 +179,7 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier, hw h
 		Progs: app.NewProgramService(app.ProgramDeps{
 			Finder: progs, Uninstaller: host, Runner: runner, Journal: j,
 		}),
-		Procs:   app.NewProcessService(app.ProcessDeps{Lister: procs, Killer: procs, Journal: j, Self: uint32(os.Getpid()), Exe: exe}),
+		Procs:   app.NewProcessService(app.ProcessDeps{Lister: procs, Killer: procs, Journal: j, Self: uint32(os.Getpid())}),
 		About:   app.NewAboutService(about, accepted),
 		Cleanup: app.NewCleanupService(cleanup.New(host.CleanupLocations(), j), runner),
 		System:  app.NewSystemService(overview, overview, runner),

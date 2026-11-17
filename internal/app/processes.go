@@ -30,8 +30,7 @@ type ProcessDeps struct {
 	Lister  ProcessLister
 	Killer  ProcessKiller
 	Journal Recorder
-	Self    uint32 // our own PID, which End task also refuses
-	Exe     string // our own executable: every process running it is ours
+	Self    uint32 // our own PID: End task refuses it, and it and what it started are marked ours
 }
 
 type ProcessService struct {
@@ -62,15 +61,35 @@ func (s *ProcessService) End(ctx context.Context, pid uint32, name string) error
 	return nil
 }
 
-// List returns the running processes, ReforgePulse's own marked: the
-// window, its hardware probe and any agent's MCP server all run its exe.
+// List returns the running processes with this window's own marked, by
+// PID: the window and every process under it, such as the hardware probe.
 func (s *ProcessService) List(ctx context.Context) ([]domain.Process, error) {
 	ps, err := s.d.Lister.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list processes: %w", err)
 	}
+	parent := make(map[uint32]uint32, len(ps))
+	for _, p := range ps {
+		parent[p.PID] = p.ParentPID
+	}
 	for i := range ps {
-		ps[i].Ours = ps[i].PID == s.d.Self || (s.d.Exe != "" && strings.EqualFold(ps[i].Path, s.d.Exe))
+		ps[i].Ours = s.descends(ps[i].PID, parent)
 	}
 	return ps, nil
+}
+
+// descends follows parents up to our PID. The walk is bounded: a reused
+// PID can make the parent chain loop.
+func (s *ProcessService) descends(pid uint32, parent map[uint32]uint32) bool {
+	for range 64 {
+		if pid == s.d.Self {
+			return true
+		}
+		next, ok := parent[pid]
+		if !ok || next == pid || next == 0 {
+			return false
+		}
+		pid = next
+	}
+	return false
 }
