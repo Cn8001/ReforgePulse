@@ -13,6 +13,7 @@ import (
 	"github.com/cn8001/reforgepulse/internal/agents"
 	"github.com/cn8001/reforgepulse/internal/app"
 	"github.com/cn8001/reforgepulse/internal/cleanup"
+	"github.com/cn8001/reforgepulse/internal/consent"
 	"github.com/cn8001/reforgepulse/internal/coretest"
 	"github.com/cn8001/reforgepulse/internal/diagnosis"
 	"github.com/cn8001/reforgepulse/internal/inspect/cores"
@@ -89,7 +90,11 @@ const maxTasks = 4
 func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*backend, error) {
 	about := app.About{
 		Version: app.VersionFrom(buildConfig), DataDir: dataDir, Terms: terms, License: license,
-		Source: "https://github.com/" + updates.Repository,
+		Source: "https://github.com/" + updates.Repository, Wording: consent.Version(terms, license),
+	}
+	accepted, err := consent.Open(dataDir)
+	if err != nil {
+		return nil, fmt.Errorf("open consent: %w", err)
 	}
 	j, err := journal.Open(dataDir)
 	if err != nil {
@@ -162,7 +167,7 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 			Finder: progs, Uninstaller: host, Runner: runner, Journal: j,
 		}),
 		Procs:   app.NewProcessService(procs, procs, j, uint32(os.Getpid())),
-		About:   app.NewAboutService(about),
+		About:   app.NewAboutService(about, accepted),
 		Cleanup: app.NewCleanupService(cleanup.New(host.CleanupLocations(), j), runner),
 		System:  app.NewSystemService(overview, overview, runner),
 		Tasks:   app.NewTaskService(runner),
