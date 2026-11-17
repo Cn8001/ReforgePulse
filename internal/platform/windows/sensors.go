@@ -26,6 +26,7 @@ type SensorReader struct {
 	nvml    *windows.LazyDLL
 	nvmlErr error
 	started bool
+	kmt     kmtAdapters
 }
 
 var _ platform.Sensors = (*SensorReader)(nil)
@@ -34,26 +35,19 @@ func NewSensorReader() *SensorReader {
 	return &SensorReader{nvml: windows.NewLazySystemDLL("nvml.dll")}
 }
 
+// Sensors reads every source, one caller at a time. nvml.dll was seen to
+// crash on a NULL read when another read overlapped it, reproducibly on an
+// RTX 4070 Ti SUPER, so nothing here runs beside anything else.
 func (r *SensorReader) Sensors(ctx context.Context) platform.SensorStatus {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	var st platform.SensorStatus
-	gpu, err := r.gpus()
-	if err != nil {
-		st.NVML = err.Error()
+	gpu, nvmlErr, kmtErr := r.graphics()
+	if nvmlErr != nil {
+		st.NVML = nvmlErr.Error()
 	}
-	// NVML says more (watts, load), so the kernel's readings only fill in
-	// adapters it does not cover: AMD, Intel and NVIDIA without NVML.
-	covered := map[string]bool{}
-	for _, s := range gpu {
-		covered[s.Group] = true
-	}
-	other, err := adapterSensors()
-	if err != nil {
-		st.Graphics = err.Error()
-	}
-	for _, s := range other {
-		if !covered[s.Group] {
-			gpu = append(gpu, s)
-		}
+	if kmtErr != nil {
+		st.Graphics = kmtErr.Error()
 	}
 	hw, err := hwinfo()
 	if err != nil {
@@ -63,13 +57,27 @@ func (r *SensorReader) Sensors(ctx context.Context) platform.SensorStatus {
 	return st
 }
 
+// graphics reads NVML where NVIDIA's driver is installed and the graphics
+// kernel everywhere else; the caller holds r.mu. Never both in one process:
+// with the kernel's adapters open, nvml.dll crashed on a NULL read now and
+// then (reproduced on an RTX 4070 Ti SUPER, never without them). NVML also
+// says more, watts and load, so on a PC with NVIDIA beside another card that
+// other card goes without.
+func (r *SensorReader) graphics() (_ []platform.Sensor, nvmlErr, kmtErr error) {
+	gpu, nvmlErr := r.gpus()
+	if nvmlErr == nil && len(gpu) > 0 {
+		return gpu, nil, nil
+	}
+	other, kmtErr := r.kmt.sensors()
+	return other, nvmlErr, kmtErr
+}
+
 // nvmlUtilization mirrors nvmlUtilization_t; nvmlMemory mirrors nvmlMemory_t.
 type nvmlUtilization struct{ GPU, Memory uint32 }
 type nvmlMemory struct{ Total, Free, Used uint64 }
 
+// gpus reads NVIDIA cards; the caller holds r.mu.
 func (r *SensorReader) gpus() ([]platform.Sensor, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
 	if r.nvmlErr != nil {
 		return nil, r.nvmlErr
 	}
@@ -130,7 +138,7 @@ func (r *SensorReader) gpus() ([]platform.Sensor, error) {
 	return out, nil
 }
 
-// Close shuts NVML down.
+// Close shuts NVML down, then lets go of the graphics adapters.
 func (r *SensorReader) Close() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -138,6 +146,7 @@ func (r *SensorReader) Close() {
 		r.nvml.NewProc("nvmlShutdown").Call()
 		r.started = false
 	}
+	r.kmt.close()
 }
 
 const hwinfoSignature = 0x53695748 // "HWiS"

@@ -44,10 +44,44 @@ type d3dkmtQueryAdapterInfo struct {
 	Size    uint32
 }
 
-// adapterSensors reads temperature, fan and power for each graphics adapter
-// whose driver reports them, named the way Device Manager names it. Adapters
-// that report nothing, such as most integrated GPUs, are left out.
-func adapterSensors() ([]platform.Sensor, error) {
+// kmtAdapters keeps the graphics adapters open while the reader lives, so a
+// read is a few queries per adapter instead of listing them all again.
+type kmtAdapters struct {
+	opened  bool
+	err     error
+	handles []uint32
+}
+
+// sensors reads temperature, fan and power for each graphics adapter whose
+// driver reports them, named the way Device Manager names it. Adapters that
+// report nothing, such as most integrated GPUs, are left out.
+func (a *kmtAdapters) sensors() ([]platform.Sensor, error) {
+	if !a.opened {
+		a.opened = true
+		a.handles, a.err = openAdapters()
+	}
+	if a.err != nil {
+		return nil, a.err
+	}
+	var out []platform.Sensor
+	for _, h := range a.handles {
+		out = append(out, readAdapter(h)...)
+	}
+	if len(out) == 0 {
+		return nil, errNoAdapterPerfData
+	}
+	return out, nil
+}
+
+func (a *kmtAdapters) close() {
+	for _, h := range a.handles {
+		arg := struct{ Adapter uint32 }{h}
+		procCloseAdapter.Call(uintptr(unsafe.Pointer(&arg)))
+	}
+	*a = kmtAdapters{}
+}
+
+func openAdapters() ([]uint32, error) {
 	if err := procEnumAdapters2.Find(); err != nil {
 		return nil, fmt.Errorf("no D3DKMTEnumAdapters2: %w", err)
 	}
@@ -62,17 +96,11 @@ func adapterSensors() ([]platform.Sensor, error) {
 	if st != 0 {
 		return nil, fmt.Errorf("list graphics adapters: status %#x", st)
 	}
-	var out []platform.Sensor
-	for i := 0; i < int(e.Count); i++ {
-		h := binary.LittleEndian.Uint32(buf[i*adapterInfoSize:])
-		out = append(out, readAdapter(h)...)
-		closeArg := struct{ Adapter uint32 }{h}
-		procCloseAdapter.Call(uintptr(unsafe.Pointer(&closeArg)))
+	hs := make([]uint32, e.Count)
+	for i := range hs {
+		hs[i] = binary.LittleEndian.Uint32(buf[i*adapterInfoSize:])
 	}
-	if len(out) == 0 {
-		return nil, errNoAdapterPerfData
-	}
-	return out, nil
+	return hs, nil
 }
 
 func queryAdapter(h uint32, typ int32, data []byte) bool {
