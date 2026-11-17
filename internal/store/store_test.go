@@ -5,6 +5,10 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
+
+	"github.com/cn8001/reforgepulse/internal/domain"
+	"github.com/cn8001/reforgepulse/internal/recorder"
 )
 
 func TestOpen_CreatesTheSchemaOnceAndReopens(t *testing.T) {
@@ -99,5 +103,56 @@ func TestSettings_DefaultUntilSet(t *testing.T) {
 	// Assert
 	if before != "on" || setErr != nil || after != "off" {
 		t.Fatalf("before %q, set %v, after %q", before, setErr, after)
+	}
+}
+
+func TestAnalyses_BelongToTheNameAndTheDumpTime(t *testing.T) {
+	// Arrange
+	ctx := context.Background()
+	db, err := Open(ctx, filepath.Join(t.TempDir(), "app.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	s := NewAnalyses(db)
+	first := time.Date(2026, 11, 10, 3, 0, 0, 0, time.UTC)
+
+	// Act
+	saveErr := s.Save(ctx, "MEMORY.DMP", first, domain.DumpAnalysis{Name: "MEMORY.DMP", Image: "nvlddmkm.sys"})
+	same, err1 := s.Get(ctx, "MEMORY.DMP", first)
+	newer, err2 := s.Get(ctx, "MEMORY.DMP", first.Add(time.Hour)) // overwritten by a later crash
+
+	// Assert
+	if saveErr != nil || err1 != nil || err2 != nil || same == nil || same.Image != "nvlddmkm.sys" || newer != nil {
+		t.Fatalf("save %v, same %+v %v, newer %+v %v", saveErr, same, err1, newer, err2)
+	}
+}
+
+func TestRecordings_KeepTheNewestAndListWithoutSeries(t *testing.T) {
+	// Arrange
+	ctx := context.Background()
+	db, err := Open(ctx, filepath.Join(t.TempDir(), "app.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	s := NewRecordings(db, 2)
+	start := time.Date(2026, 11, 17, 9, 0, 0, 0, time.UTC)
+
+	// Act
+	for i := range 3 {
+		if _, err := s.Save(ctx, recorder.Recording{Started: start.Add(time.Duration(i) * time.Hour), CPU: []float64{1, 2}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	all, err := s.All(ctx)
+	full, getErr := s.Get(ctx, all[0].ID)
+
+	// Assert
+	if err != nil || len(all) != 2 || all[0].ID != "20261117-110000" || all[0].CPU != nil {
+		t.Fatalf("all = %+v, %v", all, err)
+	}
+	if getErr != nil || len(full.CPU) != 2 {
+		t.Fatalf("get = %+v, %v", full, getErr)
 	}
 }

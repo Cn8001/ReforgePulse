@@ -83,6 +83,10 @@ type backend struct {
 // a few hundred KB.
 const keepReports = 30
 
+// keepRecordings is how many recorder sessions stay saved; each is at most
+// a few hundred points per series, so they stay small.
+const keepRecordings = 20
+
 // keepChanges caps the change log; older entries are dropped at start-up.
 // Years of normal use, and still only a few hundred KB.
 const keepChanges = 500
@@ -143,10 +147,10 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier, hw h
 		Events:  app.NewEventService(events.New(host), runner),
 		Checks:  app.NewCheckService(host, runner),
 		Drivers: app.NewDriverService(host, runner),
-		Rec:     app.NewRecorderService(recorder.New(overview, procs), runner),
+		Rec:     app.NewRecorderService(recorder.New(overview, procs), runner, store.NewRecordings(db, keepRecordings)),
 		Dumps: app.NewDumpService(dumps.New(dumps.Deps{
 			Dir: host.DumpDir(), Symbols: filepath.Join(dataDir, "symbols"), Debugger: host, Names: diagnosis.BugcheckNames,
-		}), runner),
+		}), runner, store.NewAnalyses(db)),
 		HW: app.NewHardwareService(app.HardwareDeps{
 			Facts: host, Cores: hw.Cores, Loads: hw.Loads, Tester: hw.Tester, Runner: runner,
 		}),

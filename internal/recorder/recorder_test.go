@@ -72,3 +72,20 @@ func TestRecorder_StopsEarlyAndKeepsData(t *testing.T) {
 		t.Fatalf("rec = %+v", rec)
 	}
 }
+
+func TestRecorder_LongSessionsKeepAFixedSize(t *testing.T) {
+	// Arrange
+	r := New(fakeLive{}, &procs{})
+	r.tick = instant
+
+	// Act
+	rec := r.Record(context.Background(), 4*time.Hour, func(float64, string) {})
+
+	// Assert
+	if len(rec.CPU) >= maxPoints || len(rec.CPU) < maxPoints/2 || rec.SampleSeconds < 2 {
+		t.Fatalf("%d points of %d seconds each", len(rec.CPU), rec.SampleSeconds)
+	}
+	if rec.CPU[0] != 10 || !rec.Top[0].Leak {
+		t.Fatalf("averaging changed the values: %v, top %+v", rec.CPU[0], rec.Top[0])
+	}
+}

@@ -48,6 +48,18 @@ var migrations = []string{
 		key   TEXT PRIMARY KEY,
 		value TEXT NOT NULL
 	);`,
+	// A dump file name comes back (MEMORY.DMP is overwritten), so an
+	// analysis belongs to the name and the dump's own time together.
+	`CREATE TABLE dump_analyses (
+		name   TEXT NOT NULL,
+		dumped TEXT NOT NULL,
+		body   TEXT NOT NULL,
+		PRIMARY KEY (name, dumped)
+	);
+	CREATE TABLE recordings (
+		id   TEXT PRIMARY KEY,
+		body TEXT NOT NULL
+	);`,
 }
 
 // Open opens path, creating it and its folder when needed, and brings the
