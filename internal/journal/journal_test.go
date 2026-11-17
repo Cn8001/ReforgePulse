@@ -3,20 +3,23 @@ package journal
 import (
 	"context"
 	"errors"
-	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/cn8001/reforgepulse/internal/domain"
+	"github.com/cn8001/reforgepulse/internal/store"
 )
 
 func newTest(t *testing.T) *Journal {
 	t.Helper()
-	j, err := Open(t.TempDir())
+	db, err := store.Open(context.Background(), filepath.Join(t.TempDir(), "test.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { db.Close() })
+	j := New(db)
 	tick := time.Date(2026, 11, 16, 12, 0, 0, 0, time.UTC)
 	var mu sync.Mutex
 	j.now = func() time.Time { mu.Lock(); defer mu.Unlock(); tick = tick.Add(time.Second); return tick }
@@ -85,23 +88,6 @@ func TestJournal_RevertMarksOriginal(t *testing.T) {
 	// Assert
 	if log[1].ID != orig || log[1].Status != domain.Reverted || log[0].Status != domain.Applied {
 		t.Fatalf("log = %+v", log)
-	}
-}
-
-func TestJournal_SkipsTornLine(t *testing.T) {
-	// Arrange
-	j, ctx := newTest(t), context.Background()
-	id, _ := j.Begin(ctx, domain.Change{Summary: "kept"})
-	f, _ := os.OpenFile(j.path, os.O_APPEND|os.O_WRONLY, 0)
-	_, _ = f.WriteString(`{"id":"abc","summ`)
-	f.Close()
-
-	// Act
-	log, err := j.Log(ctx)
-
-	// Assert
-	if err != nil || len(log) != 1 || log[0].ID != id {
-		t.Fatalf("log = %+v, err = %v", log, err)
 	}
 }
 

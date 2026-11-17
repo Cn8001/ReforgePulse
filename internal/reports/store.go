@@ -1,209 +1,149 @@
-// Package reports keeps past scans and what the user marked resolved. A scan
-// is one compact JSON file, named by when it ran, and only the latest few
-// are kept so the folder never grows without bound.
+// Package reports keeps past scans and what the user marked resolved. A
+// scan is one row holding its result as compact JSON, and only the latest
+// few are kept so the table never grows without bound.
 package reports
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
-	"regexp"
-	"sort"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/cn8001/reforgepulse/internal/atomicfile"
 	"github.com/cn8001/reforgepulse/internal/domain"
 )
 
+// idLayout makes IDs from scan times, so sorting IDs sorts by time.
 const idLayout = "20060102-150405.000"
 
-// validID guards Get: an ID comes from the window and becomes a file name.
-var validID = regexp.MustCompile(`^\d{8}-\d{6}-\d{3}$`)
+func idAt(t time.Time) string { return strings.Replace(t.UTC().Format(idLayout), ".", "-", 1) }
 
 type Store struct {
-	mu   sync.Mutex
-	dir  string
+	db   *sql.DB
 	keep int
 }
 
-// Open uses dir for reports, creating it when needed, and keeps the newest
-// keep of them.
-func Open(dir string, keep int) (*Store, error) {
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return nil, fmt.Errorf("create reports dir: %w", err)
-	}
-	return &Store{dir: dir, keep: keep}, nil
-}
+// New keeps reports in db and only the newest keep of them.
+func New(db *sql.DB, keep int) *Store { return &Store{db: db, keep: keep} }
 
-// Save writes r under an ID taken from its time, marks findings the scan
+// Save stores r under an ID taken from its time, marks findings the scan
 // before it did not have as new, and drops reports past the limit.
 func (s *Store) Save(ctx context.Context, r domain.ScanResult) (domain.ScanResult, error) {
-	if err := ctx.Err(); err != nil {
-		return r, err
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	ids, err := s.ids()
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return r, err
+		return r, fmt.Errorf("begin save: %w", err)
 	}
-	if len(ids) > 0 {
-		prev, err := s.read(ids[0])
-		if err == nil {
-			markNew(&r, prev)
+	defer tx.Rollback()
+	var prev string
+	err = tx.QueryRowContext(ctx, `SELECT body FROM reports ORDER BY id DESC LIMIT 1`).Scan(&prev)
+	if err == nil {
+		var p domain.ScanResult
+		if json.Unmarshal([]byte(prev), &p) == nil {
+			markNew(&r, p)
 		}
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return r, fmt.Errorf("read last report: %w", err)
 	}
-	r.ID = strings.Replace(r.At.UTC().Format(idLayout), ".", "-", 1)
-	if err := s.write(r); err != nil {
-		return r, err
+	r.ID = idAt(r.At)
+	body, err := json.Marshal(r)
+	if err != nil {
+		return r, fmt.Errorf("encode report: %w", err)
 	}
-	ids = append([]string{r.ID}, ids...)
-	for _, old := range ids[min(len(ids), s.keep):] {
-		if err := os.Remove(s.path(old)); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return r, fmt.Errorf("remove old report: %w", err)
-		}
+	if _, err := tx.ExecContext(ctx, `INSERT OR REPLACE INTO reports (id, at, body) VALUES (?, ?, ?)`, r.ID, r.ID, string(body)); err != nil {
+		return r, fmt.Errorf("save report: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM reports WHERE id NOT IN (SELECT id FROM reports ORDER BY id DESC LIMIT ?)`, s.keep); err != nil {
+		return r, fmt.Errorf("drop old reports: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return r, fmt.Errorf("commit report: %w", err)
 	}
 	return r, nil
 }
 
 // All returns every kept report, newest first.
 func (s *Store) All(ctx context.Context) ([]domain.ScanResult, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	ids, err := s.ids()
+	rows, err := s.db.QueryContext(ctx, `SELECT body FROM reports ORDER BY id DESC`)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list reports: %w", err)
 	}
-	out := make([]domain.ScanResult, 0, len(ids))
-	for _, id := range ids {
-		if err := ctx.Err(); err != nil {
-			return nil, err
+	defer rows.Close()
+	out := []domain.ScanResult{}
+	for rows.Next() {
+		var body string
+		if err := rows.Scan(&body); err != nil {
+			return nil, fmt.Errorf("read report: %w", err)
 		}
-		r, err := s.read(id)
-		if err != nil {
-			continue // a file torn by a crash mid-write is skipped, not fatal
+		var r domain.ScanResult
+		if json.Unmarshal([]byte(body), &r) != nil {
+			continue // one unreadable report should not hide the others
 		}
 		out = append(out, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list reports: %w", err)
 	}
 	return out, nil
 }
 
 // Get returns one report by ID.
 func (s *Store) Get(ctx context.Context, id string) (domain.ScanResult, error) {
-	if err := ctx.Err(); err != nil {
-		return domain.ScanResult{}, err
-	}
-	if !validID.MatchString(id) {
-		return domain.ScanResult{}, fmt.Errorf("report %q: %w", id, os.ErrNotExist)
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.read(id)
-}
-
-// Latest is the newest report, or nil when there is none.
-func (s *Store) Latest(ctx context.Context) (*domain.ScanResult, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	ids, err := s.ids()
-	if err != nil {
-		return nil, err
-	}
-	for _, id := range ids {
-		if r, err := s.read(id); err == nil {
-			return &r, nil
-		}
-	}
-	return nil, nil
-}
-
-// Delete removes one report.
-func (s *Store) Delete(ctx context.Context, id string) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	if !validID.MatchString(id) {
-		return fmt.Errorf("report %q: %w", id, os.ErrNotExist)
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := os.Remove(s.path(id)); err != nil {
-		return fmt.Errorf("delete report: %w", err)
-	}
-	return nil
-}
-
-// DeleteBefore removes reports of scans that ran before t and returns how
-// many went. IDs are times, so no file needs opening.
-func (s *Store) DeleteBefore(ctx context.Context, t time.Time) (int, error) {
-	if err := ctx.Err(); err != nil {
-		return 0, err
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	ids, err := s.ids()
-	if err != nil {
-		return 0, err
-	}
-	cut := strings.Replace(t.UTC().Format(idLayout), ".", "-", 1)
-	n := 0
-	for _, id := range ids {
-		if id >= cut {
-			continue
-		}
-		if err := os.Remove(s.path(id)); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return n, fmt.Errorf("delete report: %w", err)
-		}
-		n++
-	}
-	return n, nil
-}
-
-// ids lists report IDs, newest first: the layout sorts by time.
-func (s *Store) ids() ([]string, error) {
-	entries, err := os.ReadDir(s.dir)
-	if err != nil {
-		return nil, fmt.Errorf("list reports: %w", err)
-	}
-	var ids []string
-	for _, e := range entries {
-		id := strings.TrimSuffix(e.Name(), ".json")
-		if !e.IsDir() && id != e.Name() && validID.MatchString(id) {
-			ids = append(ids, id)
-		}
-	}
-	sort.Sort(sort.Reverse(sort.StringSlice(ids)))
-	return ids, nil
-}
-
-func (s *Store) path(id string) string { return filepath.Join(s.dir, id+".json") }
-
-func (s *Store) read(id string) (domain.ScanResult, error) {
 	var r domain.ScanResult
-	b, err := os.ReadFile(s.path(id))
+	var body string
+	err := s.db.QueryRowContext(ctx, `SELECT body FROM reports WHERE id = ?`, id).Scan(&body)
+	if errors.Is(err, sql.ErrNoRows) {
+		return r, fmt.Errorf("report %q: %w", id, os.ErrNotExist)
+	}
 	if err != nil {
 		return r, fmt.Errorf("read report: %w", err)
 	}
-	if err := json.Unmarshal(b, &r); err != nil {
+	if err := json.Unmarshal([]byte(body), &r); err != nil {
 		return r, fmt.Errorf("decode report %s: %w", id, err)
 	}
 	return r, nil
 }
 
-func (s *Store) write(r domain.ScanResult) error {
-	b, err := json.Marshal(r)
-	if err != nil {
-		return fmt.Errorf("encode report: %w", err)
+// Latest is the newest report, or nil when there is none.
+func (s *Store) Latest(ctx context.Context) (*domain.ScanResult, error) {
+	var id string
+	err := s.db.QueryRowContext(ctx, `SELECT id FROM reports ORDER BY id DESC LIMIT 1`).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
 	}
-	return atomicfile.Write(s.path(r.ID), b)
+	if err != nil {
+		return nil, fmt.Errorf("find last report: %w", err)
+	}
+	r, err := s.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return &r, nil
+}
+
+// Delete removes one report.
+func (s *Store) Delete(ctx context.Context, id string) error {
+	res, err := s.db.ExecContext(ctx, `DELETE FROM reports WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("delete report: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("report %q: %w", id, os.ErrNotExist)
+	}
+	return nil
+}
+
+// DeleteBefore removes reports of scans that ran before t and returns how
+// many went.
+func (s *Store) DeleteBefore(ctx context.Context, t time.Time) (int, error) {
+	res, err := s.db.ExecContext(ctx, `DELETE FROM reports WHERE id < ?`, idAt(t))
+	if err != nil {
+		return 0, fmt.Errorf("delete reports: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	return int(n), nil
 }
 
 func markNew(r *domain.ScanResult, prev domain.ScanResult) {

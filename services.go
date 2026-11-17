@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"io"
 	"log/slog"
@@ -35,6 +36,7 @@ import (
 	"github.com/cn8001/reforgepulse/internal/probe"
 	"github.com/cn8001/reforgepulse/internal/recorder"
 	"github.com/cn8001/reforgepulse/internal/reports"
+	"github.com/cn8001/reforgepulse/internal/store"
 	"github.com/cn8001/reforgepulse/internal/tasks"
 	"github.com/cn8001/reforgepulse/internal/updates"
 )
@@ -66,6 +68,7 @@ type backend struct {
 
 	overview *system.Inspector
 	journal  *journal.Journal
+	db       *sql.DB
 	runner   *tasks.Runner
 	sampler  *windows.Sampler
 	hw       hardwareReads
@@ -93,25 +96,22 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier, hw h
 		Version: app.VersionFrom(buildConfig), DataDir: dataDir, Terms: terms, License: license,
 		Source: "https://github.com/" + updates.Repository, Wording: consent.Version(terms, license),
 	}
-	accepted, err := consent.Open(dataDir)
+	ctx := context.Background()
+	db, err := store.Open(ctx, filepath.Join(dataDir, "reforgepulse.db"))
 	if err != nil {
-		return nil, fmt.Errorf("open consent: %w", err)
+		return nil, err
 	}
-	j, err := journal.Open(dataDir)
-	if err != nil {
-		return nil, fmt.Errorf("open change log: %w", err)
+	if err := store.ImportFiles(ctx, db, dataDir); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("import older data: %w", err)
 	}
-	if _, err := j.Prune(context.Background(), keepChanges); err != nil {
+	accepted := consent.New(db)
+	j := journal.New(db)
+	if _, err := j.Prune(ctx, keepChanges); err != nil {
 		return nil, fmt.Errorf("trim change log: %w", err)
 	}
-	reportStore, err := reports.Open(filepath.Join(dataDir, "reports"), keepReports)
-	if err != nil {
-		return nil, fmt.Errorf("open reports: %w", err)
-	}
-	resolved, err := reports.OpenResolutions(dataDir)
-	if err != nil {
-		return nil, fmt.Errorf("open resolutions: %w", err)
-	}
+	reportStore := reports.New(db, keepReports)
+	resolved := reports.NewResolutions(db)
 	exe, err := os.Executable()
 	if err != nil {
 		return nil, fmt.Errorf("find executable: %w", err)
@@ -174,6 +174,7 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier, hw h
 		}), j),
 		overview: overview,
 		journal:  j,
+		db:       db,
 		runner:   runner,
 		sampler:  sampler,
 		hw:       hw,
@@ -223,6 +224,7 @@ func (b *backend) tools() []mcp.Tool {
 func (b *backend) Close() {
 	b.sampler.Close()
 	b.hw.Close()
+	b.db.Close()
 }
 
 // dataDir is the one folder ReforgePulse keeps everything in, as bmeditor

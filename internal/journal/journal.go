@@ -1,47 +1,40 @@
-// Package journal is the change log: an append-only JSON Lines file. A
-// change is written before ReforgePulse touches the system and finished with
-// a one-line status after, so a crash halfway still leaves a trace.
+// Package journal is the change log. A change is written before ReforgePulse
+// touches the system and finished with its outcome after, so a crash halfway
+// still leaves a trace.
 package journal
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
-	"sync"
+	"slices"
 	"time"
 
-	"github.com/cn8001/reforgepulse/internal/atomicfile"
 	"github.com/cn8001/reforgepulse/internal/domain"
+	"github.com/cn8001/reforgepulse/internal/store"
 )
 
 type Journal struct {
-	mu   sync.Mutex
-	path string
-	now  func() time.Time
+	db  *sql.DB
+	now func() time.Time
 }
 
-// Open uses dir/journal.jsonl, creating dir when needed.
-func Open(dir string) (*Journal, error) {
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return nil, fmt.Errorf("create journal dir: %w", err)
-	}
-	return &Journal{path: filepath.Join(dir, "journal.jsonl"), now: time.Now}, nil
-}
+// New keeps the log in db's changes table.
+func New(db *sql.DB) *Journal { return &Journal{db: db, now: time.Now} }
 
 // Begin records a change about to be applied and returns its ID.
 func (j *Journal) Begin(ctx context.Context, c domain.Change) (string, error) {
 	c.At = j.now().UTC()
-	c.Status = domain.Started
 	c.ID = shortID(c)
-	if err := j.append(ctx, c); err != nil {
-		return "", err
+	_, err := j.db.ExecContext(ctx, `INSERT INTO changes
+		(id, at, action, summary, target, before, after, reversible, reverts, status)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		c.ID, c.At.Format(store.Stamp), c.Action, c.Summary, c.Target, c.Before, c.After, c.Reversible, c.Reverts, domain.Started)
+	if err != nil {
+		return "", fmt.Errorf("record change: %w", err)
 	}
 	return c.ID, nil
 }
@@ -49,59 +42,47 @@ func (j *Journal) Begin(ctx context.Context, c domain.Change) (string, error) {
 // Finish records how the change went: applied when err is nil, else failed.
 // after says what the change actually did, such as the bytes it freed.
 func (j *Journal) Finish(ctx context.Context, id, after string, err error) error {
-	c := domain.Change{ID: id, At: j.now().UTC(), Status: domain.Applied, After: after}
+	status, msg := domain.Applied, ""
 	if err != nil {
-		c.Status, c.Error = domain.Failed, err.Error()
+		status, msg = domain.Failed, err.Error()
 	}
-	return j.append(ctx, c)
+	_, dbErr := j.db.ExecContext(ctx, `UPDATE changes
+		SET status = ?, error = ?, after = CASE WHEN ? = '' THEN after ELSE ? END
+		WHERE id = ?`, status, msg, after, after, id)
+	if dbErr != nil {
+		return fmt.Errorf("finish change %s: %w", id, dbErr)
+	}
+	return nil
 }
 
-// Log returns every change, newest first, with its latest status.
+// Log returns every change, newest first. A change an applied revert undid
+// shows as reverted.
 func (j *Journal) Log(ctx context.Context) ([]domain.Change, error) {
-	j.mu.Lock()
-	defer j.mu.Unlock()
-	f, err := os.Open(j.path)
-	if errors.Is(err, os.ErrNotExist) {
-		return []domain.Change{}, nil // an empty list, not null, for the UI and agents
-	}
+	rows, err := j.db.QueryContext(ctx, `SELECT c.id, c.at, c.action, c.summary, c.target, c.before, c.after,
+		c.reversible, c.reverts, c.status, c.error,
+		EXISTS (SELECT 1 FROM changes r WHERE r.reverts = c.id AND r.status = 'applied')
+		FROM changes c ORDER BY c.seq DESC`)
 	if err != nil {
-		return nil, fmt.Errorf("open journal: %w", err)
+		return nil, fmt.Errorf("read change log: %w", err)
 	}
-	defer f.Close()
-
-	var order []string
-	byID := map[string]*domain.Change{}
-	sc := bufio.NewScanner(f)
-	for sc.Scan() {
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
+	defer rows.Close()
+	out := []domain.Change{} // an empty list, not null, for the UI and agents
+	for rows.Next() {
 		var c domain.Change
-		if json.Unmarshal(sc.Bytes(), &c) != nil || c.ID == "" {
-			continue // a torn line from a crash mid-write
+		var at string
+		var undone bool
+		if err := rows.Scan(&c.ID, &at, &c.Action, &c.Summary, &c.Target, &c.Before, &c.After,
+			&c.Reversible, &c.Reverts, &c.Status, &c.Error, &undone); err != nil {
+			return nil, fmt.Errorf("read change: %w", err)
 		}
-		if prev, ok := byID[c.ID]; ok {
-			prev.Status, prev.Error = c.Status, c.Error
-			if c.After != "" {
-				prev.After = c.After
-			}
-			continue
+		c.At, _ = time.Parse(store.Stamp, at)
+		if undone && c.Status == domain.Applied {
+			c.Status = domain.Reverted
 		}
-		byID[c.ID] = &c
-		order = append(order, c.ID)
+		out = append(out, c)
 	}
-	if err := sc.Err(); err != nil {
-		return nil, fmt.Errorf("read journal: %w", err)
-	}
-
-	for _, c := range byID {
-		if undone, ok := byID[c.Reverts]; ok && c.Status == domain.Applied {
-			undone.Status = domain.Reverted
-		}
-	}
-	out := make([]domain.Change, 0, len(order))
-	for i := len(order) - 1; i >= 0; i-- {
-		out = append(out, *byID[order[i]])
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("read change log: %w", err)
 	}
 	return out, nil
 }
@@ -113,141 +94,82 @@ var ErrRevertAlone = errors.New("a revert goes with the change it undid; delete 
 // Delete removes these changes, and with each the entries that revert it.
 // It returns how many changes went.
 func (j *Journal) Delete(ctx context.Context, ids ...string) (int, error) {
-	drop := map[string]bool{}
-	for _, id := range ids {
-		drop[id] = true
-	}
-	return j.remove(ctx, func(cs []domain.Change, byID map[string]domain.Change) (map[string]bool, error) {
-		for id := range drop {
-			c, ok := byID[id]
-			if !ok {
-				return nil, fmt.Errorf("change %s not found", id)
+	return j.remove(ctx, func(tx *sql.Tx) error {
+		for _, id := range ids {
+			var reverts string
+			var origKept bool
+			err := tx.QueryRowContext(ctx, `SELECT reverts,
+				EXISTS (SELECT 1 FROM changes o WHERE o.id = c.reverts)
+				FROM changes c WHERE id = ?`, id).Scan(&reverts, &origKept)
+			if errors.Is(err, sql.ErrNoRows) {
+				return fmt.Errorf("change %s not found", id)
 			}
-			if _, orig := byID[c.Reverts]; c.Reverts != "" && orig && !drop[c.Reverts] {
-				return nil, fmt.Errorf("delete %s: %w", id, ErrRevertAlone)
+			if err != nil {
+				return fmt.Errorf("read change %s: %w", id, err)
+			}
+			if reverts != "" && origKept && !slices.Contains(ids, reverts) {
+				return fmt.Errorf("delete %s: %w", id, ErrRevertAlone)
+			}
+			if _, err := tx.ExecContext(ctx, `INSERT INTO drop_ids VALUES (?)`, id); err != nil {
+				return err
 			}
 		}
-		return drop, nil
+		return nil
 	})
 }
 
 // DeleteBefore removes changes begun before t, with what reverts them.
 func (j *Journal) DeleteBefore(ctx context.Context, t time.Time) (int, error) {
-	return j.remove(ctx, func(cs []domain.Change, _ map[string]domain.Change) (map[string]bool, error) {
-		drop := map[string]bool{}
-		for _, c := range cs {
-			if c.At.Before(t) {
-				drop[c.ID] = true
-			}
-		}
-		return drop, nil
+	return j.remove(ctx, func(tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO drop_ids SELECT id FROM changes WHERE at < ?`, t.UTC().Format(store.Stamp))
+		return err
 	})
 }
 
 // Prune keeps the newest keep changes, so the log cannot grow without end.
 func (j *Journal) Prune(ctx context.Context, keep int) (int, error) {
-	return j.remove(ctx, func(cs []domain.Change, _ map[string]domain.Change) (map[string]bool, error) {
-		drop := map[string]bool{}
-		for _, c := range cs[:max(0, len(cs)-keep)] {
-			drop[c.ID] = true
-		}
-		return drop, nil
+	return j.remove(ctx, func(tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO drop_ids
+			SELECT id FROM changes ORDER BY seq DESC LIMIT -1 OFFSET ?`, keep)
+		return err
 	})
 }
 
-// remove rewrites the log without the changes pick names. pick sees each
-// change as first written, oldest first.
-func (j *Journal) remove(ctx context.Context, pick func([]domain.Change, map[string]domain.Change) (map[string]bool, error)) (int, error) {
-	if err := ctx.Err(); err != nil {
-		return 0, err
-	}
-	j.mu.Lock()
-	defer j.mu.Unlock()
-	b, err := os.ReadFile(j.path)
-	if errors.Is(err, os.ErrNotExist) {
-		return 0, nil
-	}
+// remove deletes what pick puts in drop_ids, plus every entry that reverts
+// one of them, in one transaction.
+func (j *Journal) remove(ctx context.Context, pick func(*sql.Tx) error) (int, error) {
+	tx, err := j.db.BeginTx(ctx, nil)
 	if err != nil {
-		return 0, fmt.Errorf("read journal: %w", err)
+		return 0, fmt.Errorf("begin delete: %w", err)
 	}
-	type line struct {
-		id  string
-		raw []byte
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `CREATE TEMP TABLE IF NOT EXISTS drop_ids (id TEXT PRIMARY KEY ON CONFLICT IGNORE);
+		DELETE FROM drop_ids`); err != nil {
+		return 0, fmt.Errorf("prepare delete: %w", err)
 	}
-	var lines []line
-	var first []domain.Change
-	byID := map[string]domain.Change{}
-	for raw := range bytes.Lines(b) {
-		var c domain.Change
-		if json.Unmarshal(raw, &c) != nil || c.ID == "" {
-			continue // torn lines go with the rewrite
-		}
-		lines = append(lines, line{c.ID, raw})
-		if _, ok := byID[c.ID]; !ok {
-			byID[c.ID] = c
-			first = append(first, c)
-		}
-	}
-	drop, err := pick(first, byID)
-	if err != nil {
+	if err := pick(tx); err != nil {
 		return 0, err
 	}
 	// Reverts follow their originals out, and a revert can itself be undone.
-	for grew := true; grew; {
-		grew = false
-		for _, c := range first {
-			if !drop[c.ID] && c.Reverts != "" && drop[c.Reverts] {
-				drop[c.ID], grew = true, true
-			}
+	for {
+		res, err := tx.ExecContext(ctx, `INSERT INTO drop_ids
+			SELECT id FROM changes WHERE reverts IN (SELECT id FROM drop_ids) AND id NOT IN (SELECT id FROM drop_ids)`)
+		if err != nil {
+			return 0, fmt.Errorf("follow reverts: %w", err)
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			break
 		}
 	}
-	n := 0
-	for _, c := range first {
-		if drop[c.ID] {
-			n++
-		}
-	}
-	if n == 0 {
-		return 0, nil
-	}
-	var out []byte
-	for _, l := range lines {
-		if !drop[l.id] {
-			out = append(out, bytes.TrimRight(l.raw, "\r\n")...)
-			out = append(out, '\n')
-		}
-	}
-	if err := atomicfile.Write(j.path, out); err != nil {
-		return 0, fmt.Errorf("rewrite journal: %w", err)
-	}
-	return n, nil
-}
-
-// append writes one line and syncs it: the entry must survive a crash in the
-// change that follows.
-func (j *Journal) append(ctx context.Context, c domain.Change) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	line, err := json.Marshal(c)
+	res, err := tx.ExecContext(ctx, `DELETE FROM changes WHERE id IN (SELECT id FROM drop_ids)`)
 	if err != nil {
-		return fmt.Errorf("encode change: %w", err)
+		return 0, fmt.Errorf("delete changes: %w", err)
 	}
-	j.mu.Lock()
-	defer j.mu.Unlock()
-	f, err := os.OpenFile(j.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
-	if err != nil {
-		return fmt.Errorf("open journal: %w", err)
+	n, _ := res.RowsAffected()
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("commit delete: %w", err)
 	}
-	if _, err := f.Write(append(line, '\n')); err != nil {
-		f.Close()
-		return fmt.Errorf("write journal: %w", err)
-	}
-	if err := f.Sync(); err != nil {
-		f.Close()
-		return fmt.Errorf("sync journal: %w", err)
-	}
-	return f.Close()
+	return int(n), nil
 }
 
 // shortID hashes the change's content, like a short git hash.

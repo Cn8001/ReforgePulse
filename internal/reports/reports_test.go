@@ -2,13 +2,26 @@ package reports
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/cn8001/reforgepulse/internal/domain"
+	"github.com/cn8001/reforgepulse/internal/store"
 )
+
+func testDB(t *testing.T) *sql.DB {
+	t.Helper()
+	db, err := store.Open(context.Background(), filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+	return db
+}
 
 func scan(minute int, keys ...string) domain.ScanResult {
 	r := domain.ScanResult{At: time.Date(2026, 11, 17, 12, minute, 0, 0, time.UTC)}
@@ -21,10 +34,7 @@ func scan(minute int, keys ...string) domain.ScanResult {
 func TestStore_SavesNewestFirstAndKeepsTheLimit(t *testing.T) {
 	// Arrange
 	ctx := context.Background()
-	s, err := Open(t.TempDir(), 2)
-	if err != nil {
-		t.Fatal(err)
-	}
+	s := New(testDB(t), 2)
 
 	// Act
 	for i := range 3 {
@@ -49,7 +59,7 @@ func TestStore_SavesNewestFirstAndKeepsTheLimit(t *testing.T) {
 func TestStore_MarksFindingsTheLastScanDidNotHave(t *testing.T) {
 	// Arrange
 	ctx := context.Background()
-	s, _ := Open(t.TempDir(), 5)
+	s := New(testDB(t), 5)
 	if _, err := s.Save(ctx, scan(0, "a")); err != nil {
 		t.Fatal(err)
 	}
@@ -67,33 +77,33 @@ func TestStore_MarksFindingsTheLastScanDidNotHave(t *testing.T) {
 	}
 }
 
-func TestStore_GetRejectsPathsAndSkipsTornFiles(t *testing.T) {
+func TestStore_UnknownIDsAreNotFoundAndUnreadableRowsSkipped(t *testing.T) {
 	// Arrange
 	ctx := context.Background()
-	dir := t.TempDir()
-	s, _ := Open(dir, 5)
+	db := testDB(t)
+	s := New(db, 5)
 	saved, _ := s.Save(ctx, scan(0, "a"))
-	if err := os.WriteFile(filepath.Join(dir, "20261117-130000-000.json"), []byte(`{"id":`), 0o600); err != nil {
+	if _, err := db.ExecContext(ctx, `INSERT INTO reports (id, at, body) VALUES ('20261117-130000-000', '', '{"id":')`); err != nil {
 		t.Fatal(err)
 	}
 
 	// Act
 	_, getErr := s.Get(ctx, `..\..\journal`)
-	latest, err := s.Latest(ctx)
+	all, err := s.All(ctx)
 
 	// Assert
-	if getErr == nil {
-		t.Fatal("a path was accepted as an ID")
+	if !errors.Is(getErr, os.ErrNotExist) {
+		t.Fatalf("get unknown: %v", getErr)
 	}
-	if err != nil || latest == nil || latest.ID != saved.ID {
-		t.Fatalf("latest = %+v, %v", latest, err)
+	if err != nil || len(all) != 1 || all[0].ID != saved.ID {
+		t.Fatalf("all = %+v, %v", all, err)
 	}
 }
 
 func TestResolutions_ResolveReopenAndComeBack(t *testing.T) {
 	// Arrange
 	ctx := context.Background()
-	r, _ := OpenResolutions(t.TempDir())
+	r := NewResolutions(testDB(t))
 	at := time.Date(2026, 11, 17, 12, 0, 0, 0, time.UTC)
 	r.now = func() time.Time { return at }
 	if err := r.Resolve(ctx, "a", "A"); err != nil {
@@ -131,7 +141,7 @@ func TestResolutions_ResolveReopenAndComeBack(t *testing.T) {
 func TestStore_DeleteOneAndBefore(t *testing.T) {
 	// Arrange
 	ctx := context.Background()
-	s, _ := Open(t.TempDir(), 10)
+	s := New(testDB(t), 10)
 	var saved []domain.ScanResult
 	for i := range 4 {
 		r, _ := s.Save(ctx, scan(i, "a"))

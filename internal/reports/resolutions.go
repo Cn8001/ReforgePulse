@@ -2,98 +2,61 @@ package reports
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
+	"database/sql"
 	"fmt"
-	"os"
-	"path/filepath"
-	"sort"
-	"sync"
 	"time"
 
-	"github.com/cn8001/reforgepulse/internal/atomicfile"
 	"github.com/cn8001/reforgepulse/internal/domain"
 )
 
-// Resolutions is what the user marked resolved, kept in one small file by
-// finding key. It is the app's own state, not a change to the PC, so it is
-// not in the change journal.
+// Resolutions is what the user marked resolved, by finding key. It is the
+// app's own state, not a change to the PC, so it is not in the change log.
 type Resolutions struct {
-	mu   sync.Mutex
-	path string
-	now  func() time.Time
+	db  *sql.DB
+	now func() time.Time
 }
 
-// OpenResolutions uses dir/resolved.json.
-func OpenResolutions(dir string) (*Resolutions, error) {
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return nil, fmt.Errorf("create resolutions dir: %w", err)
-	}
-	return &Resolutions{path: filepath.Join(dir, "resolved.json"), now: time.Now}, nil
-}
+func NewResolutions(db *sql.DB) *Resolutions { return &Resolutions{db: db, now: time.Now} }
 
 // All returns every resolution by key.
 func (r *Resolutions) All(ctx context.Context) (map[string]domain.Resolution, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
+	rows, err := r.db.QueryContext(ctx, `SELECT key, title, at FROM resolutions`)
+	if err != nil {
+		return nil, fmt.Errorf("read resolutions: %w", err)
 	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.load()
+	defer rows.Close()
+	m := map[string]domain.Resolution{}
+	for rows.Next() {
+		var v domain.Resolution
+		var at string
+		if err := rows.Scan(&v.Key, &v.Title, &at); err != nil {
+			return nil, fmt.Errorf("read resolution: %w", err)
+		}
+		v.At, _ = time.Parse(time.RFC3339Nano, at)
+		m[v.Key] = v
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("read resolutions: %w", err)
+	}
+	return m, nil
 }
 
 // Resolve marks a finding resolved now.
 func (r *Resolutions) Resolve(ctx context.Context, key, title string) error {
-	return r.change(ctx, func(m map[string]domain.Resolution) {
-		m[key] = domain.Resolution{Key: key, Title: title, At: r.now().UTC()}
-	})
+	_, err := r.db.ExecContext(ctx, `INSERT OR REPLACE INTO resolutions (key, title, at) VALUES (?, ?, ?)`,
+		key, title, r.now().UTC().Format(time.RFC3339Nano))
+	if err != nil {
+		return fmt.Errorf("save resolution: %w", err)
+	}
+	return nil
 }
 
 // Reopen forgets a resolution.
 func (r *Resolutions) Reopen(ctx context.Context, key string) error {
-	return r.change(ctx, func(m map[string]domain.Resolution) { delete(m, key) })
-}
-
-func (r *Resolutions) change(ctx context.Context, edit func(map[string]domain.Resolution)) error {
-	if err := ctx.Err(); err != nil {
-		return err
+	if _, err := r.db.ExecContext(ctx, `DELETE FROM resolutions WHERE key = ?`, key); err != nil {
+		return fmt.Errorf("delete resolution: %w", err)
 	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	m, err := r.load()
-	if err != nil {
-		return err
-	}
-	edit(m)
-	list := make([]domain.Resolution, 0, len(m))
-	for _, v := range m {
-		list = append(list, v)
-	}
-	sort.Slice(list, func(i, j int) bool { return list[i].Key < list[j].Key })
-	b, err := json.Marshal(list)
-	if err != nil {
-		return fmt.Errorf("encode resolutions: %w", err)
-	}
-	return atomicfile.Write(r.path, b)
-}
-
-func (r *Resolutions) load() (map[string]domain.Resolution, error) {
-	m := map[string]domain.Resolution{}
-	b, err := os.ReadFile(r.path)
-	if errors.Is(err, os.ErrNotExist) {
-		return m, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("read resolutions: %w", err)
-	}
-	var list []domain.Resolution
-	if err := json.Unmarshal(b, &list); err != nil {
-		return nil, fmt.Errorf("decode resolutions: %w", err)
-	}
-	for _, v := range list {
-		m[v.Key] = v
-	}
-	return m, nil
+	return nil
 }
 
 // Apply sets each finding's status from the resolutions. A resolved finding
