@@ -94,11 +94,14 @@ body {
   .btn {
     @apply inline-flex h-8 items-center justify-center gap-1.5 rounded border border-line px-3 text-[14px] whitespace-nowrap transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50;
   }
+  /* Hover lightens the colour itself, not through filter: animating a filter
+     moves the button to its own layer, and Chromium then drops ClearType on
+     its text, so the label looks like it changes size for a moment. */
   .btn-primary {
-    @apply inline-flex h-8 items-center justify-center gap-1.5 rounded bg-accent px-3.5 text-[14px] font-semibold whitespace-nowrap text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex h-8 items-center justify-center gap-1.5 rounded bg-accent px-3.5 text-[14px] font-semibold whitespace-nowrap text-white transition-colors hover:bg-[color-mix(in_srgb,var(--accent)_86%,white)] disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-danger {
-    @apply inline-flex h-8 items-center justify-center gap-1.5 rounded bg-bad px-3.5 text-[14px] font-semibold whitespace-nowrap text-white transition hover:brightness-110 disabled:opacity-50;
+    @apply inline-flex h-8 items-center justify-center gap-1.5 rounded bg-bad px-3.5 text-[14px] font-semibold whitespace-nowrap text-white transition-colors hover:bg-[color-mix(in_srgb,var(--bad)_86%,white)] disabled:opacity-50;
   }
   .chip {
     @apply inline-flex items-center rounded-full border px-2 text-[12px] leading-[18px] whitespace-nowrap;
