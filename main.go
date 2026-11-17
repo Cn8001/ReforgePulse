@@ -4,15 +4,19 @@ import (
 	"context"
 	"embed"
 	"errors"
+	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime/debug"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/updater"
 
 	"github.com/cn8001/reforgepulse/internal/app"
+	"github.com/cn8001/reforgepulse/internal/applog"
 	"github.com/cn8001/reforgepulse/internal/mcp"
 	"github.com/cn8001/reforgepulse/internal/platform"
 	"github.com/cn8001/reforgepulse/internal/platform/windows"
@@ -50,6 +54,15 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	var logger *slog.Logger
+	if !mcpMode {
+		f, err := openLog(dir)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		logger = slog.New(slog.NewTextHandler(f, nil))
+	}
 	// The window exists only after the backend, so task updates go through
 	// emit, which runWindow points at the window's event bus.
 	var emit func(tasks.Status)
@@ -69,13 +82,35 @@ func run() error {
 		defer stop()
 		return mcp.Serve(ctx, os.Stdin, os.Stdout, app.VersionFrom(buildConfig), b.tools())
 	}
-	return runWindow(b, dir, &emit)
+	return runWindow(b, dir, logger, &emit)
+}
+
+// maxLog is where the log rotates; two files of this size at most.
+const maxLog = 1 << 20
+
+// openLog sends everything the window process could lose to one file: the
+// standard logger, and the runtime's own report of a fatal crash, which
+// otherwise goes to a console the elevated window does not have.
+func openLog(dir string) (*os.File, error) {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return nil, fmt.Errorf("create data folder: %w", err)
+	}
+	f, err := applog.Open(dir, maxLog)
+	if err != nil {
+		return nil, err
+	}
+	if err := debug.SetCrashOutput(f, debug.CrashOptions{}); err != nil {
+		f.Close()
+		return nil, fmt.Errorf("send crash reports to the log: %w", err)
+	}
+	log.SetOutput(f)
+	return f, nil
 }
 
 // taskEvent carries task updates to the status bar.
 const taskEvent = "task"
 
-func runWindow(b *backend, dir string, emit *func(tasks.Status)) error {
+func runWindow(b *backend, dir string, logger *slog.Logger, emit *func(tasks.Status)) error {
 	application.RegisterEvent[tasks.Status](taskEvent)
 	a := application.New(application.Options{
 		Name:        "ReforgePulse",
@@ -83,12 +118,19 @@ func runWindow(b *backend, dir string, emit *func(tasks.Status)) error {
 		Services:    b.services(),
 		Assets:      application.AssetOptions{Handler: application.AssetFileServerFS(assets)},
 		Windows:     application.WindowsOptions{WebviewUserDataPath: filepath.Join(dir, "webview")},
+		Logger:      logger,
+		// Wails quits on a panic in a call by default; one broken call must
+		// not close the app, and the stack goes to the log to be fixed.
+		PanicHandler: func(p *application.PanicDetails) {
+			logger.Error("panic", "error", p.Error, "stack", p.FullStackTrace)
+		},
 	})
 	*emit = func(s tasks.Status) { a.Event.Emit(taskEvent, s) }
 
 	// The accent comes from a.Env and updates from a.Updater, which exist
 	// only once the app does.
 	a.RegisterService(application.NewService(app.NewThemeService(a.Env)))
+	a.RegisterService(application.NewService(app.NewLogService(logger)))
 	a.RegisterService(application.NewService(app.NewUpdateService(app.UpdateDeps{
 		Source: updateSource(a.Updater), Runner: b.runner, Journal: b.journal, Version: app.VersionFrom(buildConfig),
 	})))
