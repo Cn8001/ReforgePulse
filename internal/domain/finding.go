@@ -24,14 +24,36 @@ const (
 
 // Finding is one problem in plain words, with the evidence behind it.
 type Finding struct {
-	Rule         string     `json:"rule"`
-	Title        string     `json:"title"`
-	Summary      string     `json:"summary"`
-	Severity     Severity   `json:"severity"`
-	Confidence   Confidence `json:"confidence"`
-	Evidence     []string   `json:"evidence"`
-	Alternatives string     `json:"alternatives,omitempty"` // other explanations the evidence allows
-	Action       *Action    `json:"action,omitempty"`
+	Rule         string        `json:"rule"`
+	Key          string        `json:"key"` // the rule and its subject, the same from scan to scan
+	Title        string        `json:"title"`
+	Summary      string        `json:"summary"`
+	Severity     Severity      `json:"severity"`
+	Confidence   Confidence    `json:"confidence"`
+	Evidence     []string      `json:"evidence"`
+	Alternatives string        `json:"alternatives,omitempty"` // other explanations the evidence allows
+	Action       *Action       `json:"action,omitempty"`
+	Latest       time.Time     `json:"latest,omitzero"` // newest event behind it; zero when it describes a state
+	Status       FindingStatus `json:"status"`
+	ResolvedAt   time.Time     `json:"resolvedAt,omitzero"`
+	New          bool          `json:"new,omitempty"` // not in the scan before this one
+}
+
+// FindingStatus is where the user left a finding. Returned means it was marked
+// resolved but evidence newer than that has turned up since.
+type FindingStatus string
+
+const (
+	Open     FindingStatus = "open"
+	Resolved FindingStatus = "resolved"
+	Returned FindingStatus = "returned"
+)
+
+// Resolution is the user saying a finding is dealt with.
+type Resolution struct {
+	Key   string    `json:"key"`
+	Title string    `json:"title"`
+	At    time.Time `json:"at"`
 }
 
 // Action is the next step a finding offers. Kind tells the window what to
@@ -44,10 +66,20 @@ type Action struct {
 
 // ScanResult is one Scan PC run.
 type ScanResult struct {
+	ID       string    `json:"id"`
 	At       time.Time `json:"at"`
 	Findings []Finding `json:"findings"`
 	Suspects []Suspect `json:"suspects"` // only when there is instability to explain
 	Elevated bool      `json:"elevated"`
+}
+
+// ReportSummary is one saved scan in the list of recent scans.
+type ReportSummary struct {
+	ID       string    `json:"id"`
+	At       time.Time `json:"at"`
+	Open     int       `json:"open"` // findings still open or returned
+	Resolved int       `json:"resolved"`
+	Worst    Severity  `json:"worst,omitempty"` // of the open findings
 }
 
 // CrashEvidence is what Windows recorded about crashes and hardware errors

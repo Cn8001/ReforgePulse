@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/cn8001/reforgepulse/internal/domain"
 	"github.com/cn8001/reforgepulse/internal/platform"
@@ -36,7 +37,12 @@ var rules = []rule{
 func Evaluate(in Input) []domain.Finding {
 	var out []domain.Finding
 	for _, r := range rules {
-		out = append(out, r(in)...)
+		for _, f := range r(in) {
+			if f.Key == "" {
+				f.Key = f.Rule // one finding per rule, so the rule names it
+			}
+			out = append(out, f)
+		}
 	}
 	rank := map[domain.Severity]int{domain.Critical: 0, domain.High: 1, domain.Medium: 2, domain.Low: 3, domain.Info: 4}
 	sort.SliceStable(out, func(i, j int) bool { return rank[out[i].Severity] < rank[out[j].Severity] })
@@ -73,6 +79,7 @@ func restarts(in Input) []domain.Finding {
 		Title:        fmt.Sprintf("Windows restarted unexpectedly %d times in 30 days", n),
 		Summary:      fmt.Sprintf("%d of them recorded a blue screen code. The others lost power or froze without one, which points away from software.", with),
 		Evidence:     times("Kernel-Power 41", in.Crashes.Restarts),
+		Latest:       newest(in.Crashes.Restarts, ""),
 		Alternatives: "A power cut, holding the power button, an unstable overclock or undervolt, an overheating or failing PSU, or a driver that froze the PC can all look the same here.",
 	}}
 }
@@ -99,6 +106,7 @@ func bugchecks(in Input) []domain.Finding {
 		Title:    fmt.Sprintf("%d blue screens in 30 days", len(in.Crashes.Bugchecks)),
 		Summary:  "Codes: " + strings.Join(codes, ", ") + ".",
 		Evidence: append(times("WER 1001", in.Crashes.Bugchecks), in.Crashes.Minidumps...),
+		Latest:   newest(in.Crashes.Bugchecks, ""),
 		Alternatives: "Different codes from one PC usually mean one unstable part (CPU, memory, power) rather than many bad drivers; " +
 			"the same code every time points more to one driver.",
 	}
@@ -124,6 +132,7 @@ func whea(in Input) []domain.Finding {
 		Title:    fmt.Sprintf("Windows recorded %d hardware errors", n),
 		Summary:  "The processor, memory or PCIe bus reported errors. Repeated errors are a stability problem even when Windows corrected them.",
 		Evidence: times("WHEA-Logger", in.Crashes.WHEA),
+		Latest:   newest(in.Crashes.WHEA, ""),
 		Alternatives: "An overclock, undervolt or XMP profile, an outdated BIOS, heat, power delivery, " +
 			"or a degraded CPU can all cause these; the evidence does not name one part.",
 	}
@@ -166,6 +175,7 @@ func gpuResets(in Input) []domain.Finding {
 		Title:        fmt.Sprintf("The graphics driver stopped responding %d times", n),
 		Summary:      "Windows reset the display driver to recover. Repeats usually mean a driver problem, an unstable GPU overclock, or power to the card.",
 		Evidence:     times("Display 4101", in.Crashes.GPUResets),
+		Latest:       newest(in.Crashes.GPUResets, ""),
 		Alternatives: "A game or app pushing the GPU too hard can trigger this once without anything being wrong.",
 	}}
 }
@@ -180,6 +190,7 @@ func diskErrors(in Input) []domain.Finding {
 		Title:        fmt.Sprintf("A drive reported %d read or file system errors", n),
 		Summary:      "Back up important files first. Bad blocks and failed reads can mean a failing drive or a loose cable.",
 		Evidence:     times("disk/Ntfs", in.Crashes.DiskErrors),
+		Latest:       newest(in.Crashes.DiskErrors, ""),
 		Alternatives: "A USB drive pulled out without ejecting, or a sleeping external disk, also logs these.",
 	}}
 }
@@ -201,20 +212,23 @@ func appCrashes(in Input) []domain.Finding {
 			Summary: "Together with the blue screens and hardware errors, this points at the PC rather than the programs: " +
 				"processor, memory, power or a tuning profile. Reinstalling apps will not fix it.",
 			Evidence:     times("Application Error", in.Crashes.AppCrashes),
+			Latest:       newest(in.Crashes.AppCrashes, ""),
 			Alternatives: "A broken system file or a bad shared library (such as a .NET or Visual C++ runtime) can also crash many apps.",
 		}}
 	}
 	var out []domain.Finding
 	for app, n := range top(in.Crashes.AppCrashes, 3) {
 		out = append(out, domain.Finding{
-			Rule: "app-crash", Severity: domain.Low, Confidence: domain.Confirmed,
+			Rule: "app-crash", Key: "app-crash:" + app, Latest: newest(in.Crashes.AppCrashes, app),
+			Severity: domain.Low, Confidence: domain.Confirmed,
 			Title:   fmt.Sprintf("%s crashed %d times", app, n),
 			Summary: "Updating or reinstalling it usually helps. If many different apps crash, look at system stability instead.",
 		})
 	}
 	for app, n := range top(in.Crashes.AppHangs, 3) {
 		out = append(out, domain.Finding{
-			Rule: "app-hang", Severity: domain.Low, Confidence: domain.Confirmed,
+			Rule: "app-hang", Key: "app-hang:" + app, Latest: newest(in.Crashes.AppHangs, app),
+			Severity: domain.Low, Confidence: domain.Confirmed,
 			Title:   fmt.Sprintf("%s stopped responding %d times", app, n),
 			Summary: "Windows closed it after it froze.",
 		})
@@ -226,7 +240,8 @@ func serviceFailures(in Input) []domain.Finding {
 	var out []domain.Finding
 	for svc, n := range top(in.Crashes.Services, 3) {
 		out = append(out, domain.Finding{
-			Rule: "service-failure", Severity: domain.Low, Confidence: domain.Confirmed,
+			Rule: "service-failure", Key: "service-failure:" + svc, Latest: newest(in.Crashes.Services, svc),
+			Severity: domain.Low, Confidence: domain.Confirmed,
 			Title:   fmt.Sprintf("The %s service failed %d times", svc, n),
 			Summary: "It crashed or did not start. If it belongs to a program you removed, its leftovers may still register it.",
 		})
@@ -301,7 +316,7 @@ func lowDisk(in Input) []domain.Finding {
 		}
 		if free := v.Free.Value / v.Total.Value; free < 0.10 {
 			out = append(out, domain.Finding{
-				Rule: "low-disk", Severity: domain.Medium, Confidence: domain.Confirmed,
+				Rule: "low-disk", Key: "low-disk:" + v.Root, Severity: domain.Medium, Confidence: domain.Confirmed,
 				Title:   fmt.Sprintf("Drive %s is %.0f%% full", v.Root, 100*(1-free)),
 				Summary: "Windows needs free space for updates, the page file and temporary files.",
 				Action:  &domain.Action{Label: "Free up space", Kind: "open-cleanup"},
@@ -412,6 +427,18 @@ func top(events []domain.CrashEvent, min int) map[string]int {
 		}
 	}
 	return counts
+}
+
+// newest is the latest event, or the latest with this detail when detail is
+// set. It is what tells a resolved finding that it has come back.
+func newest(events []domain.CrashEvent, detail string) time.Time {
+	var t time.Time
+	for _, e := range events {
+		if (detail == "" || e.Detail == detail) && e.Time.After(t) {
+			t = e.Time
+		}
+	}
+	return t
 }
 
 // times lists up to five occurrences for the evidence panel.

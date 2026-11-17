@@ -152,3 +152,29 @@ func TestEvaluate_MissingDriversButNotDisabledDevices(t *testing.T) {
 		t.Fatalf("finding = %+v", f)
 	}
 }
+
+func TestEvaluate_KeysNameTheSubjectAndLatestIsItsNewestEvent(t *testing.T) {
+	// Arrange
+	game := events(3, "game.exe in d3d12.dll")
+	other := events(4, "other.exe in x.dll")
+	in := Input{Overview: domain.Overview{Elevated: true}, Crashes: domain.CrashEvidence{
+		AppCrashes: append(game, other...), Restarts: events(2, ""),
+	}}
+
+	// Act
+	got := Evaluate(in)
+
+	// Assert
+	keys := map[string]domain.Finding{}
+	for _, f := range got {
+		keys[f.Key] = f
+	}
+	g, ok := keys["app-crash:game.exe in d3d12.dll"]
+	if !ok || !g.Latest.Equal(game[2].Time) {
+		t.Fatalf("game finding = %+v, keys %v", g, keys)
+	}
+	r, ok := keys["unexpected-restarts"]
+	if !ok || !r.Latest.Equal(time.Date(2026, 11, 2, 12, 0, 0, 0, time.UTC)) {
+		t.Fatalf("restarts = %+v", r)
+	}
+}
