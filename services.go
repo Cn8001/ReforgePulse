@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
@@ -65,6 +66,7 @@ type backend struct {
 	Rec     *app.RecorderService
 	Dumps   *app.DumpService
 	Drivers *app.DriverService
+	Keep    *app.RetentionService
 
 	overview *system.Inspector
 	journal  *journal.Journal
@@ -114,6 +116,7 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier, hw h
 	if _, err := j.Prune(ctx, keepChanges); err != nil {
 		return nil, fmt.Errorf("trim change log: %w", err)
 	}
+	recordings, analyses := store.NewRecordings(db, keepRecordings), store.NewAnalyses(db)
 	reportStore := reports.New(db, keepReports)
 	resolved := reports.NewResolutions(db)
 	exe, err := os.Executable()
@@ -147,10 +150,14 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier, hw h
 		Events:  app.NewEventService(events.New(host), runner),
 		Checks:  app.NewCheckService(host, runner),
 		Drivers: app.NewDriverService(host, runner),
-		Rec:     app.NewRecorderService(recorder.New(overview, procs), runner, store.NewRecordings(db, keepRecordings)),
+		Rec:     app.NewRecorderService(recorder.New(overview, procs), runner, recordings),
+		Keep: app.NewRetentionService(app.RetentionDeps{
+			Settings: store.NewSettings(db), Now: time.Now,
+			Prune: []app.Pruner{j.DeleteBefore, scan.DeleteReportsBefore, recordings.DeleteBefore, analyses.DeleteBefore},
+		}),
 		Dumps: app.NewDumpService(dumps.New(dumps.Deps{
 			Dir: host.DumpDir(), Symbols: filepath.Join(dataDir, "symbols"), Debugger: host, Names: diagnosis.BugcheckNames,
-		}), runner, store.NewAnalyses(db)),
+		}), runner, analyses),
 		HW: app.NewHardwareService(app.HardwareDeps{
 			Facts: host, Cores: hw.Cores, Loads: hw.Loads, Tester: hw.Tester, Runner: runner,
 		}),
@@ -215,6 +222,7 @@ func (b *backend) services() []application.Service {
 		application.NewService(b.Rec),
 		application.NewService(b.Dumps),
 		application.NewService(b.Drivers),
+		application.NewService(b.Keep),
 	}
 }
 

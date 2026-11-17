@@ -158,6 +158,13 @@ func runWindow(b *backend, dir string, logger *slog.Logger, emit *func(tasks.Sta
 	// only once the app does.
 	a.RegisterService(application.NewService(app.NewThemeService(a.Env)))
 	a.RegisterService(application.NewService(app.NewLogService(logger)))
+
+	// Old history goes in the background, so start-up does not wait on it.
+	go func() {
+		if _, err := b.Keep.Apply(context.Background()); err != nil {
+			logger.Warn("delete old history", "error", err)
+		}
+	}()
 	a.RegisterService(application.NewService(app.NewUpdateService(app.UpdateDeps{
 		Source: updateSource(a.Updater), Runner: b.runner, Journal: b.journal, Settings: store.NewSettings(b.db),
 		Version: app.VersionFrom(buildConfig),

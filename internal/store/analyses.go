@@ -59,6 +59,16 @@ func (s *Analyses) All(ctx context.Context) ([]domain.SavedAnalysis, error) {
 	return out, nil
 }
 
+// DeleteBefore forgets analyses of dumps Windows wrote before t.
+func (s *Analyses) DeleteBefore(ctx context.Context, t time.Time) (int, error) {
+	res, err := s.db.ExecContext(ctx, `DELETE FROM dump_analyses WHERE dumped < ?`, t.UTC().Format(Stamp))
+	if err != nil {
+		return 0, fmt.Errorf("delete analyses: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	return int(n), nil
+}
+
 // Delete forgets one analysis. The dump file itself stays.
 func (s *Analyses) Delete(ctx context.Context, name string, dumped time.Time) error {
 	if _, err := s.db.ExecContext(ctx, `DELETE FROM dump_analyses WHERE name = ? AND dumped = ?`, name, dumped.UTC().Format(Stamp)); err != nil {

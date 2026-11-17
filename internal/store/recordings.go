@@ -7,9 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/cn8001/reforgepulse/internal/recorder"
 )
+
+// recordingID names a session by when it started.
+const recordingID = "20060102-150405"
 
 // Recordings keeps recorder sessions, the newest keep of them.
 type Recordings struct {
@@ -21,7 +25,7 @@ func NewRecordings(db *sql.DB, keep int) *Recordings { return &Recordings{db: db
 
 // Save stores r under an ID from its start time and returns it with the ID.
 func (s *Recordings) Save(ctx context.Context, r recorder.Recording) (recorder.Recording, error) {
-	r.ID = r.Started.UTC().Format("20060102-150405")
+	r.ID = r.Started.UTC().Format(recordingID)
 	body, err := json.Marshal(r)
 	if err != nil {
 		return r, fmt.Errorf("encode recording: %w", err)
@@ -84,6 +88,17 @@ func (s *Recordings) Get(ctx context.Context, id string) (recorder.Recording, er
 		return r, fmt.Errorf("decode recording %s: %w", id, err)
 	}
 	return r, nil
+}
+
+// DeleteBefore removes sessions that started before t. IDs are start times,
+// so they compare in order.
+func (s *Recordings) DeleteBefore(ctx context.Context, t time.Time) (int, error) {
+	res, err := s.db.ExecContext(ctx, `DELETE FROM recordings WHERE id < ?`, t.UTC().Format(recordingID))
+	if err != nil {
+		return 0, fmt.Errorf("delete recordings: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	return int(n), nil
 }
 
 func (s *Recordings) Delete(ctx context.Context, id string) error {

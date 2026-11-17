@@ -156,3 +156,35 @@ func TestRecordings_KeepTheNewestAndListWithoutSeries(t *testing.T) {
 		t.Fatalf("get = %+v, %v", full, getErr)
 	}
 }
+
+func TestDeleteBefore_RecordingsAndAnalyses(t *testing.T) {
+	// Arrange
+	ctx := context.Background()
+	db, err := Open(ctx, filepath.Join(t.TempDir(), "app.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	recs, an := NewRecordings(db, 10), NewAnalyses(db)
+	old, recent := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), time.Date(2026, 11, 16, 0, 0, 0, 0, time.UTC)
+	for _, at := range []time.Time{old, recent} {
+		if _, err := recs.Save(ctx, recorder.Recording{Started: at}); err != nil {
+			t.Fatal(err)
+		}
+		if err := an.Save(ctx, "MEMORY.DMP", at, domain.DumpAnalysis{Name: "MEMORY.DMP"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cut := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+
+	// Act
+	nr, err1 := recs.DeleteBefore(ctx, cut)
+	na, err2 := an.DeleteBefore(ctx, cut)
+
+	// Assert
+	leftR, _ := recs.All(ctx)
+	leftA, _ := an.All(ctx)
+	if err1 != nil || err2 != nil || nr != 1 || na != 1 || len(leftR) != 1 || len(leftA) != 1 {
+		t.Fatalf("recordings %d %v left %d, analyses %d %v left %d", nr, err1, len(leftR), na, err2, len(leftA))
+	}
+}

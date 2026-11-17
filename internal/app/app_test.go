@@ -544,3 +544,28 @@ func TestUpdateService_DownloadIsLoggedAndDevBuildsSayWhy(t *testing.T) {
 		t.Fatalf("dev build check: %v", devErr)
 	}
 }
+
+func TestRetentionService_OffUntilSetThenDeletesOlderThanTheDays(t *testing.T) {
+	// Arrange
+	ctx := context.Background()
+	now := time.Date(2026, 11, 17, 12, 0, 0, 0, time.UTC)
+	var cuts []time.Time
+	prune := func(_ context.Context, before time.Time) (int, error) { cuts = append(cuts, before); return 2, nil }
+	s := NewRetentionService(RetentionDeps{Settings: memSettings{}, Prune: []Pruner{prune, prune}, Now: func() time.Time { return now }})
+
+	// Act
+	offN, offErr := s.Apply(ctx)
+	n, err := s.SetDays(ctx, 30)
+	_, badErr := s.SetDays(ctx, -1)
+
+	// Assert
+	if offN != 0 || offErr != nil || len(cuts) != 2 {
+		t.Fatalf("off: %d %v, cuts %v", offN, offErr, cuts)
+	}
+	if n != 4 || err != nil || !cuts[0].Equal(now.AddDate(0, 0, -30)) {
+		t.Fatalf("30 days: %d %v, cut %v", n, err, cuts[0])
+	}
+	if badErr == nil {
+		t.Fatal("negative days were accepted")
+	}
+}
