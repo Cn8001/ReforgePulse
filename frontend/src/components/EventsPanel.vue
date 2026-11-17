@@ -61,6 +61,7 @@ const key = (g: EventGroup) => `${g.channel}|${g.provider}|${g.id}`
             <span class="block truncate text-xs text-muted">{{ g.provider }}, event {{ g.id }}, {{ g.channel }} log</span>
           </span>
           <span class="shrink-0 text-xs text-muted">{{ since(g.last) }}</span>
+          <Icon name="chevron" class="mt-1 size-3.5! shrink-0 text-muted transition-transform" :class="open === key(g) && 'rotate-90'" />
         </button>
         <div v-if="open === key(g)" class="border-t border-line bg-raised px-4 py-3 text-xs">
           <p class="text-muted">First {{ new Date(g.first).toLocaleString() }}, last {{ new Date(g.last).toLocaleString() }}</p>
