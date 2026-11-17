@@ -18,14 +18,14 @@ import { checkAtStart } from './lib/update'
 import { Accepted } from '../bindings/github.com/cn8001/reforgepulse/internal/app/aboutservice'
 import type { IconName } from './lib/icons'
 
-type Page = 'home' | 'processes' | 'cleanup' | 'fix' | 'reports' | 'tools' | 'history'
+type Page = 'home' | 'processes' | 'cleanup' | 'fix' | 'tools' | 'reports' | 'history'
 const pages: { id: Page; label: string; icon: IconName }[] = [
   { id: 'home', label: 'Overview', icon: 'home' },
   { id: 'processes', label: 'Processes', icon: 'list' },
   { id: 'cleanup', label: 'Cleanup', icon: 'cleanup' },
   { id: 'fix', label: 'Issues', icon: 'fix' },
-  { id: 'reports', label: 'Reports', icon: 'report' },
   { id: 'tools', label: 'Tools', icon: 'settings' },
+  { id: 'reports', label: 'Reports', icon: 'report' },
   { id: 'history', label: 'History', icon: 'history' },
 ]
 const page = ref<Page>('home')
