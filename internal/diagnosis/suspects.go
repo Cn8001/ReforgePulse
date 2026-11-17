@@ -161,7 +161,7 @@ func heatSuspect(in Input) domain.Suspect {
 		// CPUs throttle near 100 °C and GPUs near 90 °C; a few degrees short
 		// of that already means the cooling has no headroom.
 		limit := 95.0
-		if x.Source == "nvml" || strings.Contains(strings.ToLower(x.Group), "gpu") {
+		if x.Source == "nvml" || x.Source == "wddm" || strings.Contains(strings.ToLower(x.Group), "gpu") {
 			limit = 85
 		}
 		if peak >= limit {

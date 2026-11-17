@@ -86,7 +86,7 @@ const gpuClock = computed(() => {
   const c = sensor((s) => s.source === 'nvml' && s.name === 'Core clock')
   return c ? ghz(c.value) : ''
 })
-const gpuTemp = computed(() => sensor((s) => s.kind === 'temp' && s.source === 'nvml')?.value ?? null)
+const gpuTemp = computed(() => sensor((s) => s.kind === 'temp' && (s.source === 'nvml' || s.source === 'wddm'))?.value ?? null)
 const memClock = computed(() => {
   const m = facts.value?.Memory?.[0]
   return m ? `${m.ConfiguredMHz} MT/s` : ''
@@ -222,7 +222,7 @@ const headline = computed(() => {
       </Tile>
       <Tile title="Graphics" icon="gpu" :value="pct(now.gpu)" unit="%" :sub="overview?.gpuModel || 'Unknown graphics card'"
             clickable @click="emit('open', 'processes', 'gpu')">
-        <ClockTemp :clock="gpuClock" :temp="gpuTemp" :missing="sensors?.nvml || 'No graphics sensors found.'" />
+        <ClockTemp :clock="gpuClock" :temp="gpuTemp" :missing="sensors?.graphics || 'The graphics driver does not report its temperature.'" />
         <Sparkline :values="history.gpu" color="var(--accent)" />
       </Tile>
       <Tile title="Memory" icon="memory" :value="pct(now.memory)" unit="%" :sub="memoryDetail"

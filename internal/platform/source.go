@@ -244,7 +244,7 @@ type CPUs interface {
 
 // Sensor is one live hardware reading.
 type Sensor struct {
-	Source string  `json:"source"` // nvml, hwinfo
+	Source string  `json:"source"` // nvml, wddm, hwinfo
 	Group  string  `json:"group"`  // the chip or device it belongs to
 	Name   string  `json:"name"`
 	Kind   string  `json:"kind"` // temp, volt, fan, power, clock, load
@@ -256,9 +256,10 @@ type Sensor struct {
 // SensorStatus says which sources answered, so the window can explain what
 // is missing instead of showing nothing.
 type SensorStatus struct {
-	Sensors []Sensor `json:"sensors"`
-	NVML    string   `json:"nvml"`   // "", or why NVIDIA's library did not answer
-	HWiNFO  string   `json:"hwinfo"` // "", or why HWiNFO's shared memory was not there
+	Sensors  []Sensor `json:"sensors"`
+	NVML     string   `json:"nvml"`     // "", or why NVIDIA's library did not answer
+	Graphics string   `json:"graphics"` // "", or why no graphics driver reported temperature, fan or power
+	HWiNFO   string   `json:"hwinfo"`   // "", or why HWiNFO's shared memory was not there
 }
 
 type Sensors interface {

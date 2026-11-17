@@ -38,7 +38,9 @@ const order = ['temp', 'volt', 'power', 'clock', 'fan', 'load']
         Every sensor it sees then appears here and in the scan.
       </p>
     </div>
-    <p v-if="st?.nvml && !st.sensors?.some((s) => s.source === 'nvml')" class="text-muted">No NVIDIA graphics sensors: {{ st.nvml }}</p>
+    <p v-if="st && !st.sensors?.some((s) => s.source === 'nvml' || s.source === 'wddm')" class="text-muted">
+      No graphics sensors: {{ st.graphics || 'the graphics driver does not report them.' }}
+    </p>
 
     <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
       <article v-for="[name, list] in groups" :key="name" class="panel">

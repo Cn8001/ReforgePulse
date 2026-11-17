@@ -16,8 +16,9 @@ import (
 	"github.com/cn8001/reforgepulse/internal/platform"
 )
 
-// SensorReader reads NVIDIA GPUs through the driver's own nvml.dll and
-// everything else from HWiNFO's shared memory when HWiNFO publishes it.
+// SensorReader reads NVIDIA GPUs through the driver's own nvml.dll, other
+// GPUs through the graphics kernel, and everything else from HWiNFO's
+// shared memory when HWiNFO publishes it.
 // Windows itself has no reliable CPU temperature; reading it directly
 // needs a kernel driver, which ReforgePulse does not install.
 type SensorReader struct {
@@ -38,6 +39,21 @@ func (r *SensorReader) Sensors(ctx context.Context) platform.SensorStatus {
 	gpu, err := r.gpus()
 	if err != nil {
 		st.NVML = err.Error()
+	}
+	// NVML says more (watts, load), so the kernel's readings only fill in
+	// adapters it does not cover: AMD, Intel and NVIDIA without NVML.
+	covered := map[string]bool{}
+	for _, s := range gpu {
+		covered[s.Group] = true
+	}
+	other, err := adapterSensors()
+	if err != nil {
+		st.Graphics = err.Error()
+	}
+	for _, s := range other {
+		if !covered[s.Group] {
+			gpu = append(gpu, s)
+		}
 	}
 	hw, err := hwinfo()
 	if err != nil {
