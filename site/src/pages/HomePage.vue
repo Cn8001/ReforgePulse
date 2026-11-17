@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import LiveDemo from '../components/LiveDemo.vue'
+import ShotShowcase from '../components/ShotShowcase.vue'
 import { installer, repo, version } from '../content'
 import { href } from '../router'
 </script>
@@ -23,7 +23,7 @@ import { href } from '../router'
         <p class="meta">Version {{ version }}, for 64-bit Windows. Free and open source under the MIT licence.</p>
         <p class="more"><a :href="href('features')">See what it does</a> or <a :href="href('how')">how it works</a>.</p>
       </div>
-      <LiveDemo />
+      <ShotShowcase />
     </div>
   </section>
 </template>

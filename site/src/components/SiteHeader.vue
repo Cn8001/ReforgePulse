@@ -3,6 +3,7 @@ import { href, route, type Page } from '../router'
 import { repo } from '../content'
 
 const links: { page: Page; label: string }[] = [
+  { page: 'home', label: 'Home' },
   { page: 'features', label: 'Features' },
   { page: 'how', label: 'How it works' },
   { page: 'install', label: 'Install' },

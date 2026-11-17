@@ -64,15 +64,12 @@ publish:
 version:
 	@sh scripts/version.sh $(V)
 
-# GitHub Pages serves docs/ from master. The live demo is the real frontend
-# with demo/backend.js standing in for the Go services; the screenshots and
-# icon in docs/ are source files the README uses too, so only the build's
-# own output is cleared.
-## site: build the website into docs/ (the pages and the live demo)
+# GitHub Pages serves docs/ from master. The screenshots and icon in docs/
+# are source files the README uses too, so only the build's own output is
+# cleared.
+## site: build the website into docs/
 site:
-	@[ -d frontend/node_modules ] || (cd frontend && npm ci)
 	@[ -d site/node_modules ] || (cd site && npm ci)
-	cd frontend && npx vite build --config vite.demo.config.ts
 	rm -rf docs/assets
 	cd site && npm run build
 
