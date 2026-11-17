@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -477,4 +478,39 @@ func (fakeHardware) Sensors(context.Context) platform.SensorStatus { return plat
 
 func (fakeHardware) ProblemDevices(context.Context) ([]platform.ProblemDevice, error) {
 	return nil, nil
+}
+
+type fakeUpdates struct {
+	rel        *domain.Release
+	downloaded bool
+}
+
+func (f *fakeUpdates) Check(context.Context) (*domain.Release, error) { return f.rel, nil }
+func (f *fakeUpdates) Download(context.Context) error                 { f.downloaded = true; return nil }
+func (f *fakeUpdates) Restart(context.Context) error                  { return nil }
+
+func TestUpdateService_DownloadIsLoggedAndDevBuildsSayWhy(t *testing.T) {
+	// Arrange
+	ctx := context.Background()
+	src := &fakeUpdates{rel: &domain.Release{Version: "0.2.0"}}
+	j := &memJournal{}
+	runner := tasks.New(1, func(tasks.Status) {})
+	s := NewUpdateService(UpdateDeps{Source: src, Runner: runner, Journal: j, Version: "0.1.0"})
+	dev := NewUpdateService(UpdateDeps{Source: UpdatesUnavailable(errors.New("dev build")), Runner: runner, Journal: j})
+
+	// Act
+	rel, err := s.Check(ctx)
+	dlErr := s.Download(ctx, rel.Version)
+	_, devErr := dev.Check(ctx)
+
+	// Assert
+	if err != nil || dlErr != nil || !src.downloaded {
+		t.Fatalf("check %v, download %v, downloaded %v", err, dlErr, src.downloaded)
+	}
+	if len(j.begun) != 1 || j.begun[0].Before != "0.1.0" || j.begun[0].After != "0.2.0" {
+		t.Fatalf("journal = %+v", j.begun)
+	}
+	if devErr == nil || !strings.Contains(devErr.Error(), "dev build") {
+		t.Fatalf("dev build check: %v", devErr)
+	}
 }

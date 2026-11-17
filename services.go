@@ -61,6 +61,7 @@ type backend struct {
 
 	overview *system.Inspector
 	journal  *journal.Journal
+	runner   *tasks.Runner
 	sampler  *windows.Sampler
 	cpus     *windows.CPUs
 	sensors  *windows.SensorReader
@@ -167,6 +168,7 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 		}), j),
 		overview: overview,
 		journal:  j,
+		runner:   runner,
 		sampler:  sampler,
 		cpus:     cpus,
 		sensors:  sensors,

@@ -10,12 +10,14 @@ import (
 	"path/filepath"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/updater"
 
 	"github.com/cn8001/reforgepulse/internal/app"
 	"github.com/cn8001/reforgepulse/internal/mcp"
 	"github.com/cn8001/reforgepulse/internal/platform"
 	"github.com/cn8001/reforgepulse/internal/platform/windows"
 	"github.com/cn8001/reforgepulse/internal/tasks"
+	"github.com/cn8001/reforgepulse/internal/updates"
 )
 
 var (
@@ -34,6 +36,9 @@ func main() {
 }
 
 func run() error {
+	// An update restarts this exe as a helper that only swaps the new file
+	// in; it must not ask for UAC or open the data folder first.
+	updater.HandleHelperMode()
 	host := windows.System{}
 	mcpMode := len(os.Args) > 1 && os.Args[1] == "mcp"
 	if !mcpMode && elevate(host) {
@@ -79,8 +84,12 @@ func runWindow(b *backend, dir string, emit *func(tasks.Status)) error {
 	})
 	*emit = func(s tasks.Status) { a.Event.Emit(taskEvent, s) }
 
-	// The accent comes from a.Env, which exists only once the app does.
+	// The accent comes from a.Env and updates from a.Updater, which exist
+	// only once the app does.
 	a.RegisterService(application.NewService(app.NewThemeService(a.Env)))
+	a.RegisterService(application.NewService(app.NewUpdateService(app.UpdateDeps{
+		Source: updateSource(a.Updater), Runner: b.runner, Journal: b.journal, Version: app.VersionFrom(buildConfig),
+	})))
 
 	// Mica gives the window the Windows 11 material. It starts dark, the
 	// default theme; light mode paints its own opaque background over it.
@@ -98,6 +107,19 @@ func runWindow(b *backend, dir string, emit *func(tasks.Status)) error {
 		URL:            "/",
 	})
 	return a.Run()
+}
+
+// updateSource is GitHub Releases, except under the dev server, where the
+// exe is a throwaway build that must not replace itself.
+func updateSource(u *updater.Updater) app.UpdateSource {
+	if os.Getenv("FRONTEND_DEVSERVER_URL") != "" {
+		return app.UpdatesUnavailable(errors.New("updates are off while running from the dev server"))
+	}
+	src, err := updates.New(u, app.VersionFrom(buildConfig))
+	if err != nil {
+		return app.UpdatesUnavailable(err)
+	}
+	return src
 }
 
 // elevate restarts the app through UAC unless it already runs elevated, and
