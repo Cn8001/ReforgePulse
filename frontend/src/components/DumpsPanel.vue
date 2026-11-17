@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Icon from './Icon.vue'
 import { onMounted, ref } from 'vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import AnalysisView from './AnalysisView.vue'
@@ -11,6 +12,13 @@ const debuggerOk = ref(false)
 const pending = ref<Dump | null>(null)
 const busy = ref('')
 const error = ref('')
+// Saved analyses start closed so the list stays short; one just run opens.
+const shown = ref(new Set<string>())
+function toggle(name: string) {
+  const next = new Set(shown.value)
+  next.has(name) ? next.delete(name) : next.add(name)
+  shown.value = next
+}
 
 onMounted(async () => {
   try {
@@ -27,6 +35,7 @@ async function analyze() {
   busy.value = d.name
   try {
     d.analysis = await Analyze(d.name) // also saved, under Reports
+    shown.value = new Set(shown.value).add(d.name)
   } catch (e) {
     error.value = String(e)
   } finally {
@@ -55,7 +64,11 @@ async function analyze() {
           <button class="btn ml-auto h-7" :disabled="!debuggerOk || !!busy" @click="pending = d">{{ busy === d.name ? 'Analysing…' : d.analysis ? 'Analyse again' : 'Analyse' }}</button>
         </div>
         <p class="mt-1 font-mono text-[12px] text-muted">{{ d.name }}, parameters {{ d.params?.join(' ') }}</p>
-        <AnalysisView v-if="d.analysis" :a="d.analysis" class="mt-3" />
+        <button v-if="d.analysis" class="mt-2 flex items-center gap-1.5 text-[14px] text-muted hover:text-fg" :aria-expanded="shown.has(d.name)" @click="toggle(d.name)">
+          <Icon name="chevron" class="size-3.5! transition-transform" :class="shown.has(d.name) && 'rotate-90'" />
+          Analysis: <span class="text-fg">{{ d.analysis.image || d.analysis.module || 'no module named' }}</span>
+        </button>
+        <AnalysisView v-if="d.analysis && shown.has(d.name)" :a="d.analysis" class="mt-2" />
       </div>
     </div>
     <p class="text-xs text-muted">The module the debugger names is where the crash happened. That is usually, not always, the cause: unstable hardware makes healthy drivers crash too.</p>
