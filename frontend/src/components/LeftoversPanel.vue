@@ -10,6 +10,11 @@ import { formatBytes, since } from '../lib/format'
 // One panel for both: folders uninstalled programs left, and old downloads.
 const props = defineProps<{ kind: 'leftovers' | 'downloads' }>()
 const { List, Recycle } = props.kind === 'downloads' ? OldFiles : Leftovers
+// Recycled items can come back until the bin is emptied; a leftover folder
+// can still be needed by a program the match missed.
+const warning = props.kind === 'downloads'
+  ? 'They can be restored from the Recycle Bin until it is emptied. After that they are gone for good. Are you sure?'
+  : 'If a program still needs one of these folders it may stop working. They can be restored from the Recycle Bin until it is emptied. Are you sure?'
 const texts = props.kind === 'downloads'
   ? { found: 'in old downloads', scanning: 'Looking through Downloads…', none: 'Nothing in Downloads has sat untouched for 180 days.',
       note: 'Files and folders of 1 MB or more whose newest file is older than 180 days: usually installers run once and archives already extracted.' }
@@ -95,7 +100,8 @@ onMounted(scan)
       </label>
     </div>
 
-    <ConfirmDialog :open="confirm" :title="`Move ${selected.length} items to the Recycle Bin?`" confirm="Move to Recycle Bin" :busy="busy"
+    <ConfirmDialog :open="confirm" :title="`Move ${selected.length} items to the Recycle Bin?`" confirm="Move to Recycle Bin"
+                   :warning="warning" :busy="busy"
                    @yes="recycle" @no="confirm = false">
       <ul class="mb-3 max-h-40 overflow-y-auto font-mono text-xs text-fg">
         <li v-for="l in selected" :key="l.path" class="truncate py-0.5">{{ l.path }}</li>

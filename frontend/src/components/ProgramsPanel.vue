@@ -79,7 +79,8 @@ onMounted(load)
       </div>
     </div>
 
-    <ConfirmDialog :open="!!pending" :title="`Uninstall ${pending?.name}?`" confirm="Run uninstaller" danger :busy="busy" @yes="uninstall" @no="pending = null">
+    <ConfirmDialog :open="!!pending" :title="`Uninstall ${pending?.name}?`" confirm="Run uninstaller" danger
+                   warning="This cannot be undone: to get it back you would have to install it again. Are you sure?" :busy="busy" @yes="uninstall" @no="pending = null">
       ReforgePulse starts the program's own uninstaller, which may ask its own questions. Anything it leaves behind shows up under Leftovers later.
     </ConfirmDialog>
   </div>

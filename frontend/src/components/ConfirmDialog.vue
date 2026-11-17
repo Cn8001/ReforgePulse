@@ -1,6 +1,8 @@
 <script setup lang="ts">
 // Every change goes through here: the user sees what will happen and says yes.
-defineProps<{ open: boolean; title: string; confirm: string; danger?: boolean; busy?: boolean }>()
+// warning is the one line about what cannot be taken back, shown first so it
+// is read before the button; danger makes it red, otherwise amber.
+defineProps<{ open: boolean; title: string; confirm: string; danger?: boolean; busy?: boolean; warning?: string }>()
 const emit = defineEmits<{ yes: []; no: [] }>()
 </script>
 
@@ -11,9 +13,12 @@ const emit = defineEmits<{ yes: []; no: [] }>()
       <section role="dialog" aria-modal="true" class="panel w-[480px] max-w-full shadow-2xl">
         <header class="border-b border-line px-5 py-4">
           <h2 class="text-[15px] font-semibold">{{ title }}</h2>
-          <p v-if="danger" class="mt-1 text-xs text-bad">This cannot be undone.</p>
         </header>
-        <div class="px-5 py-4 text-muted"><slot /></div>
+        <div class="flex flex-col gap-3 px-5 py-4 text-muted">
+          <p v-if="warning" class="notice font-semibold"
+             :class="danger ? 'border-bad/40 bg-bad/10 text-bad' : 'border-warn/40 bg-warn/10 text-warn'">{{ warning }}</p>
+          <div><slot /></div>
+        </div>
         <footer class="flex justify-end gap-2 border-t border-line px-5 py-3">
           <button class="btn" :disabled="busy" @click="emit('no')">Cancel</button>
           <button :class="danger ? 'btn-danger' : 'btn-primary'" :disabled="busy" @click="emit('yes')">

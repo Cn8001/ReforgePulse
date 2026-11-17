@@ -243,7 +243,8 @@ async function endTask() {
       </table>
     </div>
 
-    <ConfirmDialog :open="!!ending" :title="`End ${ending?.name}?`" confirm="End task" danger :busy="busy" @yes="endTask" @no="ending = null">
+    <ConfirmDialog :open="!!ending" :title="`End ${ending?.name}?`" confirm="End task" danger
+                   warning="Unsaved work in it will be lost. Are you sure?" :busy="busy" @yes="endTask" @no="ending = null">
       Process {{ ending?.pid }} stops at once and any unsaved work in it is lost{{ ending?.ports?.length ? '. The ports it holds are freed' : '' }}.
     </ConfirmDialog>
   </section>

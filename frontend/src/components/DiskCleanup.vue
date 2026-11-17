@@ -87,11 +87,12 @@ onMounted(analyse)
       </label>
     </div>
 
-    <ConfirmDialog :open="confirmClean" title="Delete these files?" confirm="Delete files" danger :busy="cleaning" @yes="clean" @no="confirmClean = false">
+    <ConfirmDialog :open="confirmClean" title="Delete these files?" confirm="Delete files" danger
+                   warning="Deleted files cannot be brought back. Are you sure?" :busy="cleaning" @yes="clean" @no="confirmClean = false">
       <ul class="mb-3 text-[13px] text-fg">
         <li v-for="a in selected" :key="a.id" class="flex justify-between py-0.5"><span>{{ a.name }}</span><span class="tabular-nums">{{ formatBytes(a.bytes) }}</span></li>
       </ul>
-      Files are deleted for good, not moved to the Recycle Bin. Files in use are skipped, and the result is recorded in the change log.
+      They are not moved to the Recycle Bin. Files in use are skipped, and the result is recorded in the change log.
     </ConfirmDialog>
   </div>
 </template>

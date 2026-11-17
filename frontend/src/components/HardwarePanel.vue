@@ -173,7 +173,8 @@ const loadTone = (l?: CoreLoad) => (!l ? 'var(--hover)' : l.load > 85 ? 'var(--b
       </div>
     </article>
 
-    <ConfirmDialog :open="confirm" :title="`Test ${picked.size} cores for ${seconds} seconds each?`" confirm="Run core test" danger @yes="test" @no="confirm = false">
+    <ConfirmDialog :open="confirm" :title="`Test ${picked.size} cores for ${seconds} seconds each?`" confirm="Run core test" danger
+                   warning="If a core is unstable the PC may freeze or restart. Save your work first." @yes="test" @no="confirm = false">
       Each selected core runs at full load on its own, so it boosts as high as it can, which is where a degraded core makes mistakes.
       On an unstable PC this can freeze it or cause a blue screen, so save your work first. You can cancel from the status bar.
     </ConfirmDialog>
