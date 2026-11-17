@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { Clipboard } from '@wailsio/runtime'
 import Icon from './Icon.vue'
 import { Connect, Executable } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/agentservice'
@@ -13,7 +13,7 @@ onMounted(() => Executable().then((p) => (exe.value = p)))
 const agents = [
   { id: 'claude', name: 'Claude Code', how: 'Added with claude mcp add, for your user' },
   { id: 'codex', name: 'Codex', how: 'Added with codex mcp add' },
-  { id: 'opencode', name: 'OpenCode', how: 'Added to ~/.config/opencode/opencode.json' },
+  { id: 'opencode', name: 'OpenCode', how: 'Added to ~/.config/opencode/opencode.json; by hand, merge this into it' },
 ] as const
 
 type State = { busy?: boolean; ok?: string; error?: string }
@@ -29,13 +29,22 @@ async function connect(id: string) {
   }
 }
 
-// For an agent Windows cannot see, such as one running inside WSL.
-const wslPath = () => '/mnt/' + exe.value[0].toLowerCase() + exe.value.slice(2).replaceAll('\\', '/')
-const copied = ref(false)
-async function copyManual() {
-  await Clipboard.SetText(`claude mcp add reforgepulse -- "${wslPath()}" mcp`)
-  copied.value = true
-  setTimeout(() => (copied.value = false), 1500)
+// The same setup by hand, for when Connect fails or the agent runs where
+// Windows cannot see it, such as inside WSL: there the path is /mnt/c/....
+const where = ref<'windows' | 'wsl'>('windows')
+const path = computed(() =>
+  where.value === 'wsl' ? '/mnt/' + exe.value[0].toLowerCase() + exe.value.slice(2).replaceAll('\\', '/') : exe.value,
+)
+const commands = computed<Record<string, string>>(() => ({
+  claude: `claude mcp add --scope user reforgepulse -- "${path.value}" mcp`,
+  codex: `codex mcp add reforgepulse -- "${path.value}" mcp`,
+  opencode: JSON.stringify({ mcp: { reforgepulse: { type: 'local', command: [path.value, 'mcp'], enabled: true } } }, null, 2),
+}))
+const copied = ref('')
+async function copy(id: string) {
+  await Clipboard.SetText(commands.value[id])
+  copied.value = id
+  setTimeout(() => (copied.value = ''), 1500)
 }
 </script>
 
@@ -56,7 +65,16 @@ async function copyManual() {
         <button class="grid size-7 place-items-center rounded text-muted transition hover:bg-hover hover:text-fg" aria-label="Close" @click="$emit('close')"><Icon name="close" /></button>
       </header>
 
-      <div class="panel divide-y divide-line">
+      <div class="flex items-center justify-between gap-3">
+        <p class="text-xs text-muted">Connect runs the command for you. If it fails, copy it and run it yourself.</p>
+        <div class="flex shrink-0 rounded border border-line p-0.5 text-xs" role="radiogroup" aria-label="Where the agent runs">
+          <button v-for="w in (['windows', 'wsl'] as const)" :key="w" role="radio" :aria-checked="where === w"
+                  class="rounded-sm px-2 py-0.5" :class="where === w ? 'bg-hover font-semibold text-fg' : 'text-muted hover:text-fg'"
+                  @click="where = w">{{ w === 'wsl' ? 'WSL' : 'Windows' }}</button>
+        </div>
+      </div>
+
+      <div class="panel divide-y divide-line overflow-y-auto">
         <div v-for="a in agents" :key="a.id" class="flex flex-col gap-2 px-4 py-3">
           <div class="flex items-center gap-3">
             <div class="min-w-0 flex-1">
@@ -68,22 +86,20 @@ async function copyManual() {
             </button>
           </div>
           <p v-if="state[a.id]?.error" class="text-xs text-bad">
-            {{ state[a.id]!.error!.includes('not found') ? `${a.name} is not installed on Windows. If it runs in WSL, use the command below.` : state[a.id]!.error }}
+            {{ state[a.id]!.error!.includes('not found') ? `${a.name} is not installed on Windows. Run the command below where it is installed.` : state[a.id]!.error }}
           </p>
           <p v-else-if="state[a.id]?.ok" class="truncate font-mono text-[11px] text-muted">{{ state[a.id]!.ok }}</p>
+          <div class="relative rounded border border-line bg-raised">
+            <pre class="max-h-32 overflow-auto p-2.5 pr-9 font-mono text-[11px] whitespace-pre-wrap break-all select-text">{{ commands[a.id] }}</pre>
+            <button class="absolute top-1.5 right-1.5 rounded p-1 text-muted transition hover:bg-hover hover:text-fg"
+                    :aria-label="copied === a.id ? 'Copied' : `Copy the ${a.name} command`" @click="copy(a.id)">
+              <Icon :name="copied === a.id ? 'check' : 'copy'" class="size-3.5!" />
+            </button>
+          </div>
         </div>
       </div>
 
-      <div class="mt-auto">
-        <h3 class="label mb-2">For an agent running inside WSL</h3>
-        <div class="relative rounded border border-line bg-raised">
-          <pre class="overflow-x-auto p-3 pr-10 font-mono text-[11px] whitespace-pre-wrap break-all select-text">claude mcp add reforgepulse -- "{{ wslPath() }}" mcp</pre>
-          <button class="absolute top-2 right-2 rounded p-1 text-muted transition hover:text-fg" :aria-label="copied ? 'Copied' : 'Copy the command'" @click="copyManual">
-            <Icon :name="copied ? 'check' : 'copy'" class="size-3.5!" />
-          </button>
-        </div>
-        <p class="mt-2 text-xs text-muted">The connection runs as your user, without administrator rights.</p>
-      </div>
+      <p class="mt-auto text-xs text-muted">The connection runs as your user, without administrator rights.</p>
     </aside>
   </Transition>
 </template>
