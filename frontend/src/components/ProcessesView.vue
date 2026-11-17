@@ -172,10 +172,9 @@ const totals = computed(() => ({
 const columns: { key: Key; label: string; cls: string }[] = [
   { key: 'name', label: 'Name', cls: 'text-left' },
   { key: 'pid', label: 'PID', cls: 'w-20 text-right' },
-  { key: 'cpu', label: 'CPU', cls: 'w-32 text-right' },
-  { key: 'gpu', label: 'GPU', cls: 'w-20 text-right' },
-  { key: 'private', label: 'Memory', cls: 'w-28 text-right' },
-  { key: 'threads', label: 'Threads', cls: 'w-20 text-right' },
+  { key: 'cpu', label: 'CPU', cls: 'w-28 text-right' },
+  { key: 'gpu', label: 'GPU', cls: 'w-14 text-right' },
+  { key: 'private', label: 'Memory', cls: 'w-24 text-right' },
 ]
 
 const ending = ref<Process | null>(null)
@@ -219,7 +218,7 @@ async function endTask() {
 
     <div class="flex min-h-0 flex-1 gap-4">
       <!-- The tree: only who started whom. Picking a process shows it on the right. -->
-      <nav class="panel flex w-72 shrink-0 flex-col overflow-hidden" aria-label="Process tree">
+      <nav class="panel flex w-64 shrink-0 flex-col overflow-hidden" aria-label="Process tree">
         <button class="flex items-center gap-2 border-b border-line px-3 py-2 text-left hover:bg-hover"
                 :class="selected === null && 'bg-hover font-semibold'" @click="select(null)">
           {{ flat ? `${tree.roots.length} matches` : 'All processes' }}
@@ -233,7 +232,7 @@ async function endTask() {
             <span v-else class="size-6 shrink-0" />
             <button class="flex min-w-0 flex-1 items-center gap-2 rounded px-1.5 py-1 text-left hover:bg-hover"
                     :class="selected === n.p.pid && 'bg-hover'" :aria-current="selected === n.p.pid" @click="select(n.p.pid)">
-              <span class="truncate" :class="[!n.p.access && 'text-muted', selected === n.p.pid && 'text-fg']">{{ n.p.name }}</span>
+              <span class="min-w-0 truncate" :class="[!n.p.access && 'text-muted', selected === n.p.pid && 'text-fg']" :title="n.p.name">{{ n.p.name }}</span>
               <span v-if="n.count" class="text-xs text-muted">{{ n.count }}</span>
               <span v-if="n.p.hung" class="size-1.5 shrink-0 rounded-full bg-bad" title="Not responding" />
               <span class="ml-auto shrink-0 text-xs tabular-nums" :class="n.cpu >= 25 ? 'text-warn' : 'text-muted'">{{ n.cpu >= 0.1 ? n.cpu.toFixed(1) : '' }}</span>
@@ -248,16 +247,16 @@ async function endTask() {
           <p class="flex flex-wrap items-center gap-1 text-xs text-muted">
             <button class="hover:text-fg hover:underline" @click="select(null)">All processes</button>
             <template v-for="a in ancestors" :key="a.pid">
-              <Icon name="chevron" class="size-3!" /><button class="hover:text-fg hover:underline" @click="select(a.pid)">{{ a.name }}</button>
+              <Icon name="chevron" class="size-3!" /><button class="max-w-48 truncate hover:text-fg hover:underline" :title="a.name" @click="select(a.pid)">{{ a.name }}</button>
             </template>
           </p>
           <div class="mt-2 flex flex-wrap items-start gap-x-10 gap-y-3">
             <div class="min-w-0 flex-1">
-              <h2 class="flex items-center gap-2 text-[16px] font-semibold">
+              <h2 class="flex min-w-0 flex-wrap items-center gap-2 text-[16px] font-semibold break-all">
                 {{ current.p.name }} <span class="font-mono text-xs font-normal text-muted">{{ current.p.pid }}</span>
                 <span v-if="current.p.hung" class="chip border-bad/50 text-bad">Not responding</span>
               </h2>
-              <dl class="mt-2 grid grid-cols-[7rem_1fr] gap-y-1">
+              <dl class="mt-2 grid grid-cols-[7rem_minmax(0,1fr)] gap-y-1">
                 <dt class="text-muted">Path</dt><dd class="truncate font-mono text-xs select-text" :title="current.p.path">{{ current.p.path || 'Hidden by Windows (protected process)' }}</dd>
                 <dt class="text-muted">Itself</dt>
                 <dd class="tabular-nums">{{ current.p.access ? `${current.p.cpu.toFixed(1)}% CPU, ${formatBytes(current.p.private)} memory, ${current.p.threads} threads` : 'Windows does not let it be measured' }}</dd>
@@ -267,13 +266,13 @@ async function endTask() {
             </div>
             <button class="btn border-bad/50 text-bad hover:bg-bad hover:text-white" @click="ending = current.p">End task</button>
           </div>
-          <table v-if="current.p.ports?.length" class="mt-3 w-full max-w-2xl text-[14px]">
+          <table v-if="current.p.ports?.length" class="mt-3 w-full max-w-2xl table-fixed text-[14px]">
             <tr class="text-muted"><th class="w-16 pb-1 text-left font-medium">Protocol</th><th class="pb-1 text-left font-medium">Local</th>
-              <th class="pb-1 text-left font-medium">Remote</th><th class="pb-1 text-left font-medium">State</th></tr>
+              <th class="pb-1 text-left font-medium">Remote</th><th class="w-28 pb-1 text-left font-medium">State</th></tr>
             <tr v-for="(x, i) in current.p.ports" :key="i" class="border-t border-line/60">
               <td class="py-1 text-muted uppercase">{{ x.proto }}</td>
-              <td class="py-1 font-mono text-xs select-text">{{ x.local }}:{{ x.port }}</td>
-              <td class="py-1 font-mono text-xs text-muted">{{ x.remote || '–' }}</td>
+              <td class="py-1 pr-2 font-mono text-xs break-all select-text">{{ x.local }}:{{ x.port }}</td>
+              <td class="py-1 pr-2 font-mono text-xs break-all text-muted">{{ x.remote || '–' }}</td>
               <td class="py-1 capitalize" :class="x.state !== 'listen' && 'text-muted'">{{ x.state || 'Bound' }}</td>
             </tr>
           </table>
@@ -298,7 +297,7 @@ async function endTask() {
                 <td class="truncate px-3 py-1.5">
                   <span class="flex items-center gap-2">
                     <Icon v-if="!n.p.access" name="lock" class="size-3.5! shrink-0 text-muted" />
-                    <span class="truncate" :class="!n.p.access && 'text-muted'">{{ n.p.name }}</span>
+                    <span class="min-w-0 truncate" :class="!n.p.access && 'text-muted'" :title="n.p.name">{{ n.p.name }}</span>
                     <span v-if="n.count" class="text-xs text-muted">{{ n.count }}</span>
                     <span v-if="n.p.hung" class="chip border-bad/50 text-bad">Not responding</span>
                   </span>
@@ -306,13 +305,12 @@ async function endTask() {
                 <td class="px-3 py-1.5 text-right font-mono text-xs text-muted">{{ n.p.pid }}</td>
                 <td class="px-3 py-1.5">
                   <span class="flex items-center justify-end gap-2">
-                    <span class="h-1 w-12 overflow-hidden rounded-full bg-hover"><span class="block h-full rounded-full bg-accent transition-[width] duration-500" :style="{ width: `${Math.min(100, n.cpu)}%` }" /></span>
+                    <span class="h-1 w-8 overflow-hidden rounded-full bg-hover"><span class="block h-full rounded-full bg-accent transition-[width] duration-500" :style="{ width: `${Math.min(100, n.cpu)}%` }" /></span>
                     <span class="w-10 text-right" :class="n.cpu >= 25 ? 'text-warn' : ''">{{ n.p.access || n.count ? n.cpu.toFixed(1) : '–' }}</span>
                   </span>
                 </td>
                 <td class="px-3 py-1.5 text-right" :class="n.gpu < 1 && 'text-muted'">{{ n.gpu ? n.gpu.toFixed(1) : '0' }}</td>
                 <td class="px-3 py-1.5 text-right">{{ n.p.access || n.count ? formatBytes(n.mem) : '–' }}</td>
-                <td class="px-3 py-1.5 text-right text-muted">{{ n.p.threads }}</td>
               </tr>
             </tbody>
           </table>

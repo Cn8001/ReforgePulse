@@ -243,7 +243,7 @@ const headline = computed(() => {
         <p v-if="!drives.length" class="text-muted">No fixed drives found.</p>
       </Tile>
       <Tile title="System" icon="system" :sub="overview?.os || ''">
-        <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[14px]">
+        <dl class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-[14px]">
           <dt class="text-muted">Running for</dt><dd class="tabular-nums">{{ overview ? show(overview.uptime, formatDuration) : '–' }}</dd>
           <dt class="text-muted">Rights</dt>
           <dd :class="overview && !overview.elevated ? 'text-warn' : ''">{{ overview ? (overview.elevated ? 'Administrator' : 'Limited') : '–' }}</dd>

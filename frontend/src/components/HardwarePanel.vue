@@ -77,7 +77,7 @@ const loadTone = (l?: CoreLoad) => (!l ? 'var(--hover)' : l.load > 85 ? 'var(--b
       <article class="panel p-4">
         <h2 class="label">Processor</h2>
         <p class="mt-1 font-semibold">{{ facts?.CPU.Name ?? 'Reading…' }}</p>
-        <dl class="mt-3 grid grid-cols-[7rem_1fr] gap-y-1.5 text-[14px] tabular-nums">
+        <dl class="mt-3 grid grid-cols-[7rem_minmax(0,1fr)] gap-y-1.5 text-[14px] tabular-nums">
           <dt class="text-muted">Cores</dt><dd>{{ facts?.CPU.Cores ?? '–' }}<span v-if="pCount" class="text-muted">, {{ pCount }} performance and {{ eCount }} efficiency</span></dd>
           <dt class="text-muted">Threads</dt><dd>{{ facts?.CPU.Threads ?? '–' }}</dd>
           <dt class="text-muted">Base clock</dt><dd>{{ facts ? `${facts.CPU.MaxMHz} MHz` : '–' }}</dd>
@@ -88,7 +88,7 @@ const loadTone = (l?: CoreLoad) => (!l ? 'var(--hover)' : l.load > 85 ? 'var(--b
       <article class="panel p-4">
         <h2 class="label">Motherboard</h2>
         <p class="mt-1 font-semibold">{{ facts?.Board ?? 'Reading…' }}</p>
-        <dl class="mt-3 grid grid-cols-[7rem_1fr] gap-y-1.5 text-[14px]">
+        <dl class="mt-3 grid grid-cols-[7rem_minmax(0,1fr)] gap-y-1.5 text-[14px]">
           <dt class="text-muted">BIOS</dt><dd>{{ facts ? `${facts.BIOS}, ${facts.BIOSDate}` : '–' }}</dd>
           <dt class="text-muted">Hypervisor</dt><dd>{{ facts ? (facts.Hypervisor ? 'On (Hyper-V, WSL 2 or VBS)' : 'Off') : '–' }}</dd>
         </dl>

@@ -123,7 +123,7 @@ const read = (what: 'license' | 'terms') => (reading.value = reading.value === w
             </div>
           </div>
 
-          <dl class="grid grid-cols-[7rem_1fr] gap-y-2 border-b border-line px-5 py-4 text-[14px]">
+          <dl class="grid grid-cols-[7rem_minmax(0,1fr)] gap-y-2 border-b border-line px-5 py-4 text-[14px]">
             <dt class="text-muted">Licence</dt>
             <dd>MIT License. Free and open source, provided as is, without warranty.</dd>
             <dt class="text-muted">Source</dt>

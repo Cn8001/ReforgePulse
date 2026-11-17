@@ -81,7 +81,7 @@ const sureness: Record<string, string> = { confirmed: 'Confirmed', likely: 'Like
             <h4 class="label mb-1">Other explanations the evidence allows</h4>
             <p>{{ f.alternatives }}</p>
           </section>
-          <dl class="grid grid-cols-[9rem_1fr] gap-y-1 text-xs">
+          <dl class="grid grid-cols-[9rem_minmax(0,1fr)] gap-y-1 text-xs">
             <template v-if="f.latest"><dt class="text-muted">Last seen</dt><dd>{{ when(f.latest) }}</dd></template>
             <template v-if="f.resolvedAt"><dt class="text-muted">Marked resolved</dt><dd>{{ when(f.resolvedAt) }}</dd></template>
             <dt class="text-muted">Key</dt><dd class="font-mono select-text">{{ f.key }}</dd>
