@@ -333,6 +333,21 @@ func (m *memReports) Delete(_ context.Context, id string) error {
 	return os.ErrNotExist
 }
 func (m *memReports) DeleteBefore(context.Context, time.Time) (int, error) { return 0, nil }
+func (m *memReports) DeleteFinding(_ context.Context, id, key string) (domain.ScanResult, error) {
+	for i, r := range m.saved {
+		if r.ID == id {
+			var kept []domain.Finding
+			for _, f := range r.Findings {
+				if f.Key != key {
+					kept = append(kept, f)
+				}
+			}
+			m.saved[i].Findings = kept
+			return m.saved[i], nil
+		}
+	}
+	return domain.ScanResult{}, os.ErrNotExist
+}
 func (m *memReports) Latest(context.Context) (*domain.ScanResult, error) {
 	if len(m.saved) == 0 {
 		return nil, nil

@@ -162,3 +162,23 @@ func TestStore_DeleteOneAndBefore(t *testing.T) {
 		t.Fatal("a path was accepted as an ID")
 	}
 }
+
+func TestStore_DeleteFindingKeepsTheRest(t *testing.T) {
+	// Arrange
+	ctx := context.Background()
+	s := New(testDB(t), 5)
+	saved, _ := s.Save(ctx, scan(0, "a", "b"))
+
+	// Act
+	_, err := s.DeleteFinding(ctx, saved.ID, "a")
+	_, missingErr := s.DeleteFinding(ctx, saved.ID, "a")
+
+	// Assert
+	got, _ := s.Get(ctx, saved.ID)
+	if err != nil || len(got.Findings) != 1 || got.Findings[0].Key != "b" {
+		t.Fatalf("err %v, findings %+v", err, got.Findings)
+	}
+	if !errors.Is(missingErr, os.ErrNotExist) {
+		t.Fatalf("deleting it twice: %v", missingErr)
+	}
+}

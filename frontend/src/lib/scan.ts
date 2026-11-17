@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { Last, Reopen, Report, Reports, Resolve, Scan } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/scanservice'
+import { DeleteFinding, Last, Reopen, Report, Reports, Resolve, Scan } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/scanservice'
 import type { Finding, ReportSummary, ScanResult } from '../../bindings/github.com/cn8001/reforgepulse/internal/domain/models'
 
 // One scan state for Home and Issues, so both show the same result. An older
@@ -40,6 +40,13 @@ export async function openReport(id: string) {
 
 // Still needing attention: open, or resolved and then seen again.
 export const active = (f: Finding) => f.status !== 'resolved'
+
+// Deleting a finding changes one saved scan; the shown ones are reread.
+export async function deleteFinding(reportId: string, f: Finding) {
+  await DeleteFinding(reportId, f.key)
+  const id = viewed.value?.id
+  await Promise.all([loadLastScan(), loadReports(), id ? Report(id).then((r) => (viewed.value = r)) : null])
+}
 
 // Resolve and Reopen change every report's statuses, so all are reread.
 export async function setResolved(f: Finding, resolved: boolean) {

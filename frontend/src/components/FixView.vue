@@ -85,7 +85,7 @@ function act(kind: string, arg?: string) {
     <SuspectList v-if="shown?.suspects?.length" :suspects="shown.suspects" />
 
     <div class="flex flex-col gap-3">
-      <FindingCard v-for="f in current" :key="f.key" :f="f" @act="act" />
+      <FindingCard v-for="f in current" :key="f.key" :f="f" :report-id="shown!.id" @act="act" />
     </div>
 
     <div v-if="resolved.length" class="flex flex-col gap-3">
@@ -94,7 +94,7 @@ function act(kind: string, arg?: string) {
         Resolved ({{ resolved.length }})
       </button>
       <template v-if="showResolved">
-        <FindingCard v-for="f in resolved" :key="f.key" :f="f" @act="act" />
+        <FindingCard v-for="f in resolved" :key="f.key" :f="f" :report-id="shown!.id" @act="act" />
       </template>
     </div>
 

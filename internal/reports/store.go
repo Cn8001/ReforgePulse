@@ -123,6 +123,33 @@ func (s *Store) Latest(ctx context.Context) (*domain.ScanResult, error) {
 	return &r, nil
 }
 
+// DeleteFinding removes one finding from a saved report. The next scan
+// finds it again if Windows still records it.
+func (s *Store) DeleteFinding(ctx context.Context, id, key string) (domain.ScanResult, error) {
+	r, err := s.Get(ctx, id)
+	if err != nil {
+		return r, err
+	}
+	kept := r.Findings[:0]
+	for _, f := range r.Findings {
+		if f.Key != key {
+			kept = append(kept, f)
+		}
+	}
+	if len(kept) == len(r.Findings) {
+		return r, fmt.Errorf("finding %q: %w", key, os.ErrNotExist)
+	}
+	r.Findings = kept
+	body, err := json.Marshal(r)
+	if err != nil {
+		return r, fmt.Errorf("encode report: %w", err)
+	}
+	if _, err := s.db.ExecContext(ctx, `UPDATE reports SET body = ? WHERE id = ?`, string(body), id); err != nil {
+		return r, fmt.Errorf("save report: %w", err)
+	}
+	return r, nil
+}
+
 // Delete removes one report.
 func (s *Store) Delete(ctx context.Context, id string) error {
 	res, err := s.db.ExecContext(ctx, `DELETE FROM reports WHERE id = ?`, id)

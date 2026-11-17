@@ -21,7 +21,7 @@ The first release, for Windows 10 and 11 on x64.
   no verdict where the records cannot decide.
 - Every scan is saved. Findings new since the scan before are marked, a
   finding can be marked resolved, and one that turns up again after that
-  shows as "came back".
+  shows as "came back". A finding can also be deleted from a scan.
 
 ### Cleanup
 

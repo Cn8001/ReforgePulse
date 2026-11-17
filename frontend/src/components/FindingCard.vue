@@ -2,15 +2,30 @@
 import { ref } from 'vue'
 import Icon from './Icon.vue'
 import type { Finding } from '../../bindings/github.com/cn8001/reforgepulse/internal/domain/models'
-import { severityTone, setResolved } from '../lib/scan'
+import { deleteFinding, severityTone, setResolved } from '../lib/scan'
+import ConfirmDialog from './ConfirmDialog.vue'
 import { when } from '../lib/format'
 import { estimate } from '../lib/scan'
 
-const props = defineProps<{ f: Finding }>()
+const props = defineProps<{ f: Finding; reportId: string }>()
 const emit = defineEmits<{ act: [kind: string, arg?: string] }>()
 const open = ref(false)
 const busy = ref(false)
 const error = ref('')
+
+const confirmDelete = ref(false)
+async function remove() {
+  confirmDelete.value = false
+  busy.value = true
+  error.value = ''
+  try {
+    await deleteFinding(props.reportId, props.f)
+  } catch (e) {
+    error.value = String(e)
+  } finally {
+    busy.value = false
+  }
+}
 
 async function mark(resolved: boolean) {
   busy.value = true
@@ -81,7 +96,14 @@ const sureness: Record<string, string> = { confirmed: 'Confirmed', likely: 'Like
                 title="Hide it until new evidence turns up. Nothing on the PC changes." @click="mark(true)">
           <Icon name="check" class="size-3.5!" />Mark resolved
         </button>
+        <button class="btn" :disabled="busy" title="Remove it from this scan" @click="confirmDelete = true">
+          <Icon name="trash" class="size-3.5!" />Delete
+        </button>
       </div>
     </div>
+    <ConfirmDialog :open="confirmDelete" :title="`Delete “${f.title}”?`" confirm="Delete" danger
+                   warning="It is removed from this scan for good. Are you sure?" @yes="remove" @no="confirmDelete = false">
+      The next scan finds it again if Windows still records it. To keep it out of the way until something new happens, use Mark resolved instead.
+    </ConfirmDialog>
   </article>
 </template>

@@ -33,6 +33,7 @@ type ReportStore interface {
 	Latest(ctx context.Context) (*domain.ScanResult, error)
 	Delete(ctx context.Context, id string) error
 	DeleteBefore(ctx context.Context, t time.Time) (int, error)
+	DeleteFinding(ctx context.Context, id, key string) (domain.ScanResult, error)
 }
 
 // ResolutionStore keeps what the user marked resolved.
@@ -165,6 +166,21 @@ func (s *ScanService) DeleteReport(ctx context.Context, id string) error {
 		return fmt.Errorf("delete report: %w", err)
 	}
 	s.forget(func(r *domain.ScanResult) bool { return r.ID == id })
+	return nil
+}
+
+// DeleteFinding takes one finding out of a saved scan. It is back after the
+// next scan if Windows still records it; Resolve is for keeping it away.
+func (s *ScanService) DeleteFinding(ctx context.Context, reportID, key string) error {
+	r, err := s.d.Reports.DeleteFinding(ctx, reportID, key)
+	if err != nil {
+		return fmt.Errorf("delete finding: %w", err)
+	}
+	s.mu.Lock()
+	if s.last != nil && s.last.ID == reportID {
+		s.last = &r
+	}
+	s.mu.Unlock()
 	return nil
 }
 
