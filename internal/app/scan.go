@@ -229,6 +229,7 @@ func (s *ScanService) withStatus(ctx context.Context, r domain.ScanResult) (doma
 	}
 	r.Findings = append([]domain.Finding(nil), r.Findings...)
 	reports.Apply(&r, resolved)
+	r.Health = diagnosis.Health(r.Findings) // after Apply: a resolved finding costs nothing
 	return r, nil
 }
 

@@ -71,6 +71,21 @@ type ScanResult struct {
 	Findings []Finding `json:"findings"`
 	Suspects []Suspect `json:"suspects"` // only when there is instability to explain
 	Elevated bool      `json:"elevated"`
+	Health   Health    `json:"health"` // worked out when read, as resolutions change it
+}
+
+// Health is a score out of 100 drawn from a scan's open findings, with
+// what took points off, so the number can always be explained.
+type Health struct {
+	Score      int         `json:"score"`
+	Deductions []Deduction `json:"deductions"`
+}
+
+// Deduction is one finding's cost to the score.
+type Deduction struct {
+	Key    string `json:"key"`
+	Title  string `json:"title"`
+	Points int    `json:"points"`
 }
 
 // ReportSummary is one saved scan in the list of recent scans.

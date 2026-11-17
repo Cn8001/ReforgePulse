@@ -400,6 +400,9 @@ func TestScanService_SavesReportsAndAppliesResolutions(t *testing.T) {
 	if resolveErr != nil || lastErr != nil || last == nil || last.Findings[0].Status != domain.Resolved {
 		t.Fatalf("last after restart = %+v, %v %v", last, resolveErr, lastErr)
 	}
+	if res.Health.Score != 93 || last.Health.Score != 100 { // two restarts are a medium finding
+		t.Fatalf("health before resolving %d, after %d", res.Health.Score, last.Health.Score)
+	}
 	if store.saved[0].Findings[0].Status != "" {
 		t.Fatal("a status leaked into the stored report")
 	}
