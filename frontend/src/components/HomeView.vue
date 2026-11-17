@@ -215,7 +215,7 @@ const headline = computed(() => {
           <dt class="text-muted">Running for</dt><dd class="tabular-nums">{{ overview ? show(overview.uptime, formatDuration) : '–' }}</dd>
           <dt class="text-muted">Rights</dt>
           <dd :class="overview && !overview.elevated ? 'text-warn' : ''">{{ overview ? (overview.elevated ? 'Administrator' : 'Limited') : '–' }}</dd>
-          <dt class="text-muted">Network</dt><dd>Only when you ask</dd>
+          <dt class="text-muted">Network</dt><dd>Updates and debug symbols</dd>
         </dl>
       </Tile>
     </div>

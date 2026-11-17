@@ -3,14 +3,15 @@ import { onMounted, ref } from 'vue'
 import { Browser, Clipboard } from '@wailsio/runtime'
 import logo from '../assets/logo.svg'
 import Icon from './Icon.vue'
-import ConfirmDialog from './ConfirmDialog.vue'
 import Markdown from './Markdown.vue'
 import { theme } from '../lib/theme'
 import { Info } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/aboutservice'
 import type { About } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/models'
-import { Check, Download, Restart } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/updateservice'
-import type { Release } from '../../bindings/github.com/cn8001/reforgepulse/internal/domain/models'
 import { formatBytes } from '../lib/format'
+import Toggle from './Toggle.vue'
+import { askRestart, check, checkOnStart, download, release, setCheckOnStart, update, updateError } from '../lib/update'
+
+const showNotes = ref(false)
 
 defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: []; agent: [] }>()
@@ -27,44 +28,6 @@ const tabs = [
 const reading = ref<'license' | 'terms' | null>(null)
 const read = (what: 'license' | 'terms') => (reading.value = reading.value === what ? null : what)
 
-// Nothing is fetched until the user presses the button.
-type Update = 'idle' | 'checking' | 'latest' | 'available' | 'downloading' | 'ready'
-const update = ref<Update>('idle')
-const release = ref<Release | null>(null)
-const updateError = ref('')
-const showNotes = ref(false)
-const confirmRestart = ref(false)
-
-async function check() {
-  update.value = 'checking'
-  updateError.value = ''
-  try {
-    release.value = await Check()
-    update.value = release.value ? 'available' : 'latest'
-  } catch (e) {
-    updateError.value = String(e)
-    update.value = 'idle'
-  }
-}
-async function download() {
-  update.value = 'downloading'
-  updateError.value = ''
-  try {
-    await Download(release.value!.version)
-    update.value = 'ready'
-  } catch (e) {
-    updateError.value = String(e)
-    update.value = 'available'
-  }
-}
-async function restart() {
-  try {
-    await Restart()
-  } catch (e) {
-    updateError.value = String(e)
-    confirmRestart.value = false
-  }
-}
 </script>
 
 <template>
@@ -115,10 +78,10 @@ async function restart() {
                   <template v-if="update === 'latest'">Version {{ about?.version }} is the latest.</template>
                   <template v-else-if="update === 'available' || update === 'downloading'">Version {{ release?.version }} is available. You have {{ about?.version }}.</template>
                   <template v-else-if="update === 'ready'">Version {{ release?.version }} is downloaded and verified. Restart to finish.</template>
-                  <template v-else>Looks at GitHub Releases only when you press the button.</template>
+                  <template v-else>New versions come from GitHub Releases. Nothing is installed without asking you.</template>
                 </p>
               </div>
-              <button v-if="update === 'ready'" class="btn-primary shrink-0" @click="confirmRestart = true">Restart now</button>
+              <button v-if="update === 'ready'" class="btn-primary shrink-0" @click="askRestart">Restart now</button>
               <button v-else-if="update === 'available' || update === 'downloading'" class="btn-primary shrink-0"
                       :disabled="update === 'downloading'" @click="download">
                 {{ update === 'downloading' ? 'Downloading…' : `Download${release?.size ? ` (${formatBytes(release.size)})` : ''}` }}
@@ -126,6 +89,10 @@ async function restart() {
               <button v-else class="btn shrink-0" :disabled="update === 'checking'" @click="check">
                 <Icon name="refresh" class="size-3.5!" />{{ update === 'checking' ? 'Checking…' : 'Check for updates' }}
               </button>
+            </div>
+            <div class="flex items-center justify-between gap-4 border-t border-line pt-3">
+              <label for="check-on-start" class="text-[14px]">Check for updates when ReforgePulse starts</label>
+              <Toggle id="check-on-start" :on="checkOnStart" label="Check for updates when ReforgePulse starts" @toggle="setCheckOnStart(!checkOnStart)" />
             </div>
             <p v-if="updateError" class="text-xs text-bad select-text">{{ updateError }}</p>
             <template v-if="release && update !== 'latest'">
@@ -185,9 +152,4 @@ async function restart() {
       </section>
     </div>
   </Transition>
-  <ConfirmDialog :open="confirmRestart" title="Restart ReforgePulse now?" confirm="Restart"
-                 warning="Anything still running, such as a scan or a core test, stops. Are you sure?"
-                 @yes="restart" @no="confirmRestart = false">
-    ReforgePulse closes, puts version {{ release?.version }} in place and opens again.
-  </ConfirmDialog>
 </template>

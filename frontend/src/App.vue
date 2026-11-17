@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import TopBar from './components/TopBar.vue'
 import SideNav from './components/SideNav.vue'
 import HomeView from './components/HomeView.vue'
@@ -12,6 +12,8 @@ import AgentPanel from './components/AgentPanel.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
 import StatusBar from './components/StatusBar.vue'
 import TermsGate from './components/TermsGate.vue'
+import UpdatePrompt from './components/UpdatePrompt.vue'
+import { checkAtStart } from './lib/update'
 import { Accepted } from '../bindings/github.com/cn8001/reforgepulse/internal/app/aboutservice'
 import type { IconName } from './lib/icons'
 
@@ -33,6 +35,9 @@ const elevated = ref<boolean | null>(null) // set by Home once the overview arri
 // If the answer cannot be read, the terms are shown again rather than skipped.
 const accepted = ref<boolean | null>(null)
 Accepted().then((ok) => (accepted.value = ok)).catch(() => (accepted.value = false))
+// The start-up update check waits for the terms: nothing should reach out
+// before the user has agreed to use the app.
+watch(accepted, (ok) => ok && checkAtStart(), { once: true })
 
 // Ctrl+1..6 switch pages, Ctrl+, opens settings, Escape closes what is open.
 function onKey(e: KeyboardEvent) {
@@ -88,6 +93,7 @@ function openAgent() {
     <StatusBar :elevated="elevated" />
     <AgentPanel :open="agentOpen" @close="agentOpen = false" />
     <SettingsDialog :open="settingsOpen" @close="settingsOpen = false" @agent="openAgent" />
+    <UpdatePrompt />
     </template>
   </div>
 </template>

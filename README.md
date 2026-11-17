@@ -63,10 +63,11 @@ first start shows the terms and the licence to accept before anything else.
   its own or everything before a date. The log keeps its last 500 entries,
   the last 30 scans are kept. A revert entry is deleted with the change it
   undid, never alone, so a change can never look revertible twice.
-- **Updates**: Settings > Check for updates asks GitHub Releases for a
-  newer version. Nothing is checked in the background. The download is
-  verified against the release's `SHA256SUMS`, logged in the change log, and
-  swapped in when you restart.
+- **Updates**: at start (unless turned off in Settings) and from Settings >
+  Check for updates, ReforgePulse asks GitHub Releases for a newer version
+  and asks before downloading it. The download is verified against the
+  release's `SHA256SUMS`, logged in the change log, and swapped in when you
+  restart.
 - **MCP**: `reforgepulse.exe mcp` is a read-only MCP server over stdio,
   running unelevated. The MCP button registers it with Claude Code, Codex or
   OpenCode. Agents can scan and read; changes stay in the window.
@@ -100,8 +101,9 @@ another OS is a new package next to `platform/windows`.
 Data is in `%LOCALAPPDATA%\ReforgePulse`: `reforgepulse.db` (SQLite: the
 change log, saved scans, resolved findings and settings, shared with the MCP
 server), `reforgepulse.log` (errors, panics and crash reports, rotated at
-1 MB), `webview/` and the debugger's `symbols/` cache. The network is used only when you ask:
-for that symbol download during a dump analysis, and for Check for updates.
+1 MB), `webview/` and the debugger's `symbols/` cache. The network is used for two
+things: the update check (GitHub Releases, at start unless turned off, and
+from Settings) and that symbol download during a dump analysis.
 
 ## Layout
 
