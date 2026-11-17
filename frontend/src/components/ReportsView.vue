@@ -7,7 +7,10 @@ import RecordingView from './RecordingView.vue'
 import { DeleteReport, DeleteReportsBefore } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/scanservice'
 import { Analyses, DeleteAnalysis } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/dumpservice'
 import { DeleteRecording, Recording as GetRecording, Recordings } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/recorderservice'
-import type { SavedAnalysis } from '../../bindings/github.com/cn8001/reforgepulse/internal/domain/models'
+import { DeleteResult, Results } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/checkservice'
+import { checkTitle } from '../lib/checks'
+import CheckResultView from './CheckResultView.vue'
+import type { CheckResult, SavedAnalysis } from '../../bindings/github.com/cn8001/reforgepulse/internal/domain/models'
 import type { Recording } from '../../bindings/github.com/cn8001/reforgepulse/internal/recorder/models'
 import { loadLastScan, loadReports, openReport, reports, severityTone, viewed } from '../lib/scan'
 import { when } from '../lib/format'
@@ -17,10 +20,11 @@ import { when } from '../lib/format'
 const props = defineProps<{ tab?: string }>()
 const emit = defineEmits<{ open: [page: string, arg?: string] }>()
 
-type Tab = 'scans' | 'dumps' | 'recordings'
-const tab = ref<Tab>((['scans', 'dumps', 'recordings'] as const).find((t) => t === props.tab) ?? 'scans')
+type Tab = 'scans' | 'dumps' | 'recordings' | 'checks'
+const tab = ref<Tab>((['scans', 'dumps', 'recordings', 'checks'] as const).find((t) => t === props.tab) ?? 'scans')
 const analyses = ref<SavedAnalysis[]>([])
 const recordings = ref<Recording[]>([])
+const checkResults = ref<CheckResult[]>([])
 const opened = ref('') // the dump or recording shown in full
 const openRec = ref<Recording | null>(null)
 const error = ref('')
@@ -30,9 +34,10 @@ const before = ref('') // yyyy-mm-dd from the date field
 async function load() {
   error.value = ''
   try {
-    const [a, r] = await Promise.all([Analyses(), Recordings(), loadReports()])
+    const [a, r, c] = await Promise.all([Analyses(), Recordings(), Results(), loadReports()])
     analyses.value = a ?? []
     recordings.value = r ?? []
+    checkResults.value = c ?? []
   } catch (e) {
     error.value = String(e)
   }
@@ -77,6 +82,7 @@ type Pending =
   | { kind: 'scans-before'; count: number }
   | { kind: 'dump'; a: SavedAnalysis }
   | { kind: 'recording'; r: Recording }
+  | { kind: 'check'; c: CheckResult }
 const pending = ref<Pending | null>(null)
 
 function askBefore() {
@@ -99,6 +105,8 @@ const dialog = computed(() => {
       return { title: `Delete the analysis of ${p.a.name}?`, body: 'The dump file stays; you can analyse it again while Windows keeps it.' }
     case 'recording':
       return { title: `Delete the recording from ${when(p.r.started)}?`, body: '' }
+    case 'check':
+      return { title: `Delete the ${checkTitle(p.c.name).toLowerCase()} check from ${when(p.c.at)}?`, body: 'Only the saved result goes; nothing on the PC changes.' }
   }
 })
 
@@ -112,7 +120,8 @@ async function confirmDelete() {
     if (p.kind === 'scan') await DeleteReport(p.id)
     else if (p.kind === 'scans-before') await DeleteReportsBefore(cutoff.value!.toISOString())
     else if (p.kind === 'dump') await DeleteAnalysis(p.a.name, p.a.dumped)
-    else await DeleteRecording(p.r.id!)
+    else if (p.kind === 'recording') await DeleteRecording(p.r.id!)
+    else await DeleteResult(p.c.id!)
     if (p.kind === 'scan' || p.kind === 'scans-before') {
       if (viewed.value && (p.kind === 'scan' ? viewed.value.id === p.id : new Date(viewed.value.at) < cutoff.value!)) viewed.value = null
       await loadLastScan()
@@ -133,7 +142,7 @@ const minutes = (r: Recording) => Math.max(1, Math.round(r.seconds / 60))
   <section class="mx-auto flex max-w-6xl flex-col gap-5 p-6">
     <header>
       <h1 class="heading">Reports</h1>
-      <p class="mt-1 text-muted">Scans, crash dump analyses and recordings, kept to look back at. The last 30 scans and 20 recordings are kept.</p>
+      <p class="mt-1 text-muted">Scans, crash dump analyses, recordings and health checks, kept to look back at. The last 30 scans, 20 recordings and 50 check results are kept.</p>
     </header>
 
     <nav class="tabs" role="tablist">
@@ -145,6 +154,9 @@ const minutes = (r: Recording) => Math.max(1, Math.round(r.seconds / 60))
       </button>
       <button role="tab" class="tab" :class="tab === 'recordings' && 'tab-on'" :aria-selected="tab === 'recordings'" @click="tab = 'recordings'">
         Recordings <span class="text-xs text-muted">{{ recordings.length }}</span>
+      </button>
+      <button role="tab" class="tab" :class="tab === 'checks' && 'tab-on'" :aria-selected="tab === 'checks'" @click="tab = 'checks'">
+        Checks <span class="text-xs text-muted">{{ checkResults.length }}</span>
       </button>
     </nav>
 
@@ -191,6 +203,24 @@ const minutes = (r: Recording) => Math.max(1, Math.round(r.seconds / 60))
           </button>
         </div>
         <AnalysisView v-if="opened === key(a)" :a="a" class="px-4 pb-3" />
+      </div>
+    </article>
+
+    <article v-else-if="tab === 'checks'" class="panel">
+      <p v-if="!checkResults.length" class="px-4 py-6 text-center text-muted">No check results yet. Run one under Tools, Checks.</p>
+      <div v-for="c in checkResults" :key="c.id" class="border-b border-line last:border-b-0">
+        <div class="flex items-center gap-3 px-4 py-2 hover:bg-hover">
+          <span class="w-36 shrink-0 tabular-nums">{{ when(c.at) }}</span>
+          <span class="flex-1">{{ checkTitle(c.name) }}</span>
+          <span class="chip" :class="c.exitCode === 0 ? 'border-line text-muted' : 'border-warn text-warn'">{{ c.exitCode === 0 ? 'Passed' : c.name === 'memtest' && c.exitCode === 2 ? 'Cancelled' : 'Needs a look' }}</span>
+          <button class="btn h-7" :aria-expanded="opened === c.id" @click="opened = opened === c.id ? '' : c.id!">{{ opened === c.id ? 'Close' : 'Open' }}</button>
+          <button v-if="!c.fromWindows" class="rounded p-1 text-muted hover:bg-hover hover:text-bad" :aria-label="`Delete the ${checkTitle(c.name)} result from ${when(c.at)}`"
+                  title="Delete this result" @click="pending = { kind: 'check', c }">
+            <Icon name="trash" class="size-3.5!" />
+          </button>
+          <span v-else class="w-[26px] shrink-0" aria-hidden="true" />
+        </div>
+        <CheckResultView v-if="opened === c.id" :r="c" class="mx-4 mb-3 rounded border border-line bg-raised p-3" />
       </div>
     </article>
 

@@ -1,17 +1,20 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { Run } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/checkservice'
-import type { CheckResult } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/models'
+import { onMounted, ref } from 'vue'
+import { Results, Run } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/checkservice'
+import type { CheckResult } from '../../bindings/github.com/cn8001/reforgepulse/internal/domain/models'
+import { checks } from '../lib/checks'
+import { when } from '../lib/format'
+import CheckResultView from './CheckResultView.vue'
 
-const checks = [
-  { id: 'sfc', title: 'System files', what: 'Compares Windows files against their known good copies (sfc /verifyonly).', time: '5 to 15 min' },
-  { id: 'dism', title: 'Windows image', what: 'Checks the store Windows repairs itself from (DISM /ScanHealth).', time: '5 to 20 min' },
-  { id: 'chkdsk', title: 'System drive', what: 'Checks the file system while Windows runs (chkdsk /scan).', time: '1 to 10 min' },
-  { id: 'memtest', title: 'Memory', what: 'Opens Windows Memory Diagnostic, which tests the RAM after a restart you choose.', time: 'one restart' },
-]
+// The last result of each check, saved ones first, so a check that took
+// twenty minutes is still there after leaving the page.
 const results = ref<Record<string, CheckResult>>({})
 const busy = ref('')
 const error = ref('')
+
+onMounted(async () => {
+  for (const r of ((await Results().catch(() => null)) ?? []).slice().reverse()) results.value[r.name] = r
+})
 
 async function run(id: string) {
   busy.value = id
@@ -39,8 +42,11 @@ async function run(id: string) {
         <button class="btn-primary" :disabled="!!busy" @click="run(c.id)">{{ busy === c.id ? 'Running…' : 'Run' }}</button>
       </div>
       <div v-if="results[c.id]" class="border-t border-line bg-raised px-4 py-3">
-        <p class="text-xs" :class="results[c.id].exitCode === 0 ? 'text-muted' : 'text-warn'">Finished with exit code {{ results[c.id].exitCode }}</p>
-        <pre class="mt-1 max-h-60 overflow-y-auto font-mono text-[12px] whitespace-pre-wrap select-text">{{ results[c.id].output }}</pre>
+        <p class="mb-2 text-xs text-muted">
+          <template v-if="results[c.id].at">Last run {{ when(results[c.id].at) }}.</template>
+          <template v-if="results[c.id].id && !results[c.id].fromWindows"> Saved under Reports.</template>
+        </p>
+        <CheckResultView :r="results[c.id]" />
       </div>
     </article>
   </div>
