@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/cn8001/reforgepulse/internal/atomicfile"
 	"github.com/cn8001/reforgepulse/internal/domain"
@@ -122,6 +123,48 @@ func (s *Store) Latest(ctx context.Context) (*domain.ScanResult, error) {
 		}
 	}
 	return nil, nil
+}
+
+// Delete removes one report.
+func (s *Store) Delete(ctx context.Context, id string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if !validID.MatchString(id) {
+		return fmt.Errorf("report %q: %w", id, os.ErrNotExist)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := os.Remove(s.path(id)); err != nil {
+		return fmt.Errorf("delete report: %w", err)
+	}
+	return nil
+}
+
+// DeleteBefore removes reports of scans that ran before t and returns how
+// many went. IDs are times, so no file needs opening.
+func (s *Store) DeleteBefore(ctx context.Context, t time.Time) (int, error) {
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ids, err := s.ids()
+	if err != nil {
+		return 0, err
+	}
+	cut := strings.Replace(t.UTC().Format(idLayout), ".", "-", 1)
+	n := 0
+	for _, id := range ids {
+		if id >= cut {
+			continue
+		}
+		if err := os.Remove(s.path(id)); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return n, fmt.Errorf("delete report: %w", err)
+		}
+		n++
+	}
+	return n, nil
 }
 
 // ids lists report IDs, newest first: the layout sorts by time.

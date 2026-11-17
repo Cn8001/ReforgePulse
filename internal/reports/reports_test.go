@@ -127,3 +127,28 @@ func TestResolutions_ResolveReopenAndComeBack(t *testing.T) {
 		t.Fatalf("summary = %+v", s)
 	}
 }
+
+func TestStore_DeleteOneAndBefore(t *testing.T) {
+	// Arrange
+	ctx := context.Background()
+	s, _ := Open(t.TempDir(), 10)
+	var saved []domain.ScanResult
+	for i := range 4 {
+		r, _ := s.Save(ctx, scan(i, "a"))
+		saved = append(saved, r)
+	}
+
+	// Act
+	delErr := s.Delete(ctx, saved[3].ID)
+	n, err := s.DeleteBefore(ctx, saved[2].At)
+	badErr := s.Delete(ctx, "../resolved")
+
+	// Assert
+	all, _ := s.All(ctx)
+	if delErr != nil || err != nil || n != 2 || len(all) != 1 || all[0].ID != saved[2].ID {
+		t.Fatalf("n = %d, errs = %v %v, left = %d", n, delErr, err, len(all))
+	}
+	if badErr == nil {
+		t.Fatal("a path was accepted as an ID")
+	}
+}
