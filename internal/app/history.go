@@ -3,12 +3,15 @@ package app
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/cn8001/reforgepulse/internal/domain"
 )
 
 type ChangeLog interface {
 	Log(ctx context.Context) ([]domain.Change, error)
+	Delete(ctx context.Context, ids ...string) (int, error)
+	DeleteBefore(ctx context.Context, t time.Time) (int, error)
 }
 
 // Reverter undoes one kind of change, writing its own journal entry.
@@ -44,6 +47,25 @@ func (s *HistoryService) Revert(ctx context.Context, id string) error {
 		return r.Revert(ctx, c)
 	}
 	return fmt.Errorf("change %s not found", id)
+}
+
+// Delete removes one entry, and the entries that revert it, from the log.
+// The PC is not touched, but a deleted change can no longer be reverted here.
+func (s *HistoryService) Delete(ctx context.Context, id string) (int, error) {
+	n, err := s.log.Delete(ctx, id)
+	if err != nil {
+		return 0, fmt.Errorf("delete change: %w", err)
+	}
+	return n, nil
+}
+
+// DeleteBefore removes entries of changes made before t.
+func (s *HistoryService) DeleteBefore(ctx context.Context, t time.Time) (int, error) {
+	n, err := s.log.DeleteBefore(ctx, t)
+	if err != nil {
+		return 0, fmt.Errorf("delete changes: %w", err)
+	}
+	return n, nil
 }
 
 func (s *HistoryService) List(ctx context.Context) ([]domain.Change, error) {

@@ -31,6 +31,8 @@ type ReportStore interface {
 	All(ctx context.Context) ([]domain.ScanResult, error)
 	Get(ctx context.Context, id string) (domain.ScanResult, error)
 	Latest(ctx context.Context) (*domain.ScanResult, error)
+	Delete(ctx context.Context, id string) error
+	DeleteBefore(ctx context.Context, t time.Time) (int, error)
 }
 
 // ResolutionStore keeps what the user marked resolved.
@@ -155,6 +157,35 @@ func (s *ScanService) Report(ctx context.Context, id string) (domain.ScanResult,
 		return domain.ScanResult{}, fmt.Errorf("open report: %w", err)
 	}
 	return s.withStatus(ctx, r)
+}
+
+// DeleteReport removes one saved scan.
+func (s *ScanService) DeleteReport(ctx context.Context, id string) error {
+	if err := s.d.Reports.Delete(ctx, id); err != nil {
+		return fmt.Errorf("delete report: %w", err)
+	}
+	s.forget(func(r *domain.ScanResult) bool { return r.ID == id })
+	return nil
+}
+
+// DeleteReportsBefore removes saved scans that ran before t.
+func (s *ScanService) DeleteReportsBefore(ctx context.Context, t time.Time) (int, error) {
+	n, err := s.d.Reports.DeleteBefore(ctx, t)
+	if err != nil {
+		return n, fmt.Errorf("delete reports: %w", err)
+	}
+	s.forget(func(r *domain.ScanResult) bool { return r.At.Before(t) })
+	return n, nil
+}
+
+// forget drops the kept scan when its report is gone, so Last falls back
+// to whichever report is now the newest.
+func (s *ScanService) forget(gone func(*domain.ScanResult) bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.last != nil && gone(s.last) {
+		s.last = nil
+	}
 }
 
 // Resolve marks a finding dealt with until new evidence for it turns up.

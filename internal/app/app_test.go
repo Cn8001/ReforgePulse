@@ -70,7 +70,9 @@ type fakeLog struct {
 	err     error
 }
 
-func (f fakeLog) Log(context.Context) ([]domain.Change, error) { return f.changes, f.err }
+func (f fakeLog) Log(context.Context) ([]domain.Change, error)         { return f.changes, f.err }
+func (f fakeLog) Delete(context.Context, ...string) (int, error)       { return 0, f.err }
+func (f fakeLog) DeleteBefore(context.Context, time.Time) (int, error) { return 0, f.err }
 
 func TestHistoryService_ListsAndWraps(t *testing.T) {
 	// Arrange
@@ -320,6 +322,16 @@ func (m *memReports) Get(_ context.Context, id string) (domain.ScanResult, error
 	}
 	return domain.ScanResult{}, os.ErrNotExist
 }
+func (m *memReports) Delete(_ context.Context, id string) error {
+	for i, r := range m.saved {
+		if r.ID == id {
+			m.saved = append(m.saved[:i], m.saved[i+1:]...)
+			return nil
+		}
+	}
+	return os.ErrNotExist
+}
+func (m *memReports) DeleteBefore(context.Context, time.Time) (int, error) { return 0, nil }
 func (m *memReports) Latest(context.Context) (*domain.ScanResult, error) {
 	if len(m.saved) == 0 {
 		return nil, nil
@@ -377,6 +389,29 @@ func TestScanService_SavesReportsAndAppliesResolutions(t *testing.T) {
 	}
 	if listErr != nil || len(list) != 1 || list[0].Resolved != 1 || list[0].Open != 0 {
 		t.Fatalf("reports = %+v, %v", list, listErr)
+	}
+}
+
+func TestScanService_DeletingTheLatestReportFallsBackToTheOneBefore(t *testing.T) {
+	// Arrange
+	ctx := context.Background()
+	store := &memReports{}
+	s := NewScanService(ScanDeps{
+		Hardware: fakeHardware{}, Sensors: fakeHardware{}, Devices: fakeHardware{},
+		Overview: fakeReader{o: domain.Overview{Elevated: true}}, Live: fakeReader{},
+		Crashes: fakeCrashes{}, Startup: fakeStartupList{}, Processes: fakeLister{},
+		Runner: tasks.New(1, func(tasks.Status) {}), Reports: store, Resolved: memResolved{},
+	})
+	first, _ := s.Scan(ctx)
+	second, _ := s.Scan(ctx)
+
+	// Act
+	err := s.DeleteReport(ctx, second.ID)
+	last, lastErr := s.Last(ctx)
+
+	// Assert
+	if err != nil || lastErr != nil || last == nil || last.ID != first.ID {
+		t.Fatalf("last = %+v, errs %v %v", last, err, lastErr)
 	}
 }
 

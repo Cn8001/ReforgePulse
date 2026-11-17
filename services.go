@@ -76,6 +76,10 @@ type backend struct {
 // a few hundred KB.
 const keepReports = 30
 
+// keepChanges caps the change log; older entries are dropped at start-up.
+// Years of normal use, and still only a few hundred KB.
+const keepChanges = 500
+
 // maxTasks bounds how much work runs at once, so a scan never starves the
 // PC it is diagnosing.
 const maxTasks = 4
@@ -85,6 +89,9 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier) (*ba
 	j, err := journal.Open(dataDir)
 	if err != nil {
 		return nil, fmt.Errorf("open change log: %w", err)
+	}
+	if _, err := j.Prune(context.Background(), keepChanges); err != nil {
+		return nil, fmt.Errorf("trim change log: %w", err)
 	}
 	reportStore, err := reports.Open(filepath.Join(dataDir, "reports"), keepReports)
 	if err != nil {
