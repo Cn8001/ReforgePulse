@@ -11,12 +11,14 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
+	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/updater"
 
 	"github.com/cn8001/reforgepulse/internal/app"
 	"github.com/cn8001/reforgepulse/internal/applog"
+	"github.com/cn8001/reforgepulse/internal/lifetime"
 	"github.com/cn8001/reforgepulse/internal/mcp"
 	"github.com/cn8001/reforgepulse/internal/platform"
 	"github.com/cn8001/reforgepulse/internal/platform/windows"
@@ -97,6 +99,13 @@ func run() error {
 		log.SetOutput(os.Stderr)
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 		defer stop()
+		// An agent's server ends with the window it ran beside, so no copy is
+		// left running, holding the exe, after ReforgePulse is closed. The
+		// read on stdin would not notice a cancelled ctx, hence the exit.
+		go lifetime.Follow(ctx, host.WindowOpen, 2*time.Second, func() {
+			log.Print("the ReforgePulse window closed; ending the MCP server")
+			os.Exit(0)
+		})
 		return mcp.Serve(ctx, os.Stdin, os.Stdout, app.VersionFrom(buildConfig), b.tools())
 	}
 	return runWindow(b, dir, logger, &emit)
@@ -158,6 +167,14 @@ func runWindow(b *backend, dir string, logger *slog.Logger, emit *func(tasks.Sta
 	// only once the app does.
 	a.RegisterService(application.NewService(app.NewThemeService(a.Env)))
 	a.RegisterService(application.NewService(app.NewLogService(logger)))
+
+	// The mark tells an agent's MCP server that the window is open, so it
+	// can end when the window does.
+	release, err := b.host.MarkWindow()
+	if err != nil {
+		logger.Warn("mark the window", "error", err)
+	}
+	defer release()
 
 	// Old history goes in the background, so start-up does not wait on it.
 	go func() {
