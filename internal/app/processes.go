@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/cn8001/reforgepulse/internal/domain"
 )
@@ -26,18 +27,65 @@ var protected = map[string]bool{
 
 // ProcessService feeds the Processes page. Listing is polled, so it runs
 // outside the task runner like the live load.
+// IconSource turns exe paths into icons, as data URIs; "" for none.
+type IconSource interface {
+	Icons(ctx context.Context, paths []string) (map[string]string, error)
+}
+
 type ProcessDeps struct {
 	Lister  ProcessLister
 	Killer  ProcessKiller
 	Journal Recorder
+	Icons   IconSource
 	Self    uint32 // our own PID: End task refuses it, and it and what it started are marked ours
 }
 
+// maxIcons caps the icon cache. Past it the cache starts over and refills
+// from what is running, so it cannot grow for as long as the app is open.
+const maxIcons = 512
+
 type ProcessService struct {
-	d ProcessDeps
+	d     ProcessDeps
+	mu    sync.Mutex
+	icons map[string]string
 }
 
-func NewProcessService(d ProcessDeps) *ProcessService { return &ProcessService{d: d} }
+func NewProcessService(d ProcessDeps) *ProcessService {
+	return &ProcessService{d: d, icons: map[string]string{}}
+}
+
+// Icons returns the icon of each exe path, asking the source only for the
+// ones not seen before.
+func (s *ProcessService) Icons(ctx context.Context, paths []string) (map[string]string, error) {
+	out := make(map[string]string, len(paths))
+	var missing []string
+	s.mu.Lock()
+	for _, p := range paths {
+		if icon, ok := s.icons[p]; ok {
+			out[p] = icon
+		} else if p != "" {
+			missing = append(missing, p)
+		}
+	}
+	s.mu.Unlock()
+	if len(missing) == 0 {
+		return out, nil
+	}
+	got, err := s.d.Icons.Icons(ctx, missing)
+	if err != nil {
+		return out, fmt.Errorf("read icons: %w", err)
+	}
+	s.mu.Lock()
+	if len(s.icons)+len(got) > maxIcons {
+		s.icons = map[string]string{}
+	}
+	for p, icon := range got {
+		s.icons[p] = icon
+		out[p] = icon
+	}
+	s.mu.Unlock()
+	return out, nil
+}
 
 // End ends a process after the user confirmed it. It cannot be undone, and
 // the change log says so.

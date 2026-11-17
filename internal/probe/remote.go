@@ -2,6 +2,7 @@ package probe
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"time"
 
@@ -23,7 +24,13 @@ type Local struct {
 	Tester interface {
 		Run(ctx context.Context, cpus []int, perCore time.Duration, report func(float64, string)) (domain.CoreTest, error)
 	}
+	Icons interface {
+		IconPNG(path string) ([]byte, error)
+	}
 }
+
+// maxIconBatch bounds one request, so a long list cannot hold the child up.
+const maxIconBatch = 64
 
 type testArgs struct {
 	CPUs    []int         `json:"cpus"`
@@ -41,6 +48,25 @@ func Handlers(l Local) map[string]Handler {
 		},
 		"sensors": func(ctx context.Context, _ json.RawMessage, _ func(float64, string)) (any, error) {
 			return l.Sensors.Sensors(ctx), nil
+		},
+		// icons answers with a data URI per path; a path without an icon
+		// maps to "", so the window does not ask again.
+		"icons": func(ctx context.Context, raw json.RawMessage, _ func(float64, string)) (any, error) {
+			var paths []string
+			if err := json.Unmarshal(raw, &paths); err != nil {
+				return nil, err
+			}
+			out := map[string]string{}
+			for _, p := range paths[:min(len(paths), maxIconBatch)] {
+				if ctx.Err() != nil {
+					break
+				}
+				out[p] = ""
+				if b, err := l.Icons.IconPNG(p); err == nil {
+					out[p] = "data:image/png;base64," + base64.StdEncoding.EncodeToString(b)
+				}
+			}
+			return out, nil
 		},
 		"coretest": func(ctx context.Context, raw json.RawMessage, report func(float64, string)) (any, error) {
 			var a testArgs
@@ -79,6 +105,13 @@ func (r Remote) Sensors(ctx context.Context) platform.SensorStatus {
 		return platform.SensorStatus{NVML: err.Error(), HWiNFO: err.Error()}
 	}
 	return out
+}
+
+// Icons returns a data URI per path, "" for a path that has none.
+func (r Remote) Icons(ctx context.Context, paths []string) (map[string]string, error) {
+	out := map[string]string{}
+	err := r.c.Call(ctx, "icons", paths, &out, nil)
+	return out, err
 }
 
 func (r Remote) Run(ctx context.Context, cpus []int, perCore time.Duration, report func(float64, string)) (domain.CoreTest, error) {

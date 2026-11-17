@@ -682,3 +682,30 @@ func TestProcessService_MarksOurPIDAndWhatItStarted(t *testing.T) {
 		}
 	}
 }
+
+type countingIcons struct{ asked []string }
+
+func (c *countingIcons) Icons(_ context.Context, paths []string) (map[string]string, error) {
+	c.asked = append(c.asked, paths...)
+	out := map[string]string{}
+	for _, p := range paths {
+		out[p] = "data:" + p
+	}
+	return out, nil
+}
+
+func TestProcessService_IconsAreAskedForOnce(t *testing.T) {
+	// Arrange
+	src := &countingIcons{}
+	s := NewProcessService(ProcessDeps{Icons: src})
+	ctx := context.Background()
+
+	// Act
+	_, err1 := s.Icons(ctx, []string{"a.exe", "b.exe"})
+	got, err2 := s.Icons(ctx, []string{"a.exe", "c.exe", ""})
+
+	// Assert
+	if err1 != nil || err2 != nil || len(src.asked) != 3 || got["a.exe"] != "data:a.exe" || got["c.exe"] != "data:c.exe" {
+		t.Fatalf("asked %v, got %v", src.asked, got)
+	}
+}

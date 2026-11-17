@@ -117,7 +117,7 @@ func runProbe(host windows.System) error {
 	hw := localHardware(host)
 	defer hw.Close()
 	return probe.Serve(context.Background(), os.Stdin, os.Stdout, probe.Handlers(probe.Local{
-		Cores: hw.Cores, Loads: hw.Loads, Sensors: hw.Sensors, Tester: hw.Tester,
+		Cores: hw.Cores, Loads: hw.Loads, Sensors: hw.Sensors, Tester: hw.Tester, Icons: host,
 	}))
 }
 

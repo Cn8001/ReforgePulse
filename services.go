@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"log/slog"
@@ -179,7 +180,7 @@ func newBackend(host windows.System, dataDir string, notify tasks.Notifier, hw h
 		Progs: app.NewProgramService(app.ProgramDeps{
 			Finder: progs, Uninstaller: host, Runner: runner, Journal: j,
 		}),
-		Procs:   app.NewProcessService(app.ProcessDeps{Lister: procs, Killer: procs, Journal: j, Self: uint32(os.Getpid())}),
+		Procs:   app.NewProcessService(app.ProcessDeps{Lister: procs, Killer: procs, Journal: j, Icons: hw.Icons, Self: uint32(os.Getpid())}),
 		About:   app.NewAboutService(about, accepted),
 		Cleanup: app.NewCleanupService(cleanup.New(host.CleanupLocations(), j), runner),
 		System:  app.NewSystemService(overview, overview, runner),
@@ -281,7 +282,25 @@ type hardwareReads struct {
 	Loads   app.CoreLoads
 	Sensors app.SensorReader
 	Tester  app.CoreTester
+	Icons   app.IconSource
 	Close   func()
+}
+
+// localIcons reads icons in this process, for the MCP server and the probe.
+type localIcons struct{ host windows.System }
+
+func (l localIcons) Icons(ctx context.Context, paths []string) (map[string]string, error) {
+	out := map[string]string{}
+	for _, p := range paths {
+		if err := ctx.Err(); err != nil {
+			return out, err
+		}
+		out[p] = ""
+		if b, err := l.host.IconPNG(p); err == nil {
+			out[p] = "data:image/png;base64," + base64.StdEncoding.EncodeToString(b)
+		}
+	}
+	return out, nil
 }
 
 // localHardware reads in this process. The probe child serves these.
@@ -290,7 +309,7 @@ func localHardware(host windows.System) hardwareReads {
 	sensors := windows.NewSensorReader()
 	coreMap := cores.New(cpus, host)
 	return hardwareReads{
-		Cores: coreMap, Loads: cpus, Sensors: sensors,
+		Cores: coreMap, Loads: cpus, Sensors: sensors, Icons: localIcons{host},
 		Tester: coretest.New(coretest.Deps{CPUs: cpus, WHEA: coreMap.WHEAByAPIC}),
 		Close:  func() { cpus.Close(); sensors.Close() },
 	}
@@ -303,5 +322,5 @@ func probeHardware(exe string, logw io.Writer, logger *slog.Logger) hardwareRead
 		logger.Warn("hardware probe ended", "error", err)
 	})
 	r := probe.NewRemote(c)
-	return hardwareReads{Cores: r, Loads: r, Sensors: r, Tester: r, Close: c.Close}
+	return hardwareReads{Cores: r, Loads: r, Sensors: r, Tester: r, Icons: r, Close: c.Close}
 }

@@ -122,6 +122,13 @@ func (fakeLocal) List(context.Context) ([]domain.CoreInfo, error) {
 }
 func (fakeLocal) CoreLoads(context.Context) ([]platform.CoreLoad, error) { return nil, nil }
 func (fakeLocal) Sensors(context.Context) platform.SensorStatus          { return platform.SensorStatus{} }
+func (fakeLocal) IconPNG(path string) ([]byte, error) {
+	if path == "none" {
+		return nil, errors.New("no icon")
+	}
+	return []byte{1, 2, 3}, nil
+}
+
 func (fakeLocal) Run(_ context.Context, cpus []int, _ time.Duration, report func(float64, string)) (domain.CoreTest, error) {
 	report(1, "done")
 	return domain.CoreTest{}, nil
@@ -131,7 +138,7 @@ func TestRemote_CoresComeBackThroughTheChild(t *testing.T) {
 	// Arrange
 	var starts atomic.Int32
 	l := fakeLocal{}
-	c := NewClient(pipeStart(Handlers(Local{Cores: l, Loads: l, Sensors: l, Tester: l}), &starts), nil)
+	c := NewClient(pipeStart(Handlers(Local{Cores: l, Loads: l, Sensors: l, Tester: l, Icons: l}), &starts), nil)
 	defer c.Close()
 	r := NewRemote(c)
 
@@ -141,5 +148,21 @@ func TestRemote_CoresComeBackThroughTheChild(t *testing.T) {
 	// Assert
 	if err != nil || len(cores) != 1 || cores[0].APIC != 32 || cores[0].WHEA != 3 {
 		t.Fatalf("cores = %+v, %v", cores, err)
+	}
+}
+
+func TestRemote_IconsComeBackAsDataURIs(t *testing.T) {
+	// Arrange
+	var starts atomic.Int32
+	l := fakeLocal{}
+	c := NewClient(pipeStart(Handlers(Local{Cores: l, Loads: l, Sensors: l, Tester: l, Icons: l}), &starts), nil)
+	defer c.Close()
+
+	// Act
+	got, err := NewRemote(c).Icons(context.Background(), []string{`C:\a.exe`, "none"})
+
+	// Assert
+	if err != nil || got[`C:\a.exe`] != "data:image/png;base64,AQID" || got["none"] != "" || len(got) != 2 {
+		t.Fatalf("icons = %v, %v", got, err)
 	}
 }
