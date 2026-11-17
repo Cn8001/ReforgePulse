@@ -16,6 +16,7 @@ type Process struct {
 	Hung       bool    `json:"hung"` // a window has stopped answering, as "Not responding" in Task Manager
 	Ports      []Port  `json:"ports"`
 	Access     bool    `json:"access"`
+	Ours       bool    `json:"ours,omitempty"` // one of ReforgePulse's own: the window, its probe, an agent's MCP server
 }
 
 // Port is a TCP or UDP endpoint a process holds open.

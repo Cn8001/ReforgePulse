@@ -119,8 +119,8 @@ func (f fakeLister) List(context.Context) ([]domain.Process, error) { return f.p
 func TestProcessService_ListsAndWraps(t *testing.T) {
 	// Arrange
 	cause := errors.New("snapshot failed")
-	ok := NewProcessService(fakeLister{ps: []domain.Process{{PID: 4, Name: "System"}}}, nil, nil, 1)
-	bad := NewProcessService(fakeLister{err: cause}, nil, nil, 1)
+	ok := NewProcessService(ProcessDeps{Lister: fakeLister{ps: []domain.Process{{PID: 4, Name: "System"}}}, Self: 1})
+	bad := NewProcessService(ProcessDeps{Lister: fakeLister{err: cause}, Self: 1})
 
 	// Act
 	got, err := ok.List(context.Background())
@@ -235,7 +235,7 @@ func (f *fakeKiller) Kill(_ context.Context, pid uint32) error {
 func TestProcessService_EndRefusesWindowsProcesses(t *testing.T) {
 	// Arrange
 	k := &fakeKiller{}
-	s := NewProcessService(nil, k, &memJournal{}, 999)
+	s := NewProcessService(ProcessDeps{Killer: k, Journal: &memJournal{}, Self: 999})
 
 	// Act
 	errs := []error{
@@ -258,7 +258,7 @@ func TestProcessService_EndRefusesWindowsProcesses(t *testing.T) {
 func TestProcessService_EndIsLogged(t *testing.T) {
 	// Arrange
 	k, j := &fakeKiller{}, &memJournal{}
-	s := NewProcessService(nil, k, j, 999)
+	s := NewProcessService(ProcessDeps{Killer: k, Journal: j, Self: 999})
 
 	// Act
 	err := s.End(context.Background(), 4242, "hungapp.exe")
@@ -657,5 +657,24 @@ func TestExportService_WritesTheReportWhereChosen(t *testing.T) {
 	}
 	if noPath == nil {
 		t.Fatal("an empty path was accepted")
+	}
+}
+
+func TestProcessService_MarksEveryProcessRunningOurExe(t *testing.T) {
+	// Arrange
+	exe := `C:\Program Files\ReforgePulse\reforgepulse.exe`
+	ps := []domain.Process{
+		{PID: 10, Name: "reforgepulse.exe", Path: exe},
+		{PID: 11, Name: "reforgepulse.exe", Path: `c:\program files\reforgepulse\REFORGEPULSE.EXE`},
+		{PID: 12, Name: "chrome.exe", Path: `C:\Chrome\chrome.exe`},
+	}
+	s := NewProcessService(ProcessDeps{Lister: fakeLister{ps: ps}, Self: 10, Exe: exe})
+
+	// Act
+	got, err := s.List(context.Background())
+
+	// Assert
+	if err != nil || !got[0].Ours || !got[1].Ours || got[2].Ours {
+		t.Fatalf("ours = %v %v %v, %v", got[0].Ours, got[1].Ours, got[2].Ours, err)
 	}
 }
