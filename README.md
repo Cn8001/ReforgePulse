@@ -59,8 +59,11 @@ first start shows the terms and the licence to accept before anything else.
     Windows Memory Diagnostic.
   - CPU cap: `PROCFREQMAX` and `PROCFREQMAX1` on every power plan through
     `powrprof.dll`, old values kept for revert.
-- **Reports**: saved scans (the last 30), crash dump analyses and recorder
-  sessions (the last 20), to open again or delete.
+- **Reports**: saved scans (the last 30), crash dump analyses, recorder
+  sessions (the last 20) and health checks (the last 50), plus the memory
+  tests Windows logged. Each opens again, downloads as a Markdown file or is
+  deleted. Checks keep only their verdict; the full log stays where Windows
+  writes it (`CBS.log`, `dism.log`), one click away.
 - **History**: the change log, each entry deletable on its own or everything
   before a date; it keeps its last 500 entries. A revert entry is deleted
   with the change it undid, never alone, so a change can never look

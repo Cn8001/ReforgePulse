@@ -15,6 +15,8 @@ import type { CheckResult, SavedAnalysis } from '../../bindings/github.com/cn800
 import type { Recording } from '../../bindings/github.com/cn8001/reforgepulse/internal/recorder/models'
 import { loadLastScan, loadReports, openReport, reports, severityTone, viewed } from '../lib/scan'
 import { when } from '../lib/format'
+import { Dialogs } from '@wailsio/runtime'
+import * as Export from '../../bindings/github.com/cn8001/reforgepulse/internal/app/exportservice'
 
 // What ReforgePulse found and measured, kept to look back at: scans, crash
 // dump analyses and recorder sessions.
@@ -31,6 +33,25 @@ const openRec = ref<Recording | null>(null)
 const error = ref('')
 const busy = ref(false)
 const before = ref('') // yyyy-mm-dd from the date field
+const saved = ref('') // where the last download went
+
+// A file name that says what and when, safe on Windows.
+const fileName = (what: string, at: string) =>
+  `reforgepulse-${what}-${new Date(at).toISOString().slice(0, 16).replace('T', '-').replace(':', '')}.md`
+
+// Asks where to save, then has the backend write the report there.
+async function download(what: string, at: string, write: (path: string) => Promise<void>) {
+  error.value = ''
+  saved.value = ''
+  try {
+    const path = await Dialogs.SaveFile({ Filename: fileName(what, at), CanCreateDirectories: true })
+    if (!path) return // the dialog was closed
+    await write(path)
+    saved.value = path
+  } catch (e) {
+    error.value = String(e)
+  }
+}
 
 async function load() {
   error.value = ''
@@ -163,6 +184,7 @@ const minutes = (r: Recording) => Math.max(1, Math.round(r.seconds / 60))
     </template>
 
     <p v-if="error" class="notice border-bad/40 bg-bad/10 text-bad">{{ error }}</p>
+    <p v-if="saved" class="notice border-ok/40 bg-ok/10">Saved to <span class="font-mono text-xs select-text">{{ saved }}</span></p>
 
     <template v-if="tab === 'scans'">
       <div class="flex flex-wrap items-center gap-2">
@@ -180,6 +202,10 @@ const minutes = (r: Recording) => Math.max(1, Math.round(r.seconds / 60))
               {{ r.open ? `${r.open} open` : 'Nothing open' }}<template v-if="r.resolved">, {{ r.resolved }} resolved</template>
             </span>
             <button class="btn h-7" @click="showScan(r.id)">Open</button>
+            <button class="rounded p-1 text-muted hover:bg-hover hover:text-fg" :aria-label="`Download the scan from ${when(r.at)}`"
+                    title="Download as a file" @click="download('scan', r.at, (p) => Export.Scan(r.id, p))">
+              <Icon name="download" class="size-3.5!" />
+            </button>
             <button class="rounded p-1 text-muted hover:bg-hover hover:text-bad" :aria-label="`Delete the scan from ${when(r.at)}`"
                     title="Delete this scan" @click="pending = { kind: 'scan', id: r.id, at: r.at }">
               <Icon name="trash" class="size-3.5!" />
@@ -199,6 +225,10 @@ const minutes = (r: Recording) => Math.max(1, Math.round(r.seconds / 60))
             <span class="ml-2">{{ a.image || a.module || 'No module named' }}</span>
           </span>
           <button class="btn h-7" :aria-expanded="opened === key(a)" @click="toggleDump(a)">{{ opened === key(a) ? 'Close' : 'Open' }}</button>
+          <button class="rounded p-1 text-muted hover:bg-hover hover:text-fg" :aria-label="`Download the analysis of ${a.name}`"
+                  title="Download as a file" @click="download('crash', a.dumped, (p) => Export.Analysis(a.name, a.dumped, p))">
+            <Icon name="download" class="size-3.5!" />
+          </button>
           <button class="rounded p-1 text-muted hover:bg-hover hover:text-bad" :aria-label="`Delete the analysis of ${a.name}`"
                   title="Delete this analysis" @click="pending = { kind: 'dump', a }">
             <Icon name="trash" class="size-3.5!" />
@@ -216,6 +246,10 @@ const minutes = (r: Recording) => Math.max(1, Math.round(r.seconds / 60))
           <span class="flex-1">{{ checkTitle(c.name) }}</span>
           <span class="chip" :class="c.exitCode === 0 ? 'border-line text-muted' : 'border-warn text-warn'">{{ c.exitCode === 0 ? 'Passed' : c.name === 'memtest' && c.exitCode === 2 ? 'Cancelled' : 'Needs a look' }}</span>
           <button class="btn h-7" :aria-expanded="opened === c.id" @click="opened = opened === c.id ? '' : c.id!">{{ opened === c.id ? 'Close' : 'Open' }}</button>
+          <button class="rounded p-1 text-muted hover:bg-hover hover:text-fg" :aria-label="`Download the ${checkTitle(c.name)} result`"
+                  title="Download as a file" @click="download(`check-${c.name}`, c.at, (p) => Export.Check(c.id!, p))">
+            <Icon name="download" class="size-3.5!" />
+          </button>
           <button v-if="!c.fromWindows" class="rounded p-1 text-muted hover:bg-hover hover:text-bad" :aria-label="`Delete the ${checkTitle(c.name)} result from ${when(c.at)}`"
                   title="Delete this result" @click="pending = { kind: 'check', c }">
             <Icon name="trash" class="size-3.5!" />
@@ -236,6 +270,10 @@ const minutes = (r: Recording) => Math.max(1, Math.round(r.seconds / 60))
             <template v-else-if="r.top?.length">, highest memory {{ r.top[0].name }}</template>
           </span>
           <button class="btn h-7" :aria-expanded="opened === r.id" @click="toggleRecording(r)">{{ opened === r.id ? 'Close' : 'Open' }}</button>
+          <button class="rounded p-1 text-muted hover:bg-hover hover:text-fg" :aria-label="`Download the recording from ${when(r.started)}`"
+                  title="Download as a file" @click="download('recording', r.started, (p) => Export.Recording(r.id!, p))">
+            <Icon name="download" class="size-3.5!" />
+          </button>
           <button class="rounded p-1 text-muted hover:bg-hover hover:text-bad" :aria-label="`Delete the recording from ${when(r.started)}`"
                   title="Delete this recording" @click="pending = { kind: 'recording', r }">
             <Icon name="trash" class="size-3.5!" />
