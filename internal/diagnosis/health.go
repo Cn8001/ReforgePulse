@@ -12,13 +12,18 @@ var cost = map[domain.Severity]int{
 	domain.Critical: 25, domain.High: 15, domain.Medium: 7, domain.Low: 2,
 }
 
+// unscored are findings that describe the setup or the scan, not the PC's
+// health: tuning tools being installed, or a scan without administrator
+// rights. They stay findings; they take nothing off the score.
+var unscored = map[string]bool{"tuning-tools": true, "not-elevated": true}
+
 // Health scores findings out of 100. A finding marked resolved costs
 // nothing until it comes back. It is an estimate, as the findings are.
 func Health(findings []domain.Finding) domain.Health {
 	h := domain.Health{Score: 100, Deductions: []domain.Deduction{}}
 	for _, f := range findings {
 		p := cost[f.Severity]
-		if p == 0 || f.Status == domain.Resolved {
+		if p == 0 || f.Status == domain.Resolved || unscored[f.Rule] {
 			continue
 		}
 		h.Deductions = append(h.Deductions, domain.Deduction{Key: f.Key, Title: f.Title, Points: p})

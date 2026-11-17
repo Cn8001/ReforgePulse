@@ -39,3 +39,20 @@ func TestHealth_NeverBelowZero(t *testing.T) {
 		t.Fatalf("score = %d", h.Score)
 	}
 }
+
+func TestHealth_InstalledToolsAndSkippedChecksCostNothing(t *testing.T) {
+	// Arrange
+	findings := []domain.Finding{
+		{Rule: "tuning-tools", Severity: domain.Medium, Status: domain.Open},
+		{Rule: "not-elevated", Severity: domain.Info, Status: domain.Open},
+		{Rule: "low-disk", Severity: domain.Medium, Status: domain.Open},
+	}
+
+	// Act
+	h := Health(findings)
+
+	// Assert
+	if h.Score != 93 || len(h.Deductions) != 1 {
+		t.Fatalf("health = %+v", h)
+	}
+}
