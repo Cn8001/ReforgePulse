@@ -12,7 +12,8 @@ import { facts, loadFacts } from '../lib/hardware'
 import { GetLive, GetOverview } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/systemservice'
 import { List, Revert } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/historyservice'
 import ConfirmDialog from './ConfirmDialog.vue'
-import { active, loadLastScan, runScan, scan, scanning, severityTone } from '../lib/scan'
+import { active, estimate, loadLastScan, runScan, scan, scanning, severityTone } from '../lib/scan'
+import HealthGauge from './HealthGauge.vue'
 import { Availability, type Change, type Measurement, type Overview } from '../../bindings/github.com/cn8001/reforgepulse/internal/domain/models'
 import { formatBytes, formatDuration, measured, show, since } from '../lib/format'
 
@@ -110,6 +111,8 @@ const drives = computed(() =>
 const top = computed(() => (scan.value?.findings ?? []).filter((f) => f.severity !== 'info' && active(f)).slice(0, 3))
 const issues = computed(() => (scan.value?.findings ?? []).filter((f) => f.severity !== 'info' && active(f)).length)
 
+const healthOpen = ref(false)
+
 const reverting = ref<Change | null>(null)
 const busy = ref(false)
 async function revert() {
@@ -144,11 +147,19 @@ const headline = computed(() => {
 <template>
   <section class="mx-auto flex max-w-6xl flex-col gap-5 p-6">
     <header class="flex flex-wrap items-center justify-between gap-4">
-      <div>
-        <h1 class="heading">{{ headline }}</h1>
-        <p class="mt-1 text-muted">
-          {{ scan ? `Last scan ${since(scan.at)}.` : 'A scan reads crash records, hardware errors, drives and memory. It changes nothing.' }}
-        </p>
+      <div class="flex items-center gap-4">
+        <button class="rounded-full" :aria-expanded="healthOpen" :disabled="!scan"
+                :aria-label="scan ? `Health score ${scan.health.score} out of 100, show what it is made of` : 'No health score before the first scan'"
+                :title="scan ? 'What makes up the score' : 'Scan to get a health score'" @click="healthOpen = !healthOpen">
+          <HealthGauge :score="scan ? scan.health.score : null" />
+        </button>
+        <div>
+          <h1 class="heading">{{ headline }}</h1>
+          <p class="mt-1 text-muted">
+            <template v-if="scan">Health {{ scan.health.score }} out of 100. Last scan {{ since(scan.at) }}.</template>
+            <template v-else>Scan to get a health score. A scan reads crash records, hardware errors, drives and memory; it changes nothing.</template>
+          </p>
+        </div>
       </div>
       <div class="flex items-center gap-2">
         <button class="btn size-9 px-0" title="Refresh" aria-label="Refresh" :disabled="loading" @click="load">
@@ -157,6 +168,24 @@ const headline = computed(() => {
         <button class="btn-primary h-9 px-5" :disabled="scanning" @click="runScan">{{ scanning ? 'Scanning…' : 'Scan PC' }}</button>
       </div>
     </header>
+
+    <article v-if="healthOpen && scan" class="panel">
+      <header class="border-b border-line px-4 py-3">
+        <h2 class="text-[14px] font-semibold">What makes up the score</h2>
+        <p class="text-xs text-muted">It starts at 100. Each open finding takes points off by severity; resolved ones take nothing until they come back.</p>
+      </header>
+      <p v-if="!scan.health.deductions?.length" class="px-4 py-3 text-muted">Nothing takes points off right now.</p>
+      <ul v-else>
+        <li v-for="d in scan.health.deductions" :key="d.key" class="border-b border-line last:border-b-0">
+          <button class="flex w-full items-center gap-3 px-4 py-2 text-left hover:bg-hover" @click="emit('open', 'fix')">
+            <span class="w-12 shrink-0 text-right font-semibold tabular-nums">−{{ d.points }}</span>
+            <span class="min-w-0 flex-1 truncate">{{ d.title }}</span>
+            <Icon name="chevron" class="size-3.5! text-muted" />
+          </button>
+        </li>
+      </ul>
+      <p class="border-t border-line px-4 py-2.5 text-xs text-muted">{{ estimate }}</p>
+    </article>
 
     <div v-if="overview && !overview.elevated" class="notice flex items-center gap-3 border-warn/40 bg-warn/10">
       <Icon name="shield" class="text-warn" />
