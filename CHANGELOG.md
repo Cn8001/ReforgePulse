@@ -31,6 +31,8 @@ The first release, for Windows 10 and 11 on x64.
   180 days, moved to the Recycle Bin.
 - Programs not run for 90 days, removed by their own uninstaller.
 - Startup apps and optional Windows features, switched off and back on.
+- Deleting and moving to the Recycle Bin show their progress and can be
+  stopped; the rest of the window stays usable meanwhile.
 
 ### Processes
 
