@@ -292,7 +292,8 @@ async function endTask() {
                   <dd class="tabular-nums">{{ current.cpu.toFixed(1) }}% CPU, {{ formatBytes(current.mem) }} memory, {{ current.count }} processes</dd></template>
               </dl>
             </div>
-            <button class="btn border-bad/50 text-bad hover:bg-bad hover:text-white" @click="ending = current.p">End task</button>
+            <button v-if="!current.p.protected" class="btn border-bad/50 text-bad hover:bg-bad hover:text-white" @click="ending = current.p">End task</button>
+            <p v-else class="max-w-56 text-xs text-muted">{{ current.p.ours ? 'This is ReforgePulse itself.' : 'Windows needs this process; it cannot be ended here.' }}</p>
           </div>
           <table v-if="current.p.ports?.length" class="mt-3 w-full max-w-2xl table-fixed text-[14px]">
             <tr class="text-muted"><th class="w-16 pb-1 text-left font-medium">Protocol</th><th class="pb-1 text-left font-medium">Local</th>

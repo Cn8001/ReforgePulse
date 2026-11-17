@@ -16,7 +16,8 @@ type Process struct {
 	Hung       bool    `json:"hung"` // a window has stopped answering, as "Not responding" in Task Manager
 	Ports      []Port  `json:"ports"`
 	Access     bool    `json:"access"`
-	Ours       bool    `json:"ours,omitempty"` // this window's process or one it started, such as its hardware probe
+	Ours       bool    `json:"ours,omitempty"`      // this window's process or one it started, such as its hardware probe
+	Protected  bool    `json:"protected,omitempty"` // End task refuses it, or Windows would
 }
 
 // Port is a TCP or UDP endpoint a process holds open.

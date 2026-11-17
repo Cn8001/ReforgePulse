@@ -709,3 +709,26 @@ func TestProcessService_IconsAreAskedForOnce(t *testing.T) {
 		t.Fatalf("asked %v, got %v", src.asked, got)
 	}
 }
+
+func TestProcessService_MarksWhatEndTaskWouldRefuse(t *testing.T) {
+	// Arrange
+	ps := []domain.Process{
+		{PID: 4, Name: "System", Access: true},
+		{PID: 700, Name: "csrss.exe", Access: true},
+		{PID: 800, Name: "MsMpEng.exe"}, // Windows denies access
+		{PID: 900, Name: "notepad.exe", Access: true},
+		{PID: 10, Name: "reforgepulse.exe", Access: true},
+	}
+	s := NewProcessService(ProcessDeps{Lister: fakeLister{ps: ps}, Self: 10})
+
+	// Act
+	got, err := s.List(context.Background())
+
+	// Assert
+	want := []bool{true, true, true, false, true}
+	for i, w := range want {
+		if err != nil || got[i].Protected != w {
+			t.Fatalf("%s protected = %v, want %v", got[i].Name, got[i].Protected, w)
+		}
+	}
+}

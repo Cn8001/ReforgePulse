@@ -90,7 +90,7 @@ func (s *ProcessService) Icons(ctx context.Context, paths []string) (map[string]
 // End ends a process after the user confirmed it. It cannot be undone, and
 // the change log says so.
 func (s *ProcessService) End(ctx context.Context, pid uint32, name string) error {
-	if pid <= 4 || pid == s.d.Self || protected[strings.ToLower(name)] {
+	if s.refuses(pid, name) {
 		return fmt.Errorf("%s is a Windows process that must keep running", name)
 	}
 	id, err := s.d.Journal.Begin(ctx, domain.Change{
@@ -122,8 +122,16 @@ func (s *ProcessService) List(ctx context.Context) ([]domain.Process, error) {
 	}
 	for i := range ps {
 		ps[i].Ours = s.descends(ps[i].PID, parent)
+		// The window hides End task where it would only fail: processes this
+		// refuses, and ones Windows will not even let us read.
+		ps[i].Protected = s.refuses(ps[i].PID, ps[i].Name) || !ps[i].Access
 	}
 	return ps, nil
+}
+
+// refuses is End task's rule: Windows' own core processes and this one.
+func (s *ProcessService) refuses(pid uint32, name string) bool {
+	return pid <= 4 || pid == s.d.Self || protected[strings.ToLower(name)]
 }
 
 // descends follows parents up to our PID. The walk is bounded: a reused
