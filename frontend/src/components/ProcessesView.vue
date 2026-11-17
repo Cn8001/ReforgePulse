@@ -13,7 +13,7 @@ const procs = ref<Process[]>([])
 const error = ref('')
 const query = ref('')
 const onlyPorts = ref(false)
-const sortKey = ref<Key>(props.sort ?? 'cpu')
+const sortKey = ref<Key>(props.sort ?? 'name') // by name until the user picks a column
 const desc = ref(sortKey.value !== 'name')
 const expanded = ref(new Set<number>()) // tree nodes showing their children
 const selected = ref<number | null>(null) // the process on the right; null is the top level
@@ -28,6 +28,7 @@ function toggle(pid: number) {
 // the right is.
 function select(pid: number | null) {
   selected.value = pid
+  pinned.clear()
   if (pid === null) return
   const next = new Set(expanded.value)
   for (const a of ancestors.value) next.add(a.pid)
@@ -78,7 +79,13 @@ onBeforeUnmount(() => clearInterval(timer))
 function sortBy(k: Key) {
   desc.value = sortKey.value === k ? !desc.value : k !== 'name'
   sortKey.value = k
+  pinned.clear()
 }
+
+// The opened process keeps the place it had among its siblings when it was
+// opened; everything else re-sorts on each refresh. Picking another process
+// or another sort starts over. A cache, not state: it must not re-render.
+const pinned = new Map<number, number>() // parent PID to the opened process's index
 
 type Node = { p: Process; kids: Process[]; count: number; cpu: number; gpu: number; mem: number }
 
@@ -134,14 +141,28 @@ const value = (n: Node) => {
 }
 const order = (ns: Node[]) => {
   const dir = desc.value ? -1 : 1
-  return ns.sort((a, b) => (value(a) < value(b) ? -dir : value(a) > value(b) ? dir : 0))
+  const cmp = (a: Node, b: Node) => {
+    const x = value(a), y = value(b)
+    if (typeof x === 'string' && typeof y === 'string') return dir * x.localeCompare(y, undefined, { sensitivity: 'base' })
+    return x < y ? -dir : x > y ? dir : 0
+  }
+  return ns.sort((a, b) => cmp(a, b) || a.p.pid - b.p.pid)
 }
 
-// The tree is for finding one's way, so it keeps a fixed order: by name,
-// then PID. Sorting it by load like the table would move both panes on every
-// refresh; only the numbers in it change.
-const byName = (ns: Node[]) =>
-  ns.sort((a, b) => a.p.name.localeCompare(b.p.name, undefined, { sensitivity: 'base' }) || a.p.pid - b.p.pid)
+// Siblings in the chosen order, with the opened process held where it was.
+function siblings(ns: Node[], parent: number): Node[] {
+  const sorted = order(ns)
+  const at = sorted.findIndex((n) => n.p.pid === selected.value)
+  if (at < 0) return sorted
+  const keep = pinned.get(parent)
+  if (keep === undefined) {
+    pinned.set(parent, at)
+    return sorted
+  }
+  const [me] = sorted.splice(at, 1)
+  sorted.splice(Math.min(keep, sorted.length), 0, me)
+  return sorted
+}
 
 // The left pane: the tree, opened where the user opened it.
 const treeRows = computed(() => {
@@ -152,9 +173,9 @@ const treeRows = computed(() => {
     if (shown.has(n.p.pid)) return
     shown.add(n.p.pid)
     out.push({ n, depth })
-    if (expanded.value.has(n.p.pid)) for (const c of byName(n.kids.map((k) => nodes.get(k.pid)!))) walk(c, depth + 1)
+    if (expanded.value.has(n.p.pid)) for (const c of siblings(n.kids.map((k) => nodes.get(k.pid)!), n.p.pid)) walk(c, depth + 1)
   }
-  for (const r of byName(roots.map((p) => nodes.get(p.pid)!))) walk(r, 0)
+  for (const r of siblings(roots.map((p) => nodes.get(p.pid)!), 0)) walk(r, 0)
   return out
 })
 
@@ -173,22 +194,12 @@ const ancestors = computed(() => {
   return out
 })
 
-// The right pane: the selection's children, or the top level. While the
-// pointer is over the table the order holds still, so the row under it does
-// not move on the next refresh; only the numbers change.
-const hovering = ref(false)
-let held: number[] = []
+// The right pane: the selection's children, or the top level, in the same
+// order as the tree.
 const tableRows = computed(() => {
   const { nodes, roots } = tree.value
   const base = current.value ? current.value.kids : roots
-  const ns = base.map((p) => nodes.get(p.pid)!).filter(Boolean)
-  if (hovering.value && held.length) {
-    const at = new Map(held.map((pid, i) => [pid, i]))
-    return ns.sort((a, b) => (at.get(a.p.pid) ?? 1e9) - (at.get(b.p.pid) ?? 1e9))
-  }
-  const sorted = order(ns)
-  held = sorted.map((n) => n.p.pid)
-  return sorted
+  return order(base.map((p) => nodes.get(p.pid)!).filter(Boolean))
 })
 
 const totals = computed(() => ({
@@ -313,7 +324,7 @@ async function endTask() {
           </table>
         </article>
 
-        <div class="panel min-h-0 flex-1 overflow-auto [scrollbar-gutter:stable]" @mouseenter="hovering = true" @mouseleave="hovering = false">
+        <div class="panel min-h-0 flex-1 overflow-auto [scrollbar-gutter:stable]">
           <p v-if="current && !tableRows.length" class="px-4 py-6 text-center text-muted">{{ current.p.name }} has started no other processes.</p>
           <table v-else class="w-full table-fixed text-[14px] tabular-nums">
             <caption class="sr-only">{{ current ? `Processes started by ${current.p.name}` : 'Top-level processes' }}</caption>
