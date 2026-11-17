@@ -3,11 +3,17 @@ import Icon from './Icon.vue'
 import type { IconName } from '../lib/icons'
 
 // A readout panel: the label, one big number, the detail under it.
-defineProps<{ title: string; icon: IconName; value?: string; unit?: string; sub?: string }>()
+// clickable makes it a button with a ">" in its corner, so a card that
+// opens a page says so before it is hovered.
+defineProps<{ title: string; icon: IconName; value?: string; unit?: string; sub?: string; clickable?: boolean }>()
+const emit = defineEmits<{ click: [] }>()
 </script>
 
 <template>
-  <article class="panel flex min-w-0 flex-col gap-3 p-4 transition-colors hover:bg-raised">
+  <article class="panel group relative flex min-w-0 flex-col gap-3 p-4 transition-colors"
+           :class="clickable && 'cursor-pointer hover:bg-raised focus-visible:outline-2 focus-visible:outline-accent'"
+           :role="clickable ? 'button' : undefined" :tabindex="clickable ? 0 : undefined"
+           @click="clickable && emit('click')" @keydown.enter.space.prevent="clickable && emit('click')">
     <header class="flex items-center gap-2 text-muted">
       <Icon :name="icon" class="size-4!" />
       <span class="text-[14px] font-medium text-fg">{{ title }}</span>
@@ -18,5 +24,6 @@ defineProps<{ title: string; icon: IconName; value?: string; unit?: string; sub?
     </p>
     <p v-if="sub" class="truncate text-xs text-muted" :title="sub">{{ sub }}</p>
     <slot />
+    <Icon v-if="clickable" name="chevron" class="absolute right-3 bottom-3 size-3.5! text-muted transition-colors group-hover:text-fg" />
   </article>
 </template>

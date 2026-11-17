@@ -119,6 +119,7 @@ function act(kind: string, arg?: string) {
             </span>
             <span v-if="r.id === scan?.id" class="chip border-line text-muted">Latest</span>
             <span v-if="r.id === shown?.id" class="label">Showing</span>
+            <Icon name="chevron" class="size-3.5! shrink-0 text-muted" />
           </button>
         </li>
       </ul>

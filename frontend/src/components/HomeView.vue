@@ -215,23 +215,23 @@ const headline = computed(() => {
 
     <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
       <Tile title="Processor" icon="cpu" :value="pct(now.cpu)" unit="%" :sub="overview ? overview.cpuModel || 'Unknown processor' : ''"
-            class="cursor-pointer" @click="emit('open', 'processes', 'cpu')">
+            clickable @click="emit('open', 'processes', 'cpu')">
         <ClockTemp :clock="cpuClock" :temp="cpuTemp"
                    missing="Windows has no reliable CPU temperature. Run HWiNFO with Shared Memory Support on and it shows here." />
         <Sparkline :values="history.cpu" color="var(--accent)" />
       </Tile>
       <Tile title="Graphics" icon="gpu" :value="pct(now.gpu)" unit="%" :sub="overview?.gpuModel || 'Unknown graphics card'"
-            class="cursor-pointer" @click="emit('open', 'processes', 'gpu')">
+            clickable @click="emit('open', 'processes', 'gpu')">
         <ClockTemp :clock="gpuClock" :temp="gpuTemp" :missing="sensors?.nvml || 'No graphics sensors found.'" />
         <Sparkline :values="history.gpu" color="var(--accent)" />
       </Tile>
       <Tile title="Memory" icon="memory" :value="pct(now.memory)" unit="%" :sub="memoryDetail"
-            class="cursor-pointer" @click="emit('open', 'processes', 'private')">
+            clickable @click="emit('open', 'processes', 'private')">
         <ClockTemp :clock="memClock" />
         <Sparkline :values="history.memory" color="var(--accent)" />
       </Tile>
 
-      <Tile title="Drives" icon="disk" class="cursor-pointer md:col-span-2" @click="emit('open', 'cleanup')">
+      <Tile title="Drives" icon="disk" class="md:col-span-2" clickable @click="emit('open', 'cleanup')">
         <table class="w-full text-[14px] tabular-nums">
           <tr v-for="d in drives" :key="d.root">
             <td class="w-12 py-1.5 font-mono">{{ d.root.replace('\\', '') }}</td>

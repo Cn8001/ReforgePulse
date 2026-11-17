@@ -216,6 +216,7 @@ const columns: { key: Key; label: string; cls: string }[] = [
   { key: 'gpu', label: 'GPU', cls: 'w-14 text-right' },
   { key: 'private', label: 'Memory', cls: 'w-24 text-right' },
 ]
+// The rows open what they hold; the last, empty column carries the ">".
 
 const ending = ref<Process | null>(null)
 const busy = ref(false)
@@ -336,6 +337,7 @@ async function endTask() {
                     {{ c.label }}<span class="ml-1 text-fg">{{ sortKey === c.key ? (desc ? '↓' : '↑') : '' }}</span>
                   </button>
                 </th>
+                <th class="w-8 border-b border-line" aria-hidden="true" />
               </tr>
             </thead>
             <tbody>
@@ -360,6 +362,7 @@ async function endTask() {
                 </td>
                 <td class="px-3 py-1.5 text-right" :class="n.gpu < 1 && 'text-muted'">{{ n.gpu ? n.gpu.toFixed(1) : '0' }}</td>
                 <td class="px-3 py-1.5 text-right">{{ n.p.access || n.count ? formatBytes(n.mem) : '–' }}</td>
+                <td class="pr-3 text-right"><Icon name="chevron" class="size-3.5! text-muted" /></td>
               </tr>
             </tbody>
           </table>
