@@ -34,9 +34,13 @@ func NewRecorderService(r SessionRecorder, runner TaskRunner, saved RecordingSto
 	return &RecorderService{rec: r, runner: runner, saved: saved}
 }
 
+// maxRecordMinutes allows an overnight session. The recorder's memory and
+// saved size stay flat at any length, so this only catches typos.
+const maxRecordMinutes = 24 * 60
+
 func (s *RecorderService) Record(ctx context.Context, minutes int) (recorder.Recording, error) {
-	if minutes < 1 || minutes > 240 {
-		return recorder.Recording{}, fmt.Errorf("%d minutes is outside 1 to 240", minutes)
+	if minutes < 1 || minutes > maxRecordMinutes {
+		return recorder.Recording{}, fmt.Errorf("%d minutes is outside 1 to %d", minutes, maxRecordMinutes)
 	}
 	var rec recorder.Recording
 	_ = s.runner.Do(ctx, "Recording", func(ctx context.Context, report tasks.Report) error {

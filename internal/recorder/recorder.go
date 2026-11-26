@@ -58,7 +58,7 @@ func New(live LiveReader, procs ProcessLister) *Recorder {
 	return &Recorder{live: live, procs: procs, tick: time.After, now: time.Now}
 }
 
-// maxPoints caps each load series, so a four hour session costs what a
+// maxPoints caps each load series, so a day long session costs what a
 // twenty minute one does: when full, neighbours are averaged and each point
 // covers twice the time.
 const maxPoints = 600
