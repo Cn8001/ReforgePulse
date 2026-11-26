@@ -5,6 +5,7 @@ package windows
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -102,19 +103,25 @@ func filetime(f windows.Filetime) uint64 {
 // answering messages, which is what Task Manager calls "Not responding".
 func hungProcesses() map[uint32]bool {
 	hung := map[uint32]bool{}
-	cb := windows.NewCallback(func(h windows.HWND, _ uintptr) uintptr {
+	windows.EnumWindows(hungWindowProc(), unsafe.Pointer(&hung))
+	return hung
+}
+
+// hungWindowProc is made once because Go never frees a callback and throws
+// after about 2000 of them; making one per listing killed the app after a
+// day of polling. The map travels in lParam so the callback captures nothing.
+var hungWindowProc = sync.OnceValue(func() uintptr {
+	return windows.NewCallback(func(h windows.HWND, hung *map[uint32]bool) uintptr {
 		if windows.IsWindowVisible(h) {
 			if r, _, _ := procIsHungAppWindow.Call(uintptr(h)); r != 0 {
 				var pid uint32
 				windows.GetWindowThreadProcessId(h, &pid)
-				hung[pid] = true
+				(*hung)[pid] = true
 			}
 		}
 		return 1
 	})
-	windows.EnumWindows(cb, nil)
-	return hung
-}
+})
 
 // Kill ends a process at once, like End task in Task Manager.
 func (System) Kill(ctx context.Context, pid uint32) error {
