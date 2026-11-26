@@ -1,10 +1,10 @@
 {
 	"fixed": {
-		"file_version": "0.0.2"
+		"file_version": "0.0.3"
 	},
 	"info": {
 		"0409": {
-			"ProductVersion": "0.0.2",
+			"ProductVersion": "0.0.3",
 			"CompanyName": "Canercan Demir",
 			"FileDescription": "ReforgePulse",
 			"LegalCopyright": "© 2026, Canercan Demir",

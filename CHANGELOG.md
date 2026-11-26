@@ -3,6 +3,36 @@
 Versions follow [semantic versioning](https://semver.org). Before 1.0 a
 minor version may change behaviour; the changes say so.
 
+## 0.0.3
+
+Graphics temperature, fan and power for every vendor, and fixes for two
+crashes, one of which closed the app after it had been open for a day.
+Data from 0.0.2 carries over.
+
+### New
+
+- Graphics temperature, fan speed and power are read from the graphics
+  driver, so AMD, Intel and NVIDIA cards without NVML show them too.
+
+### Improved
+
+- Recordings can run for up to 24 hours instead of 4, so a whole night
+  fits in one session.
+- Turning off a Windows feature closes the dialog at once; the row and the
+  status bar show the work while Windows finishes it.
+- The restart notice for Windows features names the features still waiting
+  for a restart, and goes away once Windows has restarted.
+
+### Fixed
+
+- The app no longer closes after it has been open for many hours. Each
+  process list used up one of about 2000 slots the app can never give
+  back, so a long session or a long recording ran out.
+- The hardware probe no longer crashes on NVIDIA cards while reading
+  graphics sensors.
+- A recording length outside the allowed range now shows a message instead
+  of doing nothing.
+
 ## 0.0.2
 
 A health score on Overview, processes as a tree with program icons, system
