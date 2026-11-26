@@ -10,6 +10,7 @@ import type { About } from '../../bindings/github.com/cn8001/reforgepulse/intern
 import { formatBytes } from '../lib/format'
 import Toggle from './Toggle.vue'
 import RetentionSetting from './RetentionSetting.vue'
+import UpdateProgress from './UpdateProgress.vue'
 import { askRestart, check, checkOnStart, download, release, setCheckOnStart, update, updateError } from '../lib/update'
 
 const showNotes = ref(false)
@@ -93,6 +94,7 @@ const read = (what: 'license' | 'terms') => (reading.value = reading.value === w
                 <Icon name="refresh" class="size-3.5!" />{{ update === 'checking' ? 'Checking…' : 'Check for updates' }}
               </button>
             </div>
+            <UpdateProgress v-if="update === 'downloading'" />
             <div class="flex items-center justify-between gap-4 border-t border-line pt-3">
               <label for="check-on-start" class="text-[14px]">Check for updates when ReforgePulse starts</label>
               <Toggle id="check-on-start" :on="checkOnStart" label="Check for updates when ReforgePulse starts" @toggle="setCheckOnStart(!checkOnStart)" />

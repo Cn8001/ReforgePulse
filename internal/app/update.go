@@ -10,8 +10,8 @@ import (
 
 // UpdateSource finds, fetches and starts a newer release.
 type UpdateSource interface {
-	Check(ctx context.Context) (*domain.Release, error) // nil when this is the latest
-	Download(ctx context.Context) error                 // fetches and verifies what Check found
+	Check(ctx context.Context) (*domain.Release, error)                      // nil when this is the latest
+	Download(ctx context.Context, progress func(written, total int64)) error // fetches and verifies what Check found
 	Restart(ctx context.Context) error
 }
 
@@ -21,9 +21,9 @@ func UpdatesUnavailable(why error) UpdateSource { return noUpdates{why} }
 
 type noUpdates struct{ why error }
 
-func (n noUpdates) Check(context.Context) (*domain.Release, error) { return nil, n.why }
-func (n noUpdates) Download(context.Context) error                 { return n.why }
-func (n noUpdates) Restart(context.Context) error                  { return n.why }
+func (n noUpdates) Check(context.Context) (*domain.Release, error)     { return nil, n.why }
+func (n noUpdates) Download(context.Context, func(int64, int64)) error { return n.why }
+func (n noUpdates) Restart(context.Context) error                      { return n.why }
 
 // SettingStore keeps the user's choices as text.
 type SettingStore interface {
@@ -111,7 +111,7 @@ func (s *UpdateService) Download(ctx context.Context, version string) error {
 		return fmt.Errorf("record update: %w", err)
 	}
 	err = s.d.Runner.Do(ctx, "Downloading ReforgePulse "+version, func(ctx context.Context, report tasks.Report) error {
-		return s.d.Source.Download(ctx)
+		return s.d.Source.Download(ctx, downloadProgress(report))
 	})
 	after := "downloaded and verified, installs on restart"
 	if err != nil {
@@ -124,6 +124,24 @@ func (s *UpdateService) Download(ctx context.Context, version string) error {
 		return fmt.Errorf("download update: %w", err)
 	}
 	return nil
+}
+
+// downloadProgress turns byte counts into task progress. The source calls it
+// every 64 KB, so it reports only when the whole percent changes, keeping
+// the window to about a hundred updates per download.
+func downloadProgress(report tasks.Report) func(written, total int64) {
+	last := -1
+	return func(written, total int64) {
+		if total <= 0 {
+			return // the size is unknown, so the bar keeps sliding
+		}
+		pct := int(written * 100 / total)
+		if pct == last {
+			return
+		}
+		last = pct
+		report(float64(written)/float64(total), fmt.Sprintf("%.1f of %.1f MB", float64(written)/(1<<20), float64(total)/(1<<20)))
+	}
 }
 
 // Restart closes ReforgePulse, swaps the new version in and starts it.

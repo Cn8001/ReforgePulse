@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -504,8 +505,13 @@ type fakeUpdates struct {
 }
 
 func (f *fakeUpdates) Check(context.Context) (*domain.Release, error) { return f.rel, nil }
-func (f *fakeUpdates) Download(context.Context) error                 { f.downloaded = true; return nil }
-func (f *fakeUpdates) Restart(context.Context) error                  { return nil }
+func (f *fakeUpdates) Download(_ context.Context, progress func(int64, int64)) error {
+	progress(1<<20, 4<<20)
+	progress(1<<20+1, 4<<20) // same whole percent, so not reported again
+	f.downloaded = true
+	return nil
+}
+func (f *fakeUpdates) Restart(context.Context) error { return nil }
 
 type memSettings map[string]string
 
@@ -542,7 +548,9 @@ func TestUpdateService_DownloadIsLoggedAndDevBuildsSayWhy(t *testing.T) {
 	ctx := context.Background()
 	src := &fakeUpdates{rel: &domain.Release{Version: "0.2.0"}}
 	j := &memJournal{}
-	runner := tasks.New(1, func(tasks.Status) {})
+	var mu sync.Mutex
+	var seen []tasks.Status
+	runner := tasks.New(1, func(st tasks.Status) { mu.Lock(); seen = append(seen, st); mu.Unlock() })
 	s := NewUpdateService(UpdateDeps{Source: src, Runner: runner, Journal: j, Version: "0.1.0"})
 	dev := NewUpdateService(UpdateDeps{Source: UpdatesUnavailable(errors.New("dev build")), Runner: runner, Journal: j})
 
@@ -557,6 +565,17 @@ func TestUpdateService_DownloadIsLoggedAndDevBuildsSayWhy(t *testing.T) {
 	}
 	if len(j.begun) != 1 || j.begun[0].Before != "0.1.0" || j.begun[0].After != "0.2.0" {
 		t.Fatalf("journal = %+v", j.begun)
+	}
+	mu.Lock()
+	var reported []tasks.Status
+	for _, st := range seen {
+		if strings.HasPrefix(st.Title, "Downloading") && st.State == tasks.Running && st.Progress >= 0 {
+			reported = append(reported, st)
+		}
+	}
+	mu.Unlock()
+	if len(reported) != 1 || reported[0].Progress != 0.25 || reported[0].Note != "1.0 of 4.0 MB" {
+		t.Fatalf("download progress = %+v", reported)
 	}
 	if devErr == nil || !strings.Contains(devErr.Error(), "dev build") {
 		t.Fatalf("dev build check: %v", devErr)

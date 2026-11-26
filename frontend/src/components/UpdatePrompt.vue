@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import Markdown from './Markdown.vue'
+import UpdateProgress from './UpdateProgress.vue'
 import { Info } from '../../bindings/github.com/cn8001/reforgepulse/internal/app/aboutservice'
 import { formatBytes } from '../lib/format'
 import {
@@ -30,6 +31,7 @@ onMounted(() => Info().then((a) => (current.value = a.version)))
           <p class="text-xs text-muted">
             The file is checked against the release's SHA256SUMS before it replaces this one, and the update is recorded in the change log.
           </p>
+          <UpdateProgress v-if="update === 'downloading'" />
           <p v-if="updateError" class="text-xs text-bad select-text">{{ updateError }}</p>
         </div>
         <footer class="flex justify-end gap-2 border-t border-line px-5 py-3">

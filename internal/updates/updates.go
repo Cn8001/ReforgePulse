@@ -8,6 +8,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"sync"
 
 	"github.com/wailsapp/wails/v3/pkg/updater"
 	"github.com/wailsapp/wails/v3/pkg/updater/providers/github"
@@ -21,7 +23,35 @@ const Repository = "Cn8001/ReforgePulse"
 
 // Source drives the updater the Wails app owns.
 type Source struct {
-	u *updater.Updater
+	u    *updater.Updater
+	prov *watchedProvider
+}
+
+// watchedProvider passes the provider's byte counts on to whoever started
+// the current download, so the window can show how far it is. The updater
+// refuses a second download while one runs, so one listener is enough.
+type watchedProvider struct {
+	updater.Provider
+	mu     sync.Mutex
+	listen func(written, total int64)
+}
+
+func (p *watchedProvider) Download(ctx context.Context, r *updater.Release, dst io.Writer, onProgress func(written, total int64)) error {
+	return p.Provider.Download(ctx, r, dst, func(written, total int64) {
+		onProgress(written, total)
+		p.mu.Lock()
+		listen := p.listen
+		p.mu.Unlock()
+		if listen != nil {
+			listen(written, total)
+		}
+	})
+}
+
+func (p *watchedProvider) watch(listen func(written, total int64)) {
+	p.mu.Lock()
+	p.listen = listen
+	p.mu.Unlock()
 }
 
 // New configures u for this version. A dev build has no version to compare,
@@ -34,11 +64,12 @@ func New(u *updater.Updater, version string) (*Source, error) {
 	if err != nil {
 		return nil, fmt.Errorf("set up github releases: %w", err)
 	}
-	err = u.Init(updater.Config{CurrentVersion: version, Providers: []updater.Provider{gh}, Window: updater.WindowNone})
+	prov := &watchedProvider{Provider: gh}
+	err = u.Init(updater.Config{CurrentVersion: version, Providers: []updater.Provider{prov}, Window: updater.WindowNone})
 	if err != nil {
 		return nil, fmt.Errorf("set up updater: %w", err)
 	}
-	return &Source{u: u}, nil
+	return &Source{u: u, prov: prov}, nil
 }
 
 // Check returns the newer release, or nil when this one is the latest.
@@ -56,8 +87,11 @@ func (s *Source) Check(ctx context.Context) (*domain.Release, error) {
 	}, nil
 }
 
-// Download fetches and verifies the release Check found, ready to swap in.
-func (s *Source) Download(ctx context.Context) error {
+// Download fetches and verifies the release Check found, ready to swap in,
+// telling progress the bytes written so far and the size when known.
+func (s *Source) Download(ctx context.Context, progress func(written, total int64)) error {
+	s.prov.watch(progress)
+	defer s.prov.watch(nil)
 	if err := s.u.DownloadAndInstall(ctx); err != nil {
 		return fmt.Errorf("download update: %w", err)
 	}
