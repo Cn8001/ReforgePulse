@@ -8,7 +8,7 @@
     !define INFO_PROJECTNAME "reforgepulse"
 !endif
 !ifndef INFO_COMPANYNAME
-    !define INFO_COMPANYNAME "Canercan Demir"
+    !define INFO_COMPANYNAME "Cn8001"
 !endif
 !ifndef INFO_PRODUCTNAME
     !define INFO_PRODUCTNAME "ReforgePulse"

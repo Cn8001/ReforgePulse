@@ -5,7 +5,7 @@ version: '3'
 
 # This information is used to generate the build assets.
 info:
-  companyName: "Canercan Demir" # The name of the company
+  companyName: "Cn8001" # The name of the company
   productName: "ReforgePulse" # The name of the application
   productIdentifier: "com.cn8001.reforgepulse" # The unique product identifier
   description: "Finds what slows down or crashes a Windows PC and cleans up what is not needed" # The application description
